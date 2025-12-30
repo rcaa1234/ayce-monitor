@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threads 半自動發文系統 - 管理介面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .user-info {
+            display: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .user-info.active {
+            display: block;
+        }
+
+        .user-info p {
+            color: #333;
+            margin: 5px 0;
+        }
+
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+
+        .login-section, .dashboard {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-small {
+            padding: 6px 15px;
+            font-size: 14px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            font-size: 16px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .posts-grid {
+            display: grid;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .post-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .post-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .post-card p {
+            color: #666;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .post-card .keywords {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+
+        .keyword-tag {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-DRAFT { background: #e9ecef; color: #495057; }
+        .status-GENERATING { background: #fff3cd; color: #856404; }
+        .status-PENDING_REVIEW { background: #cce5ff; color: #004085; }
+        .status-APPROVED { background: #d4edda; color: #155724; }
+        .status-POSTED { background: #d1ecf1; color: #0c5460; }
+        .status-FAILED { background: #f8d7da; color: #721c24; }
+
+        .post-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 36px;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar select {
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            min-width: 150px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #333;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .content-preview {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 Threads 半自動發文系統</h1>
+            <p>AI 驅動的內容生成與發布管理平台</p>
+            <div id="userInfo" class="user-info">
+                <p><strong>使用者:</strong> <span id="userName"></span></p>
+                <p><strong>Email:</strong> <span id="userEmail"></span></p>
+                <p><strong>角色:</strong> <span id="userRoles"></span></p>
+                <button class="logout-btn" onclick="logout()">登出</button>
+            </div>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="login-section">
+            <h2 style="margin-bottom: 20px;">登入系統</h2>
+            <div id="loginAlert"></div>
+            <form onsubmit="login(event)">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" value="admin@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>密碼</label>
+                    <input type="password" id="loginPassword" value="admin123" required>
+                </div>
+                <button type="submit" class="btn">登入</button>
+            </form>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('overview')">📊 總覽</button>
+                <button class="tab" onclick="switchTab('posts')">📝 貼文管理</button>
+                <button class="tab" onclick="switchTab('create')">✍️ 手動建立貼文</button>
+                <button class="tab" onclick="switchTab('accounts')">👤 Threads 帳號</button>
+                <button class="tab" onclick="switchTab('settings')">🤖 自動化發文</button>
+            </div>
+
+            <!-- Alert Area -->
+            <div id="dashboardAlert"></div>
+
+            <!-- Loading -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #666;">處理中...</p>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overviewTab" class="tab-content active">
+                <h2 style="margin-bottom: 20px;">系統總覽</h2>
+                <div class="stats" id="stats">
+                    <div class="stat-card">
+                        <h3 id="totalPosts">0</h3>
+                        <p>總貼文數</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="draftPosts">0</h3>
+                        <p>草稿</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="pendingPosts">0</h3>
+                        <p>待審核</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="postedPosts">0</h3>
+                        <p>已發布</p>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">最近貼文</h3>
+                <div id="recentPosts" class="posts-grid"></div>
+            </div>
+
+            <!-- Posts Tab -->
+            <div id="postsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">貼文管理</h2>
+
+                <div class="filter-bar">
+                    <select id="filterStatus" onchange="loadPosts()">
+                        <option value="">全部狀態</option>
+                        <option value="DRAFT">草稿</option>
+                        <option value="GENERATING">產生中</option>
+                        <option value="PENDING_REVIEW">待審核</option>
+                        <option value="APPROVED">已核准</option>
+                        <option value="POSTED">已發布</option>
+                        <option value="FAILED">失敗</option>
+                    </select>
+                    <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
+                </div>
+
+                <div id="postsGrid" class="posts-grid"></div>
+            </div>
+
+            <!-- Create Tab (Manual Post) -->
+            <div id="createTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">✍️ 手動建立貼文</h2>
+                <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
+
+                <form onsubmit="createManualPost(event)">
+                    <div class="form-group">
+                        <label>貼文內容 *</label>
+                        <textarea id="manualPostContent" rows="10" placeholder="直接輸入您想發布的內容..." required style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; line-height: 1.6;"></textarea>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            字數: <span id="contentCharCount">0</span> / 500 (Threads 建議)
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布到 Threads 帳號 *</label>
+                        <select id="manualPostThreadsAccount" required style="padding: 12px; font-size: 15px;">
+                            <option value="">請選擇帳號</option>
+                        </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            未設定帳號? 請到「Threads 帳號」分頁新增
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布時間</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="now" checked onchange="toggleScheduleInput()">
+                                立即發布
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="scheduled" onchange="toggleScheduleInput()">
+                                排程發布
+                            </label>
+                        </div>
+                        <input type="datetime-local" id="manualPostSchedule" style="padding: 12px; font-size: 15px; display: none;">
+                    </div>
+
+                    <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">📤 發布貼文</button>
+                </form>
+            </div>
+
+            <!-- Threads Accounts Tab -->
+            <div id="accountsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">Threads 帳號管理</h2>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📱 新增 Threads 帳號</h3>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
+                    </p>
+                    <ol style="color: #666; line-height: 1.8;">
+                        <li>前往 <a href="https://developers.facebook.com/" target="_blank" style="color: #667eea;">Meta Developers</a> 建立應用程式</li>
+                        <li>取得 Client ID 和 Client Secret</li>
+                        <li>設定 Redirect URI 為: <code style="background: #e1e8ed; padding: 2px 6px; border-radius: 3px;">http://localhost:3000/api/threads/oauth/callback</code></li>
+                        <li>點擊下方按鈕開始授權</li>
+                    </ol>
+                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads 授權</button>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">已連結的 Threads 帳號</h3>
+                <div id="threadsAccountsList" class="posts-grid"></div>
+            </div>
+
+            <!-- Settings Tab (Automated Posting) -->
+            <div id="settingsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">🤖 自動化發文設定</h2>
+                <p style="color: #666; margin-bottom: 20px;">設定 AI 自動生成內容並按排程發布到 Threads</p>
+
+                <!-- Threads Account Selection -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">👤 發布帳號</h3>
+                    <div class="form-group">
+                        <label>選擇 Threads 帳號</label>
+                        <select id="autoPostThreadsAccount" class="form-control" style="padding: 12px; font-size: 16px;">
+                            <option value="">請選擇帳號</option>
+                        </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            自動生成的貼文將發布到此帳號。未設定帳號? 請到「Threads 帳號」分頁新增
+                        </p>
+                    </div>
+                </div>
+
+                <!-- LINE Notification Settings -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📱 LINE 通知設定</h3>
+                    <div class="form-group">
+                        <label>LINE User ID (接收審核通知)</label>
+                        <input type="text" id="lineNotifyUserId" class="form-control" placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            💡 當自動生成文章完成後，系統會發送 LINE 訊息到此帳號進行審核。<br>
+                            📌 如何取得 LINE User ID: 請加入 LINE Bot 為好友，發送「/myid」或「我的ID」或「查詢ID」即可取得
+                        </p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="testLineNotification()" style="margin-top: 10px;">🔔 測試 LINE 通知</button>
+                </div>
+
+                <!-- AI Engine Selection -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">🤖 AI 引擎選擇</h3>
+                    <div class="form-group">
+                        <label>選擇 AI 引擎</label>
+                        <select id="aiEngine" class="form-control" style="padding: 12px; font-size: 16px;">
+                            <optgroup label="🚀 OpenAI GPT-5.2 系列 (2025年12月11日發布)">
+                                <option value="GPT5_2">GPT-5.2 Thinking ⭐ 推理模式 ($1.75/1M輸入)</option>
+                                <option value="GPT5_2_INSTANT">GPT-5.2 Instant ⚡ 即時模式 ($1.75/1M輸入)</option>
+                                <option value="GPT5_2_PRO">GPT-5.2 Pro 🏆 專業版本 ($1.75/1M輸入)</option>
+                            </optgroup>
+                            <optgroup label="🎨 OpenAI GPT-4o 系列">
+                                <option value="GPT4O">GPT-4o 🔥 旗艦多模態模型</option>
+                                <option value="GPT4O_MINI">GPT-4o Mini 💰 快速經濟版本</option>
+                            </optgroup>
+                            <optgroup label="⚡ Google Gemini 3 系列 (2025最新)">
+                                <option value="GEMINI_3_FLASH">Gemini 3 Flash ⭐ 最新Flash ($0.50/1M輸入)</option>
+                                <option value="GEMINI_3_PRO_PREVIEW">Gemini 3 Pro Preview 🏆 最新Pro ($2/1M輸入)</option>
+                            </optgroup>
+                            <optgroup label="✨ Google Gemini 2.5 系列">
+                                <option value="GEMINI_2_5_PRO">Gemini 2.5 Pro</option>
+                                <option value="GEMINI_2_5_FLASH">Gemini 2.5 Flash</option>
+                                <option value="GEMINI_2_5_FLASH_LITE">Gemini 2.5 Flash Lite</option>
+                            </optgroup>
+                            <optgroup label="📦 Google Gemini 2.0 系列">
+                                <option value="GEMINI_2_0_FLASH">Gemini 2.0 Flash</option>
+                                <option value="GEMINI_2_0_FLASH_LITE">Gemini 2.0 Flash Lite</option>
+                            </optgroup>
+                        </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            選擇用於自動生成內容的 AI 引擎版本（已更新至 2025 年最新模型）
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Custom Prompt -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">✏️ 自訂提示詞</h3>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        設定 AI 生成內容的提示詞，包含發文風格、語氣、主題等所有要求。
+                    </p>
+
+                    <div class="form-group">
+                        <label>提示詞內容</label>
+                        <textarea id="customPrompt" rows="8" placeholder="例如: 請以專業、友善的語氣撰寫關於科技趨勢的文章，內容需包含實用建議，字數控制在 400 字以內..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 14px;"></textarea>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            💡 提示詞中請明確說明風格、語氣、主題、長度等所有需求
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Schedule Configuration -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📅 自動發文排程</h3>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        設定每週自動產生內容的時間，系統會在指定時間自動生成一篇文章並推送到 LINE 等待審核。
+                    </p>
+
+                    <div id="scheduleConfig" style="display: grid; gap: 15px;">
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_monday" checked>
+                                <span style="font-weight: 600; min-width: 60px;">週一</span>
+                                <input type="time" id="time_monday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_tuesday" checked>
+                                <span style="font-weight: 600; min-width: 60px;">週二</span>
+                                <input type="time" id="time_tuesday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_wednesday" checked>
+                                <span style="font-weight: 600; min-width: 60px;">週三</span>
+                                <input type="time" id="time_wednesday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_thursday" checked>
+                                <span style="font-weight: 600; min-width: 60px;">週四</span>
+                                <input type="time" id="time_thursday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_friday" checked>
+                                <span style="font-weight: 600; min-width: 60px;">週五</span>
+                                <input type="time" id="time_friday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_saturday">
+                                <span style="font-weight: 600; min-width: 60px;">週六</span>
+                                <input type="time" id="time_saturday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                        <div class="schedule-day" style="background: white; padding: 15px; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="schedule_sunday">
+                                <span style="font-weight: 600; min-width: 60px;">週日</span>
+                                <input type="time" id="time_sunday" value="09:00" style="padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Generation -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">🧪 完整流程測試</h3>
+                    <p style="color: #666; margin-bottom: 15px; line-height: 1.6;">
+                        <strong>端到端測試流程：</strong><br>
+                        1️⃣ 使用當前設定生成測試文章<br>
+                        2️⃣ 自動存入 MySQL 資料庫<br>
+                        3️⃣ 發送審核通知到您的 LINE<br>
+                        4️⃣ 您可在 LINE 中：<br>
+                        　　✅ 確認發文 → 發布到 Threads<br>
+                        　　🔄 重新生成 → 產生新文章<br>
+                        　　✏️ 修改內容 → 編輯後發布<br>
+                        <br>
+                        <span style="color: #ff6600;">⚠️ 請先設定 LINE User ID 才能進行測試</span>
+                    </p>
+
+                    <button class="btn btn-secondary" onclick="runTestGeneration()" style="width: 100%; padding: 15px; font-size: 16px; font-weight: bold;">
+                        🚀 開始完整流程測試
+                    </button>
+
+                    <div id="testResults" style="margin-top: 20px; display: none;">
+                        <div id="testResultsContent"></div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div style="text-align: center;">
+                    <button class="btn" onclick="saveAllSettings()" style="padding: 15px 40px; font-size: 18px;">
+                        💾 儲存所有設定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Detail Modal -->
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>貼文詳情</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let token = localStorage.getItem('token');
+        const API_BASE = '/api';
+
+        // Initialize
+        if (token) {
+            checkAuth();
+        }
+
+        // Authentication
+        async function login(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    showDashboard(data.user);
+                } else {
+                    showAlert('loginAlert', data.error || '登入失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('loginAlert', '連線失敗: ' + error.message, 'error');
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE}/posts?limit=1`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    showDashboard();
+                } else {
+                    logout();
+                }
+            } catch (error) {
+                logout();
+            }
+        }
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('userInfo').classList.remove('active');
+        }
+
+        function showDashboard(user) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('dashboard').classList.add('active');
+            document.getElementById('userInfo').classList.add('active');
+
+            if (user) {
+                document.getElementById('userName').textContent = user.name;
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('userRoles').textContent = user.roles.join(', ');
+            }
+
+            loadOverview();
+            loadPosts();
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            if (tabName === 'overview') loadOverview();
+            if (tabName === 'posts') loadPosts();
+            if (tabName === 'create') {
+                loadThreadsAccountsForDropdowns();
+            }
+            if (tabName === 'accounts') loadThreadsAccountsList();
+            if (tabName === 'settings') {
+                loadSettings();
+                loadThreadsAccountsForDropdowns();
+            }
+        }
+
+        // Load overview
+        async function loadOverview() {
+            try {
+                const response = await fetch(`${API_BASE}/posts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入失敗');
+
+                const data = await response.json();
+
+                // Update stats
+                document.getElementById('totalPosts').textContent = data.total || 0;
+
+                // Safely handle data array
+                const posts = data.data || data.posts || [];
+
+                const statuses = posts.reduce((acc, post) => {
+                    acc[post.status] = (acc[post.status] || 0) + 1;
+                    return acc;
+                }, {});
+
+                document.getElementById('draftPosts').textContent = statuses.DRAFT || 0;
+                document.getElementById('pendingPosts').textContent = statuses.PENDING_REVIEW || 0;
+                document.getElementById('postedPosts').textContent = statuses.POSTED || 0;
+
+                // Show recent posts
+                const recentPosts = posts.slice(0, 5);
+                renderPosts(recentPosts, 'recentPosts');
+            } catch (error) {
+                showAlert('dashboardAlert', '載入總覽失敗: ' + error.message, 'error');
+            }
+        }
+
+        // Load posts
+        async function loadPosts() {
+            const status = document.getElementById('filterStatus')?.value || '';
+            const url = status ? `${API_BASE}/posts?status=${status}` : `${API_BASE}/posts`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入失敗');
+
+                const data = await response.json();
+                const posts = data.data || data.posts || [];
+                renderPosts(posts, 'postsGrid');
+            } catch (error) {
+                showAlert('dashboardAlert', '載入貼文失敗: ' + error.message, 'error');
+            }
+        }
+
+        // Render posts
+        function renderPosts(posts, containerId) {
+            const container = document.getElementById(containerId);
+
+            if (!posts || posts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p style="font-size: 18px;">暫無貼文</p>
+                        <p style="margin-top: 10px;">建立第一篇貼文開始使用!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = posts.map(post => `
+                <div class="post-card">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <h3>文章 #${post.id.substring(0, 8)}</h3>
+                        <span class="status-badge status-${post.status}">${getStatusText(post.status)}</span>
+                    </div>
+
+                    <p><strong>建立時間:</strong> ${new Date(post.created_at).toLocaleString('zh-TW')}</p>
+                    ${post.posted_at ? `<p><strong>發布時間:</strong> ${new Date(post.posted_at).toLocaleString('zh-TW')}</p>` : ''}
+                    ${post.post_url ? `<p><strong>貼文連結:</strong> <a href="${post.post_url}" target="_blank">查看</a></p>` : ''}
+
+                    <div class="post-actions">
+                        <button class="btn btn-small btn-secondary" onclick="viewPost('${post.id}')">查看詳情</button>
+                        ${post.status === 'DRAFT' ? `<button class="btn btn-small btn-success" onclick="generateContent('${post.id}')">生成內容</button>` : ''}
+                        ${post.status === 'APPROVED' ? `<button class="btn btn-small btn-success" onclick="publishPost('${post.id}')">發布</button>` : ''}
+                        ${post.status === 'PENDING_REVIEW' ? `<button class="btn btn-small btn-success" onclick="approvePost('${post.id}')">核准</button>` : ''}
+                        ${post.status === 'PENDING_REVIEW' ? `<button class="btn btn-small btn-warning" onclick="regenerateContent('${post.id}')">重新生成</button>` : ''}
+                        <button class="btn btn-small btn-danger" onclick="deletePost('${post.id}')">刪除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Create post
+        async function createPost(event) {
+            event.preventDefault();
+            showLoading(true);
+
+            const topic = document.getElementById('postTopic').value;
+            const keywords = document.getElementById('postKeywords').value.split(',').map(k => k.trim());
+            const targetTone = document.getElementById('postTone').value;
+            const targetLength = parseInt(document.getElementById('postLength').value);
+            const scheduledFor = document.getElementById('postSchedule').value;
+            const autoGenerate = document.getElementById('autoGenerate').checked;
+
+            const postData = {
+                topic,
+                keywords,
+                targetTone,
+                targetLength,
+                ...(scheduledFor && { scheduledFor: new Date(scheduledFor).toISOString() })
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(postData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '貼文建立成功!', 'success');
+                    event.target.reset();
+
+                    if (autoGenerate) {
+                        await generateContent(data.id);
+                    }
+
+                    switchTab('posts');
+                    loadPosts();
+                    loadOverview();
+                } else {
+                    showAlert('dashboardAlert', data.error || '建立失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '建立失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Generate content
+        async function generateContent(postId) {
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}/generate`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '內容生成任務已加入佇列,請稍後查看', 'info');
+                    setTimeout(() => {
+                        loadPosts();
+                        loadOverview();
+                    }, 3000);
+                } else {
+                    showAlert('dashboardAlert', data.error || '生成失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '生成失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // View post detail
+        async function viewPost(postId) {
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const post = await response.json();
+
+                if (response.ok) {
+                    const modalBody = document.getElementById('modalBody');
+                    modalBody.innerHTML = `
+                        <h3>${post.topic}</h3>
+                        <p><span class="status-badge status-${post.status}">${getStatusText(post.status)}</span></p>
+
+                        <div style="margin: 20px 0;">
+                            <p><strong>關鍵字:</strong> ${post.keywords.join(', ')}</p>
+                            <p><strong>語氣:</strong> ${post.targetTone}</p>
+                            <p><strong>目標長度:</strong> ${post.targetLength} 字</p>
+                            <p><strong>建立時間:</strong> ${new Date(post.createdAt).toLocaleString('zh-TW')}</p>
+                            ${post.scheduledFor ? `<p><strong>排程時間:</strong> ${new Date(post.scheduledFor).toLocaleString('zh-TW')}</p>` : ''}
+                        </div>
+
+                        ${post.latestRevision ? `
+                            <h4>最新內容版本</h4>
+                            <div class="content-preview">${post.latestRevision.content}</div>
+                            <p><strong>字數:</strong> ${post.latestRevision.wordCount}</p>
+                            <p><strong>AI 引擎:</strong> ${post.latestRevision.aiEngine}</p>
+                            <p><strong>生成時間:</strong> ${new Date(post.latestRevision.createdAt).toLocaleString('zh-TW')}</p>
+                        ` : '<p style="color: #666;">尚未生成內容</p>'}
+                    `;
+
+                    document.getElementById('postModal').classList.add('active');
+                } else {
+                    showAlert('dashboardAlert', '載入失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '載入失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Approve post
+        async function approvePost(postId) {
+            if (!confirm('確定要核准此貼文嗎?')) return;
+
+            showLoading(true);
+
+            try {
+                // Get post detail first to get revision ID
+                const postResponse = await fetch(`${API_BASE}/posts/${postId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const post = await postResponse.json();
+
+                if (!post.latestRevision) {
+                    throw new Error('找不到內容版本');
+                }
+
+                const response = await fetch(`${API_BASE}/review/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        postId: postId,
+                        revisionId: post.latestRevision.id,
+                        action: 'approve'
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '貼文已核准', 'success');
+                    loadPosts();
+                    loadOverview();
+                } else {
+                    const data = await response.json();
+                    showAlert('dashboardAlert', data.error || '核准失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '核准失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Regenerate content
+        async function regenerateContent(postId) {
+            if (!confirm('確定要重新生成內容嗎?')) return;
+            await generateContent(postId);
+        }
+
+        // Publish post
+        async function publishPost(postId) {
+            if (!confirm('確定要發布此貼文到 Threads 嗎?')) return;
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}/publish`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '發布任務已加入佇列', 'info');
+                    setTimeout(() => {
+                        loadPosts();
+                        loadOverview();
+                    }, 3000);
+                } else {
+                    showAlert('dashboardAlert', data.error || '發布失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '發布失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Delete post
+        async function deletePost(postId) {
+            if (!confirm('確定要刪除此貼文嗎? 此操作無法復原。')) return;
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '貼文已刪除', 'success');
+                    loadPosts();
+                    loadOverview();
+                } else {
+                    const data = await response.json();
+                    showAlert('dashboardAlert', data.error || '刪除失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '刪除失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Utilities
+        function getStatusText(status) {
+            const statusMap = {
+                'DRAFT': '草稿',
+                'GENERATING': '產生中',
+                'PENDING_REVIEW': '待審核',
+                'APPROVED': '已核准',
+                'PUBLISHING': '發布中',
+                'POSTED': '已發布',
+                'FAILED': '失敗',
+                'ACTION_REQUIRED': '需要處理',
+                'SKIPPED': '已跳過'
+            };
+            return statusMap[status] || status;
+        }
+
+        function showAlert(elementId, message, type) {
+            const alertDiv = document.getElementById(elementId);
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alertDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (show) {
+                loading.classList.add('active');
+            } else {
+                loading.classList.remove('active');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('postModal').classList.remove('active');
+        }
+
+        // Threads Accounts Management
+        async function loadThreadsAccounts() {
+            // Load accounts for dropdown in create form
+            try {
+                const response = await fetch(`${API_BASE}/threads/accounts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const accounts = await response.json();
+                    const select = document.getElementById('postThreadsAccount');
+                    select.innerHTML = '<option value="">稍後選擇</option>';
+
+                    accounts.forEach(acc => {
+                        const option = document.createElement('option');
+                        option.value = acc.id;
+                        option.textContent = `@${acc.username}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load accounts:', error);
+            }
+        }
+
+        async function loadThreadsAccountsList() {
+            const container = document.getElementById('threadsAccountsList');
+
+            try {
+                const response = await fetch(`${API_BASE}/threads/accounts`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const accounts = data.accounts || [];
+
+                    if (accounts.length === 0) {
+                        container.innerHTML = '<div class="empty-state"><p>尚未連結任何 Threads 帳號</p></div>';
+                        return;
+                    }
+
+                    container.innerHTML = accounts.map(acc => `
+                        <div class="post-card">
+                            <h3>@${acc.username}</h3>
+                            <p><strong>帳號 ID:</strong> ${acc.threads_user_id || acc.account_id}</p>
+                            <p><strong>連結時間:</strong> ${new Date(acc.created_at).toLocaleString('zh-TW')}</p>
+                            <div class="post-actions">
+                                <button class="btn btn-small btn-danger" onclick="removeThreadsAccount('${acc.id}')">解除連結</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="empty-state"><p>載入失敗</p></div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state"><p>載入失敗: ' + error.message + '</p></div>';
+            }
+        }
+
+        async function startThreadsOAuth() {
+            try {
+                // Get OAuth URL from backend with authentication
+                const response = await fetch(`${API_BASE}/threads/oauth/authorize`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.authUrl) {
+                        // Redirect to Threads authorization page
+                        window.location.href = data.authUrl;
+                    }
+                } else {
+                    const error = await response.json();
+                    showAlert('dashboardAlert', `授權失敗: ${error.error || '未知錯誤'}`, 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', `授權失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function removeThreadsAccount(accountId) {
+            if (!confirm('確定要解除連結此 Threads 帳號嗎?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/threads/accounts/${accountId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', 'Threads 帳號已解除連結', 'success');
+                    loadThreadsAccountsList();
+                } else {
+                    const data = await response.json();
+                    showAlert('dashboardAlert', data.error || '解除失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '解除失敗: ' + error.message, 'error');
+            }
+        }
+
+        // Settings Management
+        async function loadSettings() {
+            try {
+                const response = await fetch(`${API_BASE}/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入設定失敗');
+
+                const data = await response.json();
+                const settings = data.settings;
+
+                // AI Engine
+                if (settings.ai_engine) {
+                    const aiEngineEl = document.getElementById('aiEngine');
+                    if (aiEngineEl) aiEngineEl.value = settings.ai_engine.value;
+                }
+
+                // Custom Prompt
+                if (settings.custom_prompt) {
+                    const customPromptEl = document.getElementById('customPrompt');
+                    if (customPromptEl) customPromptEl.value = settings.custom_prompt.value;
+                }
+
+                // Schedule Config
+                if (settings.schedule_config) {
+                    const scheduleConfig = settings.schedule_config.value;
+                    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+                    days.forEach(day => {
+                        const config = scheduleConfig[day];
+                        if (config) {
+                            const checkboxEl = document.getElementById(`schedule_${day}`);
+                            const timeEl = document.getElementById(`time_${day}`);
+                            if (checkboxEl) checkboxEl.checked = config.enabled;
+                            if (timeEl) timeEl.value = config.time;
+                        }
+                    });
+                }
+
+                // Auto Post Threads Account
+                if (settings.auto_post_threads_account) {
+                    const autoPostEl = document.getElementById('autoPostThreadsAccount');
+                    if (autoPostEl) autoPostEl.value = settings.auto_post_threads_account.value;
+                }
+
+                // LINE Notify User ID
+                if (settings.line_notify_user_id) {
+                    const lineUserIdEl = document.getElementById('lineNotifyUserId');
+                    if (lineUserIdEl) lineUserIdEl.value = settings.line_notify_user_id.value;
+                }
+
+            } catch (error) {
+                showAlert('dashboardAlert', '載入設定失敗: ' + error.message, 'error');
+            }
+        }
+
+        async function saveAllSettings() {
+            showLoading(true);
+
+            try {
+                // Collect schedule config
+                const scheduleConfig = {
+                    monday: {
+                        enabled: document.getElementById('schedule_monday').checked,
+                        time: document.getElementById('time_monday').value
+                    },
+                    tuesday: {
+                        enabled: document.getElementById('schedule_tuesday').checked,
+                        time: document.getElementById('time_tuesday').value
+                    },
+                    wednesday: {
+                        enabled: document.getElementById('schedule_wednesday').checked,
+                        time: document.getElementById('time_wednesday').value
+                    },
+                    thursday: {
+                        enabled: document.getElementById('schedule_thursday').checked,
+                        time: document.getElementById('time_thursday').value
+                    },
+                    friday: {
+                        enabled: document.getElementById('schedule_friday').checked,
+                        time: document.getElementById('time_friday').value
+                    },
+                    saturday: {
+                        enabled: document.getElementById('schedule_saturday').checked,
+                        time: document.getElementById('time_saturday').value
+                    },
+                    sunday: {
+                        enabled: document.getElementById('schedule_sunday').checked,
+                        time: document.getElementById('time_sunday').value
+                    }
+                };
+
+                const settings = {
+                    ai_engine: {
+                        value: document.getElementById('aiEngine').value,
+                        type: 'STRING'
+                    },
+                    custom_prompt: {
+                        value: document.getElementById('customPrompt').value,
+                        type: 'STRING'
+                    },
+                    schedule_config: {
+                        value: scheduleConfig,
+                        type: 'JSON'
+                    },
+                    auto_post_threads_account: {
+                        value: document.getElementById('autoPostThreadsAccount').value,
+                        type: 'STRING'
+                    },
+                    line_notify_user_id: {
+                        value: document.getElementById('lineNotifyUserId').value,
+                        type: 'STRING'
+                    }
+                };
+
+                const response = await fetch(`${API_BASE}/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ settings })
+                });
+
+                if (!response.ok) throw new Error('儲存設定失敗');
+
+                showAlert('dashboardAlert', '✅ 所有設定已成功儲存', 'success');
+            } catch (error) {
+                showAlert('dashboardAlert', '儲存設定失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function testLineNotification() {
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${API_BASE}/settings/test-line`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '測試通知失敗');
+                }
+
+                showAlert('dashboardAlert', '✅ 測試通知已發送到 LINE！請檢查您的 LINE 訊息。', 'success');
+            } catch (error) {
+                showAlert('dashboardAlert', '❌ 發送失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function runTestGeneration() {
+            showLoading(true);
+            document.getElementById('testResults').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/settings/test-generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    let errorMessage = '測試生成失敗';
+                    try {
+                        const error = await response.json();
+                        errorMessage = error.error || error.message || errorMessage;
+                        console.error('API Error:', error);
+                    } catch (e) {
+                        const text = await response.text();
+                        console.error('Response text:', text);
+                        errorMessage = text || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = await response.json();
+                console.log('Test generation response:', data);
+
+                // Display success message with content preview
+                const resultHtml = `
+                    <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1DB446;">
+                        <h4 style="margin: 0 0 15px 0; color: #1DB446;">✅ 測試文章已生成！</h4>
+
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                            <p style="margin: 0 0 10px 0;"><strong>📊 生成資訊：</strong></p>
+                            <p style="margin: 5px 0;">🤖 引擎：${data.engine}</p>
+                            <p style="margin: 5px 0;">📈 相似度：${(data.similarity * 100).toFixed(1)}%</p>
+                            <p style="margin: 5px 0; color: ${data.similarity > 0.86 ? '#ff0000' : '#4CAF50'};">
+                                ${data.similarity > 0.86 ? '⚠️ 相似度較高，建議重新生成' : '✅ 相似度正常'}
+                            </p>
+                        </div>
+
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                            <p style="margin: 0 0 10px 0;"><strong>📝 文章內容預覽：</strong></p>
+                            <p style="white-space: pre-wrap; margin: 0; line-height: 1.6; color: #333;">
+                                ${data.content.substring(0, 200)}${data.content.length > 200 ? '...' : ''}
+                            </p>
+                        </div>
+
+                        <div style="background: #e8f5e9; padding: 15px; border-radius: 6px;">
+                            <p style="margin: 0; font-weight: bold; color: #2e7d32;">📱 下一步：</p>
+                            <p style="margin: 10px 0 0 0; line-height: 1.8; color: #333;">
+                                測試文章已發送到您的 LINE！<br>
+                                請到 LINE 查看完整內容並進行審核：<br>
+                                • ✅ 確認發文 → 發布到 Threads<br>
+                                • 🔄 重新生成 → 產生新文章<br>
+                                • ✏️ 修改內容 → 編輯後發布
+                            </p>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('testResultsContent').innerHTML = resultHtml;
+                document.getElementById('testResults').style.display = 'block';
+
+                showAlert('dashboardAlert', '✅ 測試文章已生成並發送到 LINE！請到 LINE 查看。', 'success');
+            } catch (error) {
+                const errorHtml = `
+                    <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #f44336;">
+                        <h4 style="margin: 0 0 10px 0; color: #f44336;">❌ 測試失敗</h4>
+                        <p style="margin: 0; color: #666;">${error.message}</p>
+                        ${error.message.includes('LINE User ID') ? `
+                            <p style="margin: 15px 0 0 0; padding: 10px; background: #fff3e0; border-radius: 4px; color: #ff6600;">
+                                💡 提示：請先設定 LINE User ID<br>
+                                1. 在 LINE 中傳送「/myid」給機器人<br>
+                                2. 複製收到的 User ID<br>
+                                3. 貼到上方「LINE 通知設定」並儲存
+                            </p>
+                        ` : ''}
+                    </div>
+                `;
+                document.getElementById('testResultsContent').innerHTML = errorHtml;
+                document.getElementById('testResults').style.display = 'block';
+
+                showAlert('dashboardAlert', '測試失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Character counter for manual post content
+        const manualContentTextarea = document.getElementById('manualPostContent');
+        if (manualContentTextarea) {
+            manualContentTextarea.addEventListener('input', function() {
+                const count = this.value.length;
+                document.getElementById('contentCharCount').textContent = count;
+            });
+        }
+
+        // Toggle schedule input visibility
+        function toggleScheduleInput() {
+            const scheduleInput = document.getElementById('manualPostSchedule');
+            const isScheduled = document.querySelector('input[name="publishTime"]:checked')?.value === 'scheduled';
+            if (scheduleInput) {
+                scheduleInput.style.display = isScheduled ? 'block' : 'none';
+                if (!isScheduled) {
+                    scheduleInput.value = '';
+                }
+            }
+        }
+
+        // Load Threads accounts into dropdowns
+        async function loadThreadsAccountsForDropdowns() {
+            try {
+                const response = await fetch(`${API_BASE}/threads/accounts`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('載入帳號失敗');
+
+                const data = await response.json();
+                const accounts = data.accounts || [];
+
+                // Populate manual post dropdown
+                const manualSelect = document.getElementById('manualPostThreadsAccount');
+                if (manualSelect) {
+                    manualSelect.innerHTML = '<option value="">請選擇帳號</option>' +
+                        accounts.map(acc =>
+                            `<option value="${acc.id}">${acc.username} (@${acc.threads_user_id})</option>`
+                        ).join('');
+                }
+
+                // Populate auto post dropdown
+                const autoSelect = document.getElementById('autoPostThreadsAccount');
+                if (autoSelect) {
+                    autoSelect.innerHTML = '<option value="">請選擇帳號</option>' +
+                        accounts.map(acc =>
+                            `<option value="${acc.id}">${acc.username} (@${acc.threads_user_id})</option>`
+                        ).join('');
+                }
+            } catch (error) {
+                console.error('載入帳號列表失敗:', error);
+            }
+        }
+
+        // Create manual post (direct publishing without AI)
+        async function createManualPost(event) {
+            event.preventDefault();
+            showLoading(true);
+
+            const content = document.getElementById('manualPostContent').value.trim();
+            const accountId = document.getElementById('manualPostThreadsAccount').value;
+            const publishTime = document.querySelector('input[name="publishTime"]:checked')?.value;
+            const scheduledFor = publishTime === 'scheduled'
+                ? document.getElementById('manualPostSchedule').value
+                : null;
+
+            // Validation
+            if (!content) {
+                showAlert('dashboardAlert', '請輸入貼文內容', 'error');
+                showLoading(false);
+                return;
+            }
+
+            if (content.length > 500) {
+                showAlert('dashboardAlert', '貼文內容不能超過 500 字', 'error');
+                showLoading(false);
+                return;
+            }
+
+            if (!accountId) {
+                showAlert('dashboardAlert', '請選擇 Threads 帳號', 'error');
+                showLoading(false);
+                return;
+            }
+
+            if (publishTime === 'scheduled' && !scheduledFor) {
+                showAlert('dashboardAlert', '請選擇排程時間', 'error');
+                showLoading(false);
+                return;
+            }
+
+            try {
+                // Create post with manual content
+                const postResponse = await fetch(`${API_BASE}/posts/manual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        content,
+                        accountId,
+                        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null
+                    })
+                });
+
+                const postData = await postResponse.json();
+
+                if (postResponse.ok) {
+                    showAlert('dashboardAlert', publishTime === 'now' ? '✅ 貼文已加入發布佇列！' : '✅ 貼文已排程成功！', 'success');
+                    document.getElementById('manualPostContent').value = '';
+                    document.getElementById('contentCharCount').textContent = '0';
+                    document.getElementById('manualPostThreadsAccount').value = '';
+                    document.querySelector('input[name="publishTime"][value="now"]').checked = true;
+                    toggleScheduleInput();
+                    switchTab('posts');
+                    loadPosts();
+                    loadOverview();
+                } else {
+                    showAlert('dashboardAlert', postData.error || '發布失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '發布失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Auto refresh
+        setInterval(() => {
+            if (token && document.getElementById('dashboard').classList.contains('active')) {
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab.id === 'overviewTab') loadOverview();
+                if (activeTab.id === 'postsTab') loadPosts();
+                if (activeTab.id === 'accountsTab') loadThreadsAccountsList();
+            }
+        }, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+import express, { Application } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import path from 'path';
+import config, { validateConfig } from './config';
+import logger from './utils/logger';
+import { createDatabasePool, closeDatabasePool } from './database/connection';
+import routes from './routes';
+import { startSchedulers, stopSchedulers } from './cron/scheduler';
+
+const app: Application = express();
+
+// Middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for frontend
+}));
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined'));
+
+// Serve static files (frontend)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// API Routes
+app.use('/api', routes);
+
+// Serve frontend for all non-API routes
+app.get('*', (_req, res) => {
+  if (!_req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  }
+});
+
+// Error handling
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error('Unhandled error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: config.app.env === 'local' ? err.message : undefined,
+  });
+});
+
+// Initialize server
+async function start() {
+  try {
+    // Validate config
+    validateConfig();
+
+    // Connect to database
+    await createDatabasePool();
+
+    // Start cron schedulers
+    startSchedulers();
+
+    // Start server
+    const port = config.app.port;
+    app.listen(port, () => {
+      logger.info(`🚀 Server running on port ${port}`);
+      logger.info(`Environment: ${config.app.env}`);
+      logger.info(`Base URL: ${config.app.baseUrl}`);
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received, shutting down gracefully...');
+  stopSchedulers();
+  await closeDatabasePool();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully...');
+  stopSchedulers();
+  await closeDatabasePool();
+  process.exit(0);
+});
+
+// Start if run directly
+if (require.main === module) {
+  start();
+}
+
+export default app;
