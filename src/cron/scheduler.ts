@@ -92,7 +92,11 @@ async function generateScheduledContent() {
 /**
  * Initialize dynamic schedule from settings
  */
-async function initializeDynamicSchedule() {
+/**
+ * Initialize or reload dynamic schedule from settings
+ * This function is exported so it can be called when settings are updated
+ */
+export async function initializeDynamicSchedule() {
   try {
     const { SettingsModel } = await import('../models/settings.model');
     const scheduleConfig = await SettingsModel.get('schedule_config');
@@ -118,8 +122,9 @@ async function initializeDynamicSchedule() {
     };
 
     for (const [day, dayConfig] of Object.entries(scheduleConfig)) {
-      if (dayConfig.enabled) {
-        const [hour, minute] = dayConfig.time.split(':');
+      const config = dayConfig as { enabled: boolean; time: string };
+      if (config.enabled) {
+        const [hour, minute] = config.time.split(':');
         const dayOfWeek = dayMap[day];
 
         // Cron format: minute hour day month dayOfWeek
@@ -131,7 +136,7 @@ async function initializeDynamicSchedule() {
         });
 
         scheduleJobs.push(job);
-        logger.info(`Scheduled content generation for ${day} at ${dayConfig.time}`);
+        logger.info(`Scheduled content generation for ${day} at ${config.time}`);
       }
     }
 

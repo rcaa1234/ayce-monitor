@@ -456,6 +456,15 @@ router.put('/settings', authenticate, async (req: Request, res: Response): Promi
     }
 
     await SettingsModel.updateMultiple(settings);
+
+    // If schedule_config was updated, reload the scheduler
+    if (settings.schedule_config) {
+      logger.info('排程設定已更新，正在重新載入排程器...');
+      const { initializeDynamicSchedule } = await import('../cron/scheduler');
+      await initializeDynamicSchedule();
+      logger.info('排程器已成功重新載入');
+    }
+
     res.json({ success: true, message: 'Settings updated successfully' });
   } catch (error: any) {
     logger.error('Failed to update settings:', error);

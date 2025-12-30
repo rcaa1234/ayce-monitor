@@ -81,7 +81,7 @@ class LineService {
         contents: [
           {
             type: 'text',
-            text: 'Threads Post Review',
+            text: 'Threads 文章審核',
             weight: 'bold',
             size: 'xl',
             color: '#ffffff',
@@ -95,7 +95,7 @@ class LineService {
         contents: [
           {
             type: 'text',
-            text: 'Content Preview',
+            text: '📝 內容預覽',
             weight: 'bold',
             size: 'md',
             margin: 'md',
@@ -113,7 +113,7 @@ class LineService {
           },
           {
             type: 'text',
-            text: 'Please review and choose an action:',
+            text: '請選擇動作：',
             size: 'sm',
             margin: 'md',
           },
@@ -129,7 +129,7 @@ class LineService {
             style: 'primary',
             action: {
               type: 'uri',
-              label: '✓ Approve & Publish',
+              label: '✓ 確認並發布',
               uri: approveUrl,
             },
           },
@@ -138,7 +138,7 @@ class LineService {
             style: 'secondary',
             action: {
               type: 'uri',
-              label: '↻ Regenerate',
+              label: '🔄 重新生成',
               uri: regenerateUrl,
             },
           },
@@ -147,7 +147,7 @@ class LineService {
             style: 'secondary',
             action: {
               type: 'uri',
-              label: '⊘ Skip',
+              label: '⊘ 跳過',
               uri: skipUrl,
             },
           },

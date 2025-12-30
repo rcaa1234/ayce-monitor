@@ -43,17 +43,6 @@ export const generateWorker = new Worker(
 
       await job.updateProgress(70);
 
-      // Send review request to LINE
-      await lineService.sendReviewRequest({
-        reviewerLineUserId: creator.line_user_id,
-        postId,
-        revisionId: result.revisionId,
-        content: result.content,
-        reviewerUserId: createdBy,
-      });
-
-      await job.updateProgress(90);
-
       // Log audit
       await AuditModel.log({
         actor_user_id: createdBy,
@@ -77,6 +66,9 @@ export const generateWorker = new Worker(
         revisionId: result.revisionId,
         engine: result.engine,
         similarityMax: result.similarityMax,
+        lineUserId: creator.line_user_id,
+        createdBy,
+        content: result.content,
       };
     } catch (error: any) {
       logger.error(`Generate job ${job.id} failed:`, error);
@@ -100,8 +92,25 @@ export const generateWorker = new Worker(
   }
 );
 
-generateWorker.on('completed', (job) => {
+generateWorker.on('completed', async (job) => {
   logger.info(`Job ${job.id} completed`);
+
+  // Send LINE notification after job completes successfully
+  if (job.returnvalue && job.returnvalue.lineUserId) {
+    try {
+      const lineService = (await import('../services/line.service')).default;
+      await lineService.sendReviewRequest({
+        reviewerLineUserId: job.returnvalue.lineUserId,
+        postId: job.returnvalue.postId,
+        revisionId: job.returnvalue.revisionId,
+        content: job.returnvalue.content,
+        reviewerUserId: job.returnvalue.createdBy,
+      });
+      logger.info(`Sent review request for job ${job.id} to LINE user ${job.returnvalue.lineUserId}`);
+    } catch (error) {
+      logger.error(`Failed to send LINE notification for job ${job.id}:`, error);
+    }
+  }
 });
 
 generateWorker.on('failed', (job, err) => {
