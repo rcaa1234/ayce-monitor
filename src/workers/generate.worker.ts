@@ -17,7 +17,7 @@ const connection = new Redis(config.redis.url, {
 export const generateWorker = new Worker(
   QUEUE_NAMES.GENERATE,
   async (job: Job<GenerateJobData>) => {
-    const { postId, stylePreset, topic, keywords, createdBy } = job.data;
+    const { postId, stylePreset, topic, keywords, createdBy, engine } = job.data;
 
     logger.info(`Processing generate job ${job.id} for post ${postId}`);
 
@@ -30,6 +30,7 @@ export const generateWorker = new Worker(
         stylePreset,
         topic,
         keywords,
+        engine: engine as any,
       });
 
       await job.updateProgress(60);

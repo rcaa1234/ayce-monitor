@@ -26,6 +26,7 @@ export interface GenerateJobData {
   topic?: string;
   keywords?: string[];
   createdBy: string;
+  engine?: string;
 }
 
 export interface PublishJobData {

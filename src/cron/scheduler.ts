@@ -81,6 +81,7 @@ async function generateScheduledContent() {
       postId: post.id,
       createdBy: creatorId,
       stylePreset: customPrompt,
+      engine: aiEngine,
     });
 
     logger.info(`Scheduled generation job created for post ${post.id} using ${aiEngine}`);
