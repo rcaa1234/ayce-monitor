@@ -48,31 +48,57 @@ export class EmbeddingModel {
   }>> {
     const pool = getPool();
 
+    console.log('🔍 [EMBEDDING] getRecentPosted called - USING UPDATED CODE WITH FILTER');
+
     try {
-      const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT e.post_id, e.embedding_json, pr.content
-         FROM post_embeddings e
-         INNER JOIN posts p ON e.post_id = p.id
-         LEFT JOIN (
-           SELECT post_id, content, revision_no
-           FROM post_revisions pr1
-           WHERE (post_id, revision_no) IN (
-             SELECT post_id, MAX(revision_no)
-             FROM post_revisions
-             GROUP BY post_id
-           )
-         ) pr ON p.id = pr.post_id
-         WHERE p.status = 'POSTED'
-         ORDER BY p.posted_at DESC
-         LIMIT ?`,
-        [limit]
+      // First get recent posted post IDs - using query instead of execute to avoid prepared statement issues
+      const [posts] = await pool.query<RowDataPacket[]>(
+        `SELECT id FROM posts WHERE status = 'POSTED' ORDER BY posted_at DESC LIMIT ${limit}`
       );
 
-      return rows.map((row) => ({
-        post_id: row.post_id,
-        embedding: row.embedding_json ? JSON.parse(row.embedding_json) : [],
-        content: row.content,
-      }));
+      if (posts.length === 0) {
+        return [];
+      }
+
+      const postIds = posts.map(p => p.id);
+
+      // Get embeddings and latest revisions for these posts
+      const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT
+           e.post_id,
+           e.embedding_json,
+           (SELECT content FROM post_revisions WHERE post_id = e.post_id ORDER BY revision_no DESC LIMIT 1) as content
+         FROM post_embeddings e
+         WHERE e.post_id IN (${postIds.map(() => '?').join(',')})`,
+        postIds
+      );
+
+      return rows
+        .map((row) => {
+          let embedding: number[] = [];
+
+          if (row.embedding_json) {
+            try {
+              // Try to parse the embedding_json
+              const parsed = typeof row.embedding_json === 'string'
+                ? JSON.parse(row.embedding_json)
+                : row.embedding_json;
+              embedding = Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+              console.error(`Failed to parse embedding for post ${row.post_id}:`, error);
+              console.error('Raw value:', row.embedding_json);
+              // Return empty array on parse error
+              embedding = [];
+            }
+          }
+
+          return {
+            post_id: row.post_id,
+            embedding,
+            content: row.content,
+          };
+        })
+        .filter(item => item.embedding.length > 0); // 過濾掉空 embedding
     } catch (error) {
       console.error('Error fetching recent posted embeddings:', error);
       // Return empty array on error to allow content generation to continue

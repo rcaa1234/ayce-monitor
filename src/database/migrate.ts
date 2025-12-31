@@ -208,6 +208,66 @@ const migrations = [
   ALTER TABLE review_requests
   MODIFY COLUMN status ENUM('PENDING', 'APPROVED', 'USED', 'EXPIRED', 'CANCELLED') NOT NULL DEFAULT 'PENDING';
   `,
+
+  // Migration 13: Create post_insights table for tracking post metrics
+  `
+  CREATE TABLE IF NOT EXISTS post_insights (
+    id CHAR(36) PRIMARY KEY,
+    post_id CHAR(36) NOT NULL,
+
+    views INT UNSIGNED DEFAULT 0,
+    likes INT UNSIGNED DEFAULT 0,
+    replies INT UNSIGNED DEFAULT 0,
+    reposts INT UNSIGNED DEFAULT 0,
+    quotes INT UNSIGNED DEFAULT 0,
+    shares INT UNSIGNED DEFAULT 0,
+
+    engagement_rate DECIMAL(5,2) DEFAULT 0,
+
+    fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+    INDEX idx_post_id (post_id),
+    INDEX idx_fetched_at (fetched_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `,
+
+  // Migration 14: Create account_insights table for tracking account metrics
+  `
+  CREATE TABLE IF NOT EXISTS account_insights (
+    id CHAR(36) PRIMARY KEY,
+    account_id CHAR(36) NOT NULL,
+
+    followers_count INT UNSIGNED DEFAULT 0,
+    following_count INT UNSIGNED DEFAULT 0,
+    posts_count INT UNSIGNED DEFAULT 0,
+
+    period_views INT UNSIGNED DEFAULT 0,
+    period_interactions INT UNSIGNED DEFAULT 0,
+    period_new_followers INT UNSIGNED DEFAULT 0,
+    period_posts INT UNSIGNED DEFAULT 0,
+
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    period_type ENUM('daily', 'weekly', 'monthly') DEFAULT 'weekly',
+
+    fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (account_id) REFERENCES threads_accounts(id) ON DELETE CASCADE,
+    INDEX idx_account_id (account_id),
+    INDEX idx_period (period_start, period_end),
+    INDEX idx_fetched_at (fetched_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `,
+
+  // Migration 15: Add threads_media_id to posts table
+  `
+  ALTER TABLE posts
+  ADD COLUMN threads_media_id VARCHAR(64) NULL AFTER post_url,
+  ADD INDEX idx_threads_media_id (threads_media_id);
+  `,
 ];
 
 async function runMigrations() {

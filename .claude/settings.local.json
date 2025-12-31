@@ -49,7 +49,21 @@
       "Bash(unset:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix: Resolved API key loading and error handling issues\n\nMajor fixes:\n- Fixed dotenv config to override system environment variables\n- Restructured error handling in test-approve endpoint\n- Separated critical \\(publish\\) from non-critical operations\n- Changed all error messages to Chinese\n- Fixed Threads publish flow to not mark as failed if post succeeds\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(if [ -f \"dist/cron/scheduler.js\" ])",
+      "Bash(then echo \"編譯檔案存在\")",
+      "Bash(else echo \"編譯檔案不存在\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix: 修正排程和 LINE 訊息重複發送問題\n\n主要修正:\n1. 修正排程動態重新載入功能\n   - 將 initializeDynamicSchedule\\(\\) 改為導出函數\n   - 在 PUT /api/settings 端點更新排程設定後自動重新載入\n   - 確保排程設定變更立即生效\n\n2. 修正 LINE 訊息重複發送問題\n   - 將 LINE 訊息發送從 Worker 處理流程移至 completed 事件\n   - 防止 Job 重試時重複發送訊息\n   - 確保每個排程只觸發一次通知\n\n3. 修正 LINE Bot 介面語言\n   - 將所有英文介面改為中文\n   - 統一錯誤訊息為中文顯示\n\n技術細節:\n- src/cron/scheduler.ts: 導出 initializeDynamicSchedule 函數\n- src/routes/index.ts: 在設定更新後呼叫排程重新載入\n- src/workers/generate.worker.ts: 將通知發送移至 completed 事件\n- src/services/line.service.ts: 更新 Flex Message 為中文介面\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git clean:*)",
+      "Bash(git commit:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(del \"d:\\\\threads bot\\\\src\\\\database\\\\migrations\\\\add-insights-tables.ts\")",
+      "Bash(npm run insights:info:*)",
+      "Bash(npm run insights:test:*)"
     ]
   }
 }

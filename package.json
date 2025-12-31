@@ -16,7 +16,9 @@
     "cleanup": "node scripts/cleanup-test-data.js",
     "test": "jest",
     "lint": "eslint . --ext .ts",
-    "postinstall": "echo '✓ Dependencies installed successfully'"
+    "postinstall": "echo '✓ Dependencies installed successfully'",
+    "insights:test": "node scripts/quick-test-insights.js",
+    "insights:info": "node scripts/get-token-info.js"
   },
   "keywords": [
     "threads",

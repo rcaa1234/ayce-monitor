@@ -78,6 +78,7 @@ export const publishWorker = new Worker(
       await PostModel.updateStatus(postId, PostStatus.POSTED, {
         posted_at: new Date(),
         post_url: publishResult.permalink,
+        threads_media_id: publishResult.id, // Store the Threads Media ID for insights
       });
 
       await job.updateProgress(90);

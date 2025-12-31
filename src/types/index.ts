@@ -107,6 +107,7 @@ export interface Post {
   approved_at?: Date;
   posted_at?: Date;
   post_url?: string;
+  threads_media_id?: string;
   last_error_code?: string;
   last_error_message?: string;
   created_at: Date;
@@ -203,4 +204,42 @@ export interface SimilarityResult {
     similarity: number;
     content: string;
   }>;
+}
+
+// Insights Types
+export interface PostInsights {
+  id: string;
+  post_id: string;
+  views: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  quotes: number;
+  shares: number;
+  engagement_rate: number;
+  fetched_at: Date;
+  created_at: Date;
+}
+
+export enum PeriodType {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly'
+}
+
+export interface AccountInsights {
+  id: string;
+  account_id: string;
+  followers_count: number;
+  following_count: number;
+  posts_count: number;
+  period_views: number;
+  period_interactions: number;
+  period_new_followers: number;
+  period_posts: number;
+  period_start: Date;
+  period_end: Date;
+  period_type: PeriodType;
+  fetched_at: Date;
+  created_at: Date;
 }

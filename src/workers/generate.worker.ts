@@ -72,6 +72,10 @@ export const generateWorker = new Worker(
         content: result.content,
       };
     } catch (error: any) {
+      console.error(`❌ [GENERATE WORKER] Job ${job.id} failed with error:`);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Error object:', error);
       logger.error(`Generate job ${job.id} failed:`, error);
 
       // Update post status to failed

@@ -46,3 +46,4 @@ process.on('SIGINT', async () => {
 
 // Start workers
 startWorkers();
+

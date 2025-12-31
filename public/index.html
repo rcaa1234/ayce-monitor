@@ -502,6 +502,8 @@
                         <option value="FAILED">失敗</option>
                     </select>
                     <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
+                    <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
+                    <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn" style="display: none;">🗑️ 批次刪除</button>
                 </div>
 
                 <div id="postsGrid" class="posts-grid"></div>
@@ -923,13 +925,22 @@
                         <p style="margin-top: 10px;">建立第一篇貼文開始使用!</p>
                     </div>
                 `;
+                // Hide batch delete button when no posts
+                const batchBtn = document.getElementById('batchDeleteBtn');
+                if (batchBtn) batchBtn.style.display = 'none';
                 return;
             }
+
+            // Show checkboxes only in postsGrid (not in recentPosts)
+            const showCheckbox = containerId === 'postsGrid';
 
             container.innerHTML = posts.map(post => `
                 <div class="post-card">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-                        <h3>文章 #${post.id.substring(0, 8)}</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            ${showCheckbox ? `<input type="checkbox" class="post-checkbox" data-post-id="${post.id}" onchange="updateBatchDeleteButton()" style="width: 18px; height: 18px; cursor: pointer;">` : ''}
+                            <h3>文章 #${post.id.substring(0, 8)}</h3>
+                        </div>
                         <span class="status-badge status-${post.status}">${getStatusText(post.status)}</span>
                     </div>
 
@@ -1183,6 +1194,89 @@
             }
         }
 
+        // Toggle select all checkboxes
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.post-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = !allChecked;
+            });
+
+            updateBatchDeleteButton();
+        }
+
+        // Update batch delete button visibility
+        function updateBatchDeleteButton() {
+            const checkedBoxes = document.querySelectorAll('.post-checkbox:checked');
+            const batchBtn = document.getElementById('batchDeleteBtn');
+
+            if (batchBtn) {
+                if (checkedBoxes.length > 0) {
+                    batchBtn.style.display = 'inline-block';
+                    batchBtn.textContent = `🗑️ 批次刪除 (${checkedBoxes.length})`;
+                } else {
+                    batchBtn.style.display = 'none';
+                }
+            }
+        }
+
+        // Batch delete posts
+        async function batchDeletePosts() {
+            const checkedBoxes = document.querySelectorAll('.post-checkbox:checked');
+            const postIds = Array.from(checkedBoxes).map(cb => cb.dataset.postId);
+
+            if (postIds.length === 0) {
+                showAlert('dashboardAlert', '請先選擇要刪除的貼文', 'error');
+                return;
+            }
+
+            if (!confirm(`確定要刪除選中的 ${postIds.length} 篇貼文嗎? 此操作無法復原。`)) {
+                return;
+            }
+
+            showLoading(true);
+            let successCount = 0;
+            let failCount = 0;
+
+            try {
+                // Delete posts one by one
+                for (const postId of postIds) {
+                    try {
+                        const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                    } catch (error) {
+                        failCount++;
+                    }
+                }
+
+                // Show result
+                if (successCount > 0 && failCount === 0) {
+                    showAlert('dashboardAlert', `成功刪除 ${successCount} 篇貼文`, 'success');
+                } else if (successCount > 0 && failCount > 0) {
+                    showAlert('dashboardAlert', `成功刪除 ${successCount} 篇,失敗 ${failCount} 篇`, 'error');
+                } else {
+                    showAlert('dashboardAlert', `刪除失敗`, 'error');
+                }
+
+                // Reload posts
+                loadPosts();
+                loadOverview();
+            } catch (error) {
+                showAlert('dashboardAlert', '批次刪除失敗: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
         // Utilities
         function getStatusText(status) {
             const statusMap = {
@@ -1365,10 +1459,13 @@
                     });
                 }
 
-                // Auto Post Threads Account
+                // Auto Post Threads Account - Store value to apply after dropdown is populated
                 if (settings.auto_post_threads_account) {
                     const autoPostEl = document.getElementById('autoPostThreadsAccount');
-                    if (autoPostEl) autoPostEl.value = settings.auto_post_threads_account.value;
+                    if (autoPostEl && settings.auto_post_threads_account.value) {
+                        // Store the saved value temporarily to apply after options are loaded
+                        autoPostEl.dataset.savedValue = settings.auto_post_threads_account.value;
+                    }
                 }
 
                 // LINE Notify User ID
@@ -1629,6 +1726,13 @@
                         accounts.map(acc =>
                             `<option value="${acc.id}">${acc.username} (@${acc.threads_user_id})</option>`
                         ).join('');
+
+                    // Auto-select previously saved account
+                    const savedAccountId = autoSelect.dataset.savedValue;
+                    if (savedAccountId) {
+                        autoSelect.value = savedAccountId;
+                        delete autoSelect.dataset.savedValue; // Clear after applying
+                    }
                 }
             } catch (error) {
                 console.error('載入帳號列表失敗:', error);

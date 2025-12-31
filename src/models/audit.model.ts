@@ -47,7 +47,9 @@ export class AuditModel {
     if (rows[0]) {
       return {
         ...rows[0],
-        metadata: rows[0].metadata ? JSON.parse(rows[0].metadata) : null,
+        metadata: rows[0].metadata
+          ? (typeof rows[0].metadata === 'string' ? JSON.parse(rows[0].metadata) : rows[0].metadata)
+          : null,
       } as AuditLog;
     }
 
@@ -74,7 +76,9 @@ export class AuditModel {
 
     return rows.map((row) => ({
       ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata
+        ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata)
+        : null,
     })) as AuditLog[];
   }
 
@@ -94,7 +98,9 @@ export class AuditModel {
 
     return rows.map((row) => ({
       ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata
+        ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata)
+        : null,
     })) as AuditLog[];
   }
 
@@ -111,7 +117,9 @@ export class AuditModel {
 
     return rows.map((row) => ({
       ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : null,
+      metadata: row.metadata
+        ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata)
+        : null,
     })) as AuditLog[];
   }
 }

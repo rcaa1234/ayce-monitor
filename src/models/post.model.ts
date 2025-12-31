@@ -47,6 +47,7 @@ export class PostModel {
       approved_at?: Date;
       posted_at?: Date;
       post_url?: string;
+      threads_media_id?: string;
       last_error_code?: string;
       last_error_message?: string;
     }
@@ -71,6 +72,10 @@ export class PostModel {
       if (additionalData.post_url) {
         fields.push('post_url = ?');
         values.push(additionalData.post_url);
+      }
+      if (additionalData.threads_media_id) {
+        fields.push('threads_media_id = ?');
+        values.push(additionalData.threads_media_id);
       }
       if (additionalData.last_error_code) {
         fields.push('last_error_code = ?');
@@ -186,10 +191,10 @@ export class PostModel {
       return {
         ...row,
         similarity_hits: (row.similarity_hits && row.similarity_hits.length > 0)
-          ? JSON.parse(row.similarity_hits)
+          ? (typeof row.similarity_hits === 'string' ? JSON.parse(row.similarity_hits) : row.similarity_hits)
           : null,
         generation_params: (row.generation_params && row.generation_params.length > 0)
-          ? JSON.parse(row.generation_params)
+          ? (typeof row.generation_params === 'string' ? JSON.parse(row.generation_params) : row.generation_params)
           : null,
       } as PostRevision;
     }
@@ -211,10 +216,10 @@ export class PostModel {
     return rows.map((row) => ({
       ...row,
       similarity_hits: (row.similarity_hits && row.similarity_hits.length > 0)
-        ? JSON.parse(row.similarity_hits)
+        ? (typeof row.similarity_hits === 'string' ? JSON.parse(row.similarity_hits) : row.similarity_hits)
         : null,
       generation_params: (row.generation_params && row.generation_params.length > 0)
-        ? JSON.parse(row.generation_params)
+        ? (typeof row.generation_params === 'string' ? JSON.parse(row.generation_params) : row.generation_params)
         : null,
     })) as PostRevision[];
   }
@@ -234,8 +239,12 @@ export class PostModel {
       const row = rows[0];
       return {
         ...row,
-        similarity_hits: row.similarity_hits ? JSON.parse(row.similarity_hits) : null,
-        generation_params: row.generation_params ? JSON.parse(row.generation_params) : null,
+        similarity_hits: row.similarity_hits
+          ? (typeof row.similarity_hits === 'string' ? JSON.parse(row.similarity_hits) : row.similarity_hits)
+          : null,
+        generation_params: row.generation_params
+          ? (typeof row.generation_params === 'string' ? JSON.parse(row.generation_params) : row.generation_params)
+          : null,
       } as PostRevision;
     }
 

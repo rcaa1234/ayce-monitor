@@ -6,6 +6,7 @@ import { UserModel } from '../models/user.model';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 import logger from '../utils/logger';
+import { RowDataPacket } from 'mysql2';
 
 const router = Router();
 
@@ -729,11 +730,193 @@ router.post('/webhook/line', async (req: Request, res: Response): Promise<void> 
         const editedText = event.message.text;
 
         // Handle special commands
-        if (editedText.toLowerCase() === '/myid' || editedText === '我的ID' || editedText === '查詢ID') {
+        if (editedText.toLowerCase() === '/id') {
           await lineService.sendNotification(
             lineUserId,
             `📱 您的 LINE User ID:\n${lineUserId}\n\n請複製此 ID 並貼到網站的「自動化發文設定」→「LINE 通知設定」中，系統才能將審核通知發送給您。`
           );
+          continue;
+        }
+
+        if (editedText.toLowerCase() === '/s') {
+          const pool = getPool();
+          const { SettingsModel } = await import('../models/settings.model');
+          const scheduleConfig = await SettingsModel.get('schedule_config');
+          const lineNotifyUserId = await SettingsModel.get('line_notify_user_id');
+
+          if (!scheduleConfig) {
+            await lineService.sendNotification(
+              lineUserId,
+              '⚠️ 尚未設定排程\n\n請前往網頁管理介面設定自動發文排程。'
+            );
+            continue;
+          }
+
+          // Get Threads account info
+          let threadsAccountInfo = '未連結 Threads 帳號';
+          try {
+            const [accounts] = await pool.execute(
+              `SELECT ta.username, ta.account_id
+               FROM threads_accounts ta
+               INNER JOIN threads_auth t ON ta.id = t.account_id
+               WHERE t.status = 'OK' AND ta.status = 'ACTIVE'
+               LIMIT 1`
+            );
+
+            if (accounts.length > 0) {
+              threadsAccountInfo = `@${accounts[0].username}`;
+            }
+          } catch (error) {
+            logger.error('Failed to get Threads account info:', error);
+          }
+
+          // Get LINE User info
+          let lineUserInfo = '未設定';
+          if (lineNotifyUserId) {
+            try {
+              const [users] = await pool.execute(
+                'SELECT name, email FROM users WHERE line_user_id = ? LIMIT 1',
+                [lineNotifyUserId]
+              );
+
+              if (users.length > 0) {
+                lineUserInfo = users[0].name || users[0].email;
+              }
+            } catch (error) {
+              logger.error('Failed to get LINE user info:', error);
+            }
+          }
+
+          // Format schedule information
+          const dayNames: Record<string, string> = {
+            monday: '星期一',
+            tuesday: '星期二',
+            wednesday: '星期三',
+            thursday: '星期四',
+            friday: '星期五',
+            saturday: '星期六',
+            sunday: '星期日',
+          };
+
+          const enabledSchedules: string[] = [];
+          const disabledDays: string[] = [];
+
+          for (const [day, config] of Object.entries(scheduleConfig)) {
+            const dayConfig = config as { enabled: boolean; time: string };
+            if (dayConfig.enabled) {
+              enabledSchedules.push(`${dayNames[day]} ${dayConfig.time}`);
+            } else {
+              disabledDays.push(dayNames[day]);
+            }
+          }
+
+          let message = '📅 自動發文排程\n\n';
+
+          message += `📢 發文帳號：${threadsAccountInfo}\n`;
+          message += `👤 管理員：${lineUserInfo}\n\n`;
+
+          if (enabledSchedules.length > 0) {
+            message += '✅ 已啟用：\n';
+            enabledSchedules.forEach(schedule => {
+              message += `  • ${schedule}\n`;
+            });
+          } else {
+            message += '⚠️ 目前沒有啟用任何排程\n';
+          }
+
+          if (disabledDays.length > 0) {
+            message += `\n❌ 未啟用：${disabledDays.join('、')}`;
+          }
+
+          await lineService.sendNotification(lineUserId, message);
+          continue;
+        }
+
+        if (editedText.toLowerCase() === '/data') {
+          const pool = getPool();
+          const threadsService = (await import('../services/threads.service')).default;
+          const { InsightsModel } = await import('../models/insights.model');
+          const { PeriodType } = await import('../types');
+
+          try {
+            // Get default Threads account
+            const defaultAccount = await threadsService.getDefaultAccount();
+            if (!defaultAccount) {
+              await lineService.sendNotification(
+                lineUserId,
+                '⚠️ 未連結 Threads 帳號\n\n請前往網頁管理介面連結您的 Threads 帳號。'
+              );
+              continue;
+            }
+
+            const accountId = defaultAccount.account.id;
+
+            // Get latest weekly insights
+            const weeklyInsights = await InsightsModel.getAccountInsights(accountId, PeriodType.WEEKLY);
+
+            // Get recent posts stats (last 7 days)
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const [recentPostsStats] = await pool.execute<RowDataPacket[]>(
+              `SELECT
+                COUNT(DISTINCT p.id) as post_count,
+                COALESCE(SUM(pi.views), 0) as total_views,
+                COALESCE(SUM(pi.likes), 0) as total_likes,
+                COALESCE(SUM(pi.replies), 0) as total_replies,
+                COALESCE(SUM(pi.reposts), 0) as total_reposts
+               FROM posts p
+               LEFT JOIN post_insights pi ON p.id = pi.post_id
+               WHERE p.status = 'POSTED' AND p.posted_at >= ?`,
+              [sevenDaysAgo]
+            );
+
+            const stats = recentPostsStats[0];
+
+            // Get top performing post
+            const [topPost] = await pool.execute<RowDataPacket[]>(
+              `SELECT p.id, p.post_url, pi.views, pi.likes, pi.engagement_rate
+               FROM posts p
+               INNER JOIN post_insights pi ON p.id = pi.post_id
+               WHERE p.status = 'POSTED' AND p.posted_at >= ?
+               ORDER BY pi.engagement_rate DESC
+               LIMIT 1`,
+              [sevenDaysAgo]
+            );
+
+            let message = '📊 數據監控總覽\n\n';
+            message += `📢 帳號：@${defaultAccount.account.username}\n\n`;
+
+            message += '📈 過去 7 天統計：\n';
+            message += `  • 發文數：${stats.post_count} 篇\n`;
+            message += `  • 總瀏覽：${stats.total_views.toLocaleString()} 次\n`;
+            message += `  • 按讚數：${stats.total_likes.toLocaleString()}\n`;
+            message += `  • 回覆數：${stats.total_replies.toLocaleString()}\n`;
+            message += `  • 轉發數：${stats.total_reposts.toLocaleString()}\n\n`;
+
+            if (weeklyInsights) {
+              message += '👥 帳號數據：\n';
+              message += `  • 追蹤者：${weeklyInsights.followers_count.toLocaleString()}\n`;
+              message += `  • 新增粉絲：${weeklyInsights.period_new_followers > 0 ? '+' : ''}${weeklyInsights.period_new_followers}\n\n`;
+            }
+
+            if (topPost.length > 0) {
+              const top = topPost[0];
+              message += '🏆 最佳表現：\n';
+              message += `  • 互動率：${top.engagement_rate}%\n`;
+              message += `  • 瀏覽數：${top.views.toLocaleString()}\n`;
+              message += `  • 按讚數：${top.likes.toLocaleString()}\n`;
+              message += `  • 連結：${top.post_url}\n`;
+            }
+
+            await lineService.sendNotification(lineUserId, message);
+          } catch (error) {
+            logger.error('Failed to get analytics data for /data command:', error);
+            await lineService.sendNotification(
+              lineUserId,
+              '❌ 無法獲取數據\n\n可能尚未同步 Threads 數據。\n請稍後再試或聯繫管理員。'
+            );
+          }
           continue;
         }
 
@@ -931,6 +1114,163 @@ router.get('/review/approve-edited', async (req: Request, res: Response): Promis
 
 router.get('/review/regenerate', reviewController.regenerate.bind(reviewController));
 router.get('/review/skip', reviewController.skip.bind(reviewController));
+
+// Analytics routes
+router.get('/analytics/posts/:postId', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { postId } = req.params;
+    const { InsightsModel } = await import('../models/insights.model');
+
+    const insights = await InsightsModel.getPostInsights(postId);
+
+    if (!insights) {
+      res.status(404).json({ error: 'No insights found for this post' });
+      return;
+    }
+
+    res.json({ success: true, insights });
+  } catch (error: any) {
+    logger.error('Failed to get post insights:', error);
+    res.status(500).json({ error: 'Failed to get insights', message: error.message });
+  }
+});
+
+router.get('/analytics/posts/:postId/history', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { postId } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
+    const { InsightsModel } = await import('../models/insights.model');
+
+    const history = await InsightsModel.getPostInsightsHistory(postId, limit);
+
+    res.json({ success: true, history });
+  } catch (error: any) {
+    logger.error('Failed to get post insights history:', error);
+    res.status(500).json({ error: 'Failed to get insights history', message: error.message });
+  }
+});
+
+router.get('/analytics/account/:accountId', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { accountId } = req.params;
+    const { PeriodType } = await import('../types');
+    const periodType = (req.query.period as keyof typeof PeriodType) || 'WEEKLY';
+    const { InsightsModel } = await import('../models/insights.model');
+
+    const insights = await InsightsModel.getAccountInsights(accountId, PeriodType[periodType]);
+
+    if (!insights) {
+      res.status(404).json({ error: 'No insights found for this account' });
+      return;
+    }
+
+    res.json({ success: true, insights });
+  } catch (error: any) {
+    logger.error('Failed to get account insights:', error);
+    res.status(500).json({ error: 'Failed to get insights', message: error.message });
+  }
+});
+
+router.get('/analytics/account/:accountId/history', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { accountId } = req.params;
+    const { PeriodType } = await import('../types');
+    const periodType = (req.query.period as keyof typeof PeriodType) || 'WEEKLY';
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 12;
+    const { InsightsModel } = await import('../models/insights.model');
+
+    const history = await InsightsModel.getAccountInsightsHistory(accountId, PeriodType[periodType], limit);
+
+    res.json({ success: true, history });
+  } catch (error: any) {
+    logger.error('Failed to get account insights history:', error);
+    res.status(500).json({ error: 'Failed to get insights history', message: error.message });
+  }
+});
+
+router.get('/analytics/summary', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { getPool } = await import('../database/connection');
+    const threadsService = (await import('../services/threads.service')).default;
+    const { InsightsModel } = await import('../models/insights.model');
+    const { PeriodType } = await import('../types');
+
+    // Get default Threads account
+    const defaultAccount = await threadsService.getDefaultAccount();
+    if (!defaultAccount) {
+      res.status(404).json({ error: 'No active Threads account found' });
+      return;
+    }
+
+    const accountId = defaultAccount.account.id;
+
+    // Get latest account insights for different periods
+    const weeklyInsights = await InsightsModel.getAccountInsights(accountId, PeriodType.WEEKLY);
+    const monthlyInsights = await InsightsModel.getAccountInsights(accountId, PeriodType.MONTHLY);
+
+    // Get recent posts with insights
+    const pool = getPool();
+    const [recentPosts] = await pool.execute(
+      `SELECT p.id, p.posted_at, p.post_url, pi.views, pi.likes, pi.replies, pi.reposts, pi.engagement_rate
+       FROM posts p
+       LEFT JOIN post_insights pi ON p.id = pi.post_id
+       WHERE p.status = 'POSTED' AND p.posted_at IS NOT NULL
+       ORDER BY p.posted_at DESC
+       LIMIT 10`
+    );
+
+    res.json({
+      success: true,
+      summary: {
+        account: {
+          username: defaultAccount.account.username,
+          id: accountId,
+        },
+        weekly: weeklyInsights,
+        monthly: monthlyInsights,
+        recentPosts,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Failed to get analytics summary:', error);
+    res.status(500).json({ error: 'Failed to get summary', message: error.message });
+  }
+});
+
+router.post('/analytics/sync', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { postId, accountId, type } = req.body;
+    const threadsInsightsService = (await import('../services/threads-insights.service')).default;
+
+    if (type === 'post' && postId) {
+      const success = await threadsInsightsService.syncPostInsights(postId);
+      if (success) {
+        res.json({ success: true, message: 'Post insights synced successfully' });
+      } else {
+        res.status(500).json({ error: 'Failed to sync post insights' });
+      }
+    } else if (type === 'account' && accountId) {
+      const { PeriodType } = await import('../types');
+      const periodType = req.body.period || PeriodType.WEEKLY;
+      const success = await threadsInsightsService.syncAccountInsights(accountId, periodType);
+      if (success) {
+        res.json({ success: true, message: 'Account insights synced successfully' });
+      } else {
+        res.status(500).json({ error: 'Failed to sync account insights' });
+      }
+    } else if (type === 'recent') {
+      const days = req.body.days || 7;
+      const limit = req.body.limit || 50;
+      await threadsInsightsService.syncRecentPostsInsights(days, limit);
+      res.json({ success: true, message: 'Recent posts insights synced successfully' });
+    } else {
+      res.status(400).json({ error: 'Invalid sync type or missing parameters' });
+    }
+  } catch (error: any) {
+    logger.error('Failed to sync insights:', error);
+    res.status(500).json({ error: 'Failed to sync insights', message: error.message });
+  }
+});
 
 // Test-specific review actions
 router.get('/review/test-approve', async (req: Request, res: Response): Promise<void> => {

@@ -224,15 +224,15 @@ export const dailyReviewReminder = cron.schedule('0 18 * * *', async () => {
   try {
     const pool = getPool();
 
-    // Find pending reviews
+    // Group pending reviews by user
     const [reviews] = await pool.execute<RowDataPacket[]>(
-      `SELECT rr.*, u.line_user_id, pr.content
+      `SELECT u.line_user_id, u.id as user_id, COUNT(*) as pending_count
        FROM review_requests rr
        INNER JOIN users u ON rr.reviewer_user_id = u.id
-       INNER JOIN post_revisions pr ON rr.revision_id = pr.id
        WHERE rr.status = 'PENDING'
        AND rr.expires_at > NOW()
-       AND u.line_user_id IS NOT NULL`
+       AND u.line_user_id IS NOT NULL
+       GROUP BY u.line_user_id, u.id`
     );
 
     const lineService = (await import('../services/line.service')).default;
@@ -240,13 +240,67 @@ export const dailyReviewReminder = cron.schedule('0 18 * * *', async () => {
     for (const review of reviews) {
       await lineService.sendNotification(
         review.line_user_id,
-        `⏰ Reminder: You have a pending post review.\nContent: ${review.content.substring(0, 100)}...`
+        `⏰ 提醒:你有 ${review.pending_count} 個待審核的貼文。\n\n請前往系統查看並審核。`
       );
     }
 
     logger.info(`Sent ${reviews.length} review reminders`);
   } catch (error) {
     logger.error('Failed to send review reminders:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
+ * Sync Threads insights data
+ * Runs every 4 hours
+ */
+export const syncInsightsData = cron.schedule('0 */4 * * *', async () => {
+  logger.info('Syncing Threads insights data...');
+
+  try {
+    const threadsInsightsService = (await import('../services/threads-insights.service')).default;
+    const threadsService = (await import('../services/threads.service')).default;
+    const { PeriodType } = await import('../types');
+
+    // Get default Threads account
+    const defaultAccount = await threadsService.getDefaultAccount();
+    if (!defaultAccount) {
+      logger.warn('No active Threads account found, skipping insights sync');
+      return;
+    }
+
+    // Sync recent posts insights (last 7 days, up to 50 posts)
+    await threadsInsightsService.syncRecentPostsInsights(7, 50);
+
+    // Sync account insights (weekly)
+    await threadsInsightsService.syncAccountInsights(defaultAccount.account.id, PeriodType.WEEKLY);
+
+    logger.info('✓ Insights data sync completed');
+  } catch (error) {
+    logger.error('Failed to sync insights data:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
+ * Daily insights cleanup
+ * Runs at 3:00 AM every day to clean up old insights data
+ */
+export const cleanupOldInsights = cron.schedule('0 3 * * *', async () => {
+  logger.info('Cleaning up old insights data...');
+
+  try {
+    const { InsightsModel } = await import('../models/insights.model');
+
+    // Delete insights older than 90 days
+    await InsightsModel.deleteOldInsights(90);
+
+    logger.info('✓ Old insights data cleaned up');
+  } catch (error) {
+    logger.error('Failed to clean up old insights:', error);
   }
 }, {
   scheduled: false,
@@ -263,6 +317,8 @@ export async function startSchedulers() {
   checkExpiredReviews.start();
   tokenRefreshCheck.start();
   dailyReviewReminder.start();
+  syncInsightsData.start();
+  cleanupOldInsights.start();
 
   logger.info('✓ All schedulers started');
 }
@@ -278,6 +334,8 @@ export function stopSchedulers() {
   checkExpiredReviews.stop();
   tokenRefreshCheck.stop();
   dailyReviewReminder.stop();
+  syncInsightsData.stop();
+  cleanupOldInsights.stop();
 
   logger.info('✓ All schedulers stopped');
 }
