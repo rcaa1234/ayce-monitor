@@ -72,17 +72,18 @@ const config: Config = {
   app: {
     env: process.env.APP_ENV || 'local',
     baseUrl: process.env.APP_BASE_URL || 'http://localhost:3000',
-    port: parseInt(process.env.APP_PORT || '3000', 10),
+    port: parseInt(process.env.APP_PORT || process.env.PORT || '3000', 10),
   },
   database: {
     host: process.env.MYSQL_HOST || 'localhost',
     port: parseInt(process.env.MYSQL_PORT || '3306', 10),
-    user: process.env.MYSQL_USER || 'root',
+    user: process.env.MYSQL_USER || process.env.MYSQL_USERNAME || 'root',
     password: process.env.MYSQL_PASSWORD || '',
     database: process.env.MYSQL_DATABASE || 'threads_posting',
   },
   redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    // Support Zeabur's auto-generated env vars
+    url: process.env.REDIS_URL || process.env.REDIS_CONNECTION_STRING || process.env.REDIS_URI || 'redis://localhost:6379',
   },
   ai: {
     openai: {
