@@ -18,7 +18,6 @@
     "cleanup": "node scripts/cleanup-test-data.js",
     "test": "jest",
     "lint": "eslint . --ext .ts",
-    "postinstall": "npm run build",
     "insights:test": "node scripts/quick-test-insights.js",
     "insights:info": "node scripts/get-token-info.js"
   },
