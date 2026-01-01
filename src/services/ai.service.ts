@@ -168,10 +168,14 @@ class AIService {
 
       const model = this.gemini.getGenerativeModel({
         model: modelName,
-        systemInstruction: systemPrompt,
       });
 
-      const result = await model.generateContent(prompt);
+      // Combine system prompt with user prompt
+      const fullPrompt = systemPrompt
+        ? `${systemPrompt}\n\n${prompt}`
+        : prompt;
+
+      const result = await model.generateContent(fullPrompt);
       const response = await result.response;
       const content = response.text();
 

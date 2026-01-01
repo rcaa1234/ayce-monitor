@@ -33,6 +33,8 @@ export interface PublishJobData {
   postId: string;
   revisionId: string;
   accountId?: string;
+  threads_account_id?: string;
+  scheduledFor?: Date;
 }
 
 export interface TokenRefreshJobData {

@@ -458,14 +458,6 @@ router.put('/settings', authenticate, async (req: Request, res: Response): Promi
 
     await SettingsModel.updateMultiple(settings);
 
-    // If schedule_config was updated, reload the scheduler
-    if (settings.schedule_config) {
-      logger.info('排程設定已更新，正在重新載入排程器...');
-      const { initializeDynamicSchedule } = await import('../cron/scheduler');
-      await initializeDynamicSchedule();
-      logger.info('排程器已成功重新載入');
-    }
-
     res.json({ success: true, message: 'Settings updated successfully' });
   } catch (error: any) {
     logger.error('Failed to update settings:', error);
@@ -501,8 +493,8 @@ router.post('/settings/test-generate', authenticate, async (req: Request, res: R
       : (aiEngine && typeof aiEngine === 'object' ? aiEngine.value : undefined);
 
     // Convert string to EngineType enum properly
-    const engineType = (engineString && typeof engineString === 'string' && engineString in EngineType)
-      ? engineString as EngineType
+    const engineType = (engineString && typeof engineString === 'string' && Object.values(EngineType).includes(engineString as any))
+      ? (engineString as typeof EngineType[keyof typeof EngineType])
       : EngineType.GPT4O;
 
     // Extract prompt string from customPrompt (it might be an object or string)
@@ -537,7 +529,7 @@ router.post('/settings/test-generate', authenticate, async (req: Request, res: R
       const currentUserId = (req as AuthRequest).user!.id;
 
       // First check if user exists with this line_user_id
-      const [userRows] = await pool.execute(
+      const [userRows] = await pool.execute<RowDataPacket[]>(
         'SELECT id FROM users WHERE line_user_id = ? LIMIT 1',
         [lineNotifyUserId]
       );
@@ -755,7 +747,7 @@ router.post('/webhook/line', async (req: Request, res: Response): Promise<void> 
           // Get Threads account info
           let threadsAccountInfo = '未連結 Threads 帳號';
           try {
-            const [accounts] = await pool.execute(
+            const [accounts] = await pool.execute<RowDataPacket[]>(
               `SELECT ta.username, ta.account_id
                FROM threads_accounts ta
                INNER JOIN threads_auth t ON ta.id = t.account_id
@@ -774,7 +766,7 @@ router.post('/webhook/line', async (req: Request, res: Response): Promise<void> 
           let lineUserInfo = '未設定';
           if (lineNotifyUserId) {
             try {
-              const [users] = await pool.execute(
+              const [users] = await pool.execute<RowDataPacket[]>(
                 'SELECT name, email FROM users WHERE line_user_id = ? LIMIT 1',
                 [lineNotifyUserId]
               );
@@ -922,7 +914,7 @@ router.post('/webhook/line', async (req: Request, res: Response): Promise<void> 
 
         // Find pending review for this user
         const pool = getPool();
-        const [rows] = await pool.execute(
+        const [rows] = await pool.execute<RowDataPacket[]>(
           `SELECT rr.*, pr.content as original_content
            FROM review_requests rr
            JOIN post_revisions pr ON rr.revision_id = pr.id
@@ -987,7 +979,7 @@ router.post('/webhook/line', async (req: Request, res: Response): Promise<void> 
                   action: {
                     type: 'uri',
                     label: '✅ 確認發布',
-                    uri: `${config.server.baseUrl}/api/review/approve-edited?token=${reviewRequest.token}&lineUserId=${lineUserId}`,
+                    uri: `${config.app.baseUrl}/api/review/approve-edited?token=${reviewRequest.token}&lineUserId=${lineUserId}`,
                   },
                 },
                 {
@@ -1049,7 +1041,7 @@ router.get('/review/approve-edited', async (req: Request, res: Response): Promis
 
     // Get edited content
     const pool = getPool();
-    const [rows] = await pool.execute(
+    const [rows] = await pool.execute<RowDataPacket[]>(
       'SELECT edited_content FROM review_requests WHERE id = ?',
       [reviewRequest.id]
     );
@@ -1063,7 +1055,7 @@ router.get('/review/approve-edited', async (req: Request, res: Response): Promis
 
     // Create new revision with edited content
     const newRevisionId = generateUUID();
-    const [originalRevision] = await pool.execute(
+    const [originalRevision] = await pool.execute<RowDataPacket[]>(
       'SELECT revision_no FROM post_revisions WHERE id = ?',
       [reviewRequest.revision_id]
     );
@@ -1210,7 +1202,7 @@ router.get('/analytics/summary', authenticate, async (req: Request, res: Respons
 
     // Get recent posts with insights
     const pool = getPool();
-    const [recentPosts] = await pool.execute(
+    const [recentPosts] = await pool.execute<RowDataPacket[]>(
       `SELECT p.id, p.posted_at, p.post_url, pi.views, pi.likes, pi.replies, pi.reposts, pi.engagement_rate
        FROM posts p
        LEFT JOIN post_insights pi ON p.id = pi.post_id
@@ -1287,7 +1279,7 @@ router.get('/scheduling/templates', authenticate, async (req: Request, res: Resp
     const pool = getPool();
 
     // 查詢所有啟用的模板，按平均互動率排序
-    const [templates] = await pool.execute(
+    const [templates] = await pool.execute<RowDataPacket[]>(
       `SELECT id, name, description, total_uses, avg_engagement_rate
        FROM content_templates
        WHERE enabled = true
@@ -1315,7 +1307,7 @@ router.get('/scheduling/config', authenticate, async (req: Request, res: Respons
     const pool = getPool();
 
     // 查詢啟用的排程配置
-    const [configs] = await pool.execute(
+    const [configs] = await pool.execute<RowDataPacket[]>(
       `SELECT id, start_hour, start_minute, end_hour, end_minute,
               posts_per_day, active_days, enabled
        FROM posting_schedule_config
@@ -1379,7 +1371,7 @@ router.post('/scheduling/create', authenticate, async (req: Request, res: Respon
     const pool = getPool();
 
     // 驗證模板存在且啟用
-    const [templates] = await pool.execute(
+    const [templates] = await pool.execute<RowDataPacket[]>(
       'SELECT id, name FROM content_templates WHERE id = ? AND enabled = true',
       [templateId]
     );
@@ -1390,7 +1382,7 @@ router.post('/scheduling/create', authenticate, async (req: Request, res: Respon
     }
 
     // 驗證時間在允許範圍內（根據配置）
-    const [configs] = await pool.execute(
+    const [configs] = await pool.execute<RowDataPacket[]>(
       `SELECT start_hour, start_minute, end_hour, end_minute, active_days
        FROM posting_schedule_config
        WHERE enabled = true
@@ -1432,7 +1424,7 @@ router.post('/scheduling/create', authenticate, async (req: Request, res: Respon
     }
 
     // 檢查是否已有相同時間的排程（UNIQUE 約束也會阻止，這裡提供更友善的錯誤訊息）
-    const [existing] = await pool.execute(
+    const [existing] = await pool.execute<RowDataPacket[]>(
       `SELECT id FROM daily_scheduled_posts
        WHERE scheduled_time = ? AND status IN ('PENDING', 'GENERATED')`,
       [scheduledTime]
@@ -1455,7 +1447,7 @@ router.post('/scheduling/create', authenticate, async (req: Request, res: Respon
     logger.info(`Created manual schedule: ${scheduleId} at ${scheduledTime} with template ${templateId}`);
 
     // 回傳建立的排程資料
-    const [created] = await pool.execute(
+    const [created] = await pool.execute<RowDataPacket[]>(
       `SELECT ds.*, ct.name as template_name, ct.description as template_description
        FROM daily_scheduled_posts ds
        JOIN content_templates ct ON ds.template_id = ct.id
@@ -1495,7 +1487,7 @@ router.get('/scheduling/upcoming', authenticate, async (req: Request, res: Respo
     const pool = getPool();
 
     // 查詢待發布的排程，聯結模板資訊
-    const [schedules] = await pool.execute(
+    const [schedules] = await pool.execute<RowDataPacket[]>(
       `SELECT
          ds.id,
          ds.template_id,
@@ -1539,7 +1531,7 @@ router.delete('/scheduling/:id', authenticate, async (req: Request, res: Respons
     const pool = getPool();
 
     // 檢查排程是否存在且為 PENDING 狀態
-    const [schedules] = await pool.execute(
+    const [schedules] = await pool.execute<RowDataPacket[]>(
       'SELECT id, status FROM daily_scheduled_posts WHERE id = ?',
       [id]
     );
@@ -1598,7 +1590,7 @@ router.get('/review/test-approve', async (req: Request, res: Response): Promise<
 
     logger.info(`Test approve - token: ${token}, lineUserId: ${lineUserId}`);
 
-    const [rows] = await pool.execute(
+    const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT rr.*, u.line_user_id
        FROM review_requests rr
        JOIN users u ON rr.reviewer_user_id = u.id
@@ -1610,7 +1602,7 @@ router.get('/review/test-approve', async (req: Request, res: Response): Promise<
 
     if (rows.length === 0) {
       // Try to find the review request to see what's wrong
-      const [allReviews] = await pool.execute(
+      const [allReviews] = await pool.execute<RowDataPacket[]>(
         `SELECT rr.id, rr.token, rr.status, u.line_user_id
          FROM review_requests rr
          JOIN users u ON rr.reviewer_user_id = u.id
@@ -1799,8 +1791,8 @@ router.get('/review/test-regenerate', async (req: Request, res: Response): Promi
 
     // Convert string to EngineType enum properly
     const { EngineType } = await import('../types');
-    const engineType = (engineString && typeof engineString === 'string' && engineString in EngineType)
-      ? engineString as typeof EngineType[keyof typeof EngineType]
+    const engineType = (engineString && typeof engineString === 'string' && Object.values(EngineType).includes(engineString as any))
+      ? (engineString as typeof EngineType[keyof typeof EngineType])
       : EngineType.GPT4O;
 
     // Update status to generating
@@ -1833,7 +1825,7 @@ router.get('/review/test-regenerate', async (req: Request, res: Response): Promi
     );
 
     // Find user by line_user_id
-    const [userRows] = await pool.execute(
+    const [userRows] = await pool.execute<RowDataPacket[]>(
       'SELECT id FROM users WHERE line_user_id = ? LIMIT 1',
       [lineUserId]
     );
@@ -2002,7 +1994,7 @@ router.get('/templates', authenticate, async (req: Request, res: Response): Prom
     const { getPool } = await import('../database/connection');
     const pool = getPool();
 
-    const [templates] = await pool.execute(
+    const [templates] = await pool.execute<RowDataPacket[]>(
       `SELECT id, name, prompt, description, enabled,
               total_uses, total_views, total_engagement, avg_engagement_rate,
               created_at, updated_at
@@ -2081,7 +2073,7 @@ router.put('/templates/:id', authenticate, async (req: Request, res: Response): 
     const pool = getPool();
 
     // 檢查模板是否存在
-    const [existing] = await pool.execute('SELECT id FROM content_templates WHERE id = ?', [id]);
+    const [existing] = await pool.execute<RowDataPacket[]>('SELECT id FROM content_templates WHERE id = ?', [id]);
 
     if ((existing as any[]).length === 0) {
       res.status(404).json({ error: '模板不存在' });
@@ -2120,7 +2112,7 @@ router.delete('/templates/:id', authenticate, async (req: Request, res: Response
     const pool = getPool();
 
     // 檢查是否有使用中的排程
-    const [schedules] = await pool.execute(
+    const [schedules] = await pool.execute<RowDataPacket[]>(
       'SELECT id FROM daily_auto_schedule WHERE selected_template_id = ? AND status = "PENDING"',
       [id]
     );
@@ -2154,7 +2146,7 @@ router.get('/time-slots', authenticate, async (req: Request, res: Response): Pro
     const { getPool } = await import('../database/connection');
     const pool = getPool();
 
-    const [slots] = await pool.execute(
+    const [slots] = await pool.execute<RowDataPacket[]>(
       `SELECT id, name, start_hour, start_minute, end_hour, end_minute,
               allowed_template_ids, active_days, enabled, priority,
               created_at, updated_at
@@ -2339,7 +2331,7 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
     const pool = getPool();
 
     // 檢查是否已有配置
-    const [existing] = await pool.execute('SELECT id FROM smart_schedule_config WHERE enabled = true LIMIT 1');
+    const [existing] = await pool.execute<RowDataPacket[]>('SELECT id FROM smart_schedule_config WHERE enabled = true LIMIT 1');
 
     if ((existing as any[]).length === 0) {
       // 建立新配置
@@ -2442,7 +2434,7 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 
     logger.info('Fetching auto schedules...');
 
-    const [schedules] = await pool.execute(
+    const [schedules] = await pool.execute<RowDataPacket[]>(
       `SELECT das.*,
               ct.name as template_name,
               sts.name as time_slot_name

@@ -140,6 +140,17 @@ class ThreadsInsightsService {
       });
 
       logger.info(`✓ Synced insights for post ${postId}: ${insights.views} views, ${totalInteractions} interactions`);
+
+      // 更新 post_performance_log（如果存在）
+      // 用途：自動更新智能排程系統的表現記錄
+      // 影響：只更新已存在的記錄，不影響非排程貼文
+      await this.updatePerformanceLog(postId, {
+        views: insights.views,
+        likes: insights.likes,
+        replies: insights.replies,
+        engagement_rate: Math.round(engagementRate * 100) / 100,
+      });
+
       return true;
     } catch (error) {
       logger.error(`Failed to sync post insights for ${postId}:`, error);
@@ -340,6 +351,106 @@ class ThreadsInsightsService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 更新表現記錄（智能排程系統）
+   * 用途：將 Insights 數據同步到 post_performance_log
+   * 影響：僅更新已存在的記錄（排程產生的貼文），不會建立新記錄
+   *
+   * @param postId - 貼文 ID
+   * @param insights - Insights 數據
+   */
+  private async updatePerformanceLog(
+    postId: string,
+    insights: {
+      views: number;
+      likes: number;
+      replies: number;
+      engagement_rate: number;
+    }
+  ): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 檢查是否存在對應的記錄（僅更新，不新增）
+      const [existing] = await pool.execute(
+        'SELECT id, template_id FROM post_performance_log WHERE post_id = ? LIMIT 1',
+        [postId]
+      );
+
+      if ((existing as any[]).length === 0) {
+        // 不是排程產生的貼文，不需要更新
+        logger.debug(`Post ${postId} not in performance log, skipping`);
+        return;
+      }
+
+      const record = (existing as any[])[0];
+
+      // 更新表現數據
+      await pool.execute(
+        `UPDATE post_performance_log
+         SET views = ?, likes = ?, replies = ?, engagement_rate = ?
+         WHERE post_id = ?`,
+        [insights.views, insights.likes, insights.replies, insights.engagement_rate, postId]
+      );
+
+      logger.info(`✓ Updated performance log for post ${postId}`);
+
+      // 同時更新模板統計
+      if (record.template_id) {
+        await this.updateTemplateStats(record.template_id);
+      }
+    } catch (error) {
+      logger.error(`Failed to update performance log for ${postId}:`, error);
+      // 不拋出錯誤，避免影響主流程
+    }
+  }
+
+  /**
+   * 更新模板統計數據
+   * 用途：根據 post_performance_log 重新計算模板的使用次數和平均互動率
+   * 影響：更新 content_templates 表的統計欄位
+   *
+   * @param templateId - 模板 ID
+   */
+  private async updateTemplateStats(templateId: string): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 計算該模板的統計數據（僅計算有數據的貼文）
+      const [stats] = await pool.execute(
+        `SELECT
+           COUNT(*) as total_uses,
+           AVG(engagement_rate) as avg_engagement_rate
+         FROM post_performance_log
+         WHERE template_id = ?
+           AND views > 0`,
+        [templateId]
+      );
+
+      const statsData = (stats as any[])[0];
+
+      // 更新模板統計
+      await pool.execute(
+        `UPDATE content_templates
+         SET total_uses = ?,
+             avg_engagement_rate = ?
+         WHERE id = ?`,
+        [
+          statsData.total_uses || 0,
+          Math.round((statsData.avg_engagement_rate || 0) * 100) / 100,
+          templateId
+        ]
+      );
+
+      logger.info(`✓ Updated template ${templateId} stats: ${statsData.total_uses} uses, ${statsData.avg_engagement_rate?.toFixed(2)}% avg engagement`);
+    } catch (error) {
+      logger.error(`Failed to update template stats for ${templateId}:`, error);
+      // 不拋出錯誤，避免影響主流程
+    }
   }
 }
 

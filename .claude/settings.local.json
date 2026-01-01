@@ -63,7 +63,13 @@
       "Bash(npx ts-node:*)",
       "Bash(del \"d:\\\\threads bot\\\\src\\\\database\\\\migrations\\\\add-insights-tables.ts\")",
       "Bash(npm run insights:info:*)",
-      "Bash(npm run insights:test:*)"
+      "Bash(npm run insights:test:*)",
+      "Bash(del scriptsupdate-template-engines.js)",
+      "Bash(npx tsc:*)",
+      "Bash(del \"d:\\\\threads bot\\\\scripts\\\\fix-type-annotations.js\")",
+      "Bash(if [ -f \"nul\" ])",
+      "Bash(then rm nul)",
+      "Bash(else echo \"No nul file found\")"
     ]
   }
 }
