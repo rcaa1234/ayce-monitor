@@ -8,78 +8,40 @@ import { JobType } from '../types';
 const redisUrl = config.redis.url;
 logger.info(`Connecting to Redis: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
 
-// Determine if we need TLS (Zeabur and most cloud providers use rediss://)
-const isTLS = redisUrl.startsWith('rediss://');
-
-// Parse Redis URL components for ioredis
-const url = new URL(redisUrl);
-
-// Extract password from URL (handle both username:password and just password)
-let password: string | undefined;
-if (url.password) {
-  password = decodeURIComponent(url.password);
-} else if (url.username) {
-  // Some Redis URLs put password in username field
-  password = decodeURIComponent(url.username);
-}
-
-// Critical: BullMQ needs the full connection configuration
-// MUST include host, port, and all other settings
-const connectionOptions: any = {
-  host: url.hostname,
-  port: parseInt(url.port || (isTLS ? '6380' : '6379'), 10),
-
-  // Add password if present
-  ...(password && { password }),
-
-  // BullMQ requirements
+// CRITICAL FIX: Use Redis URL string directly with minimal options
+// Let ioredis parse the URL and configure TLS automatically from rediss:// protocol
+const connectionOptions = {
+  // Pass the full URL string - ioredis will extract host, port, password, and TLS settings
+  // This is more reliable than manual parsing
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
 
-  // More aggressive retry for cloud environments
+  // Simple retry strategy
   retryStrategy: (times: number) => {
     if (times > 10) {
-      logger.error(`Redis max retries (${times}) exceeded`);
+      logger.error(`Redis connection failed after ${times} attempts`);
       return null;
     }
-    // Exponential backoff: 1s, 2s, 4s, 8s, max 10s
-    const delay = Math.min(Math.pow(2, times) * 1000, 10000);
-    logger.warn(`Redis retry ${times}/10, delay: ${delay}ms`);
+    const delay = Math.min(times * 2000, 10000);
+    if (times === 1) logger.warn(`Redis connecting... (attempt ${times})`);
     return delay;
   },
 
-  // Allow reconnect on transient errors
+  // Enable reconnect for transient errors
   reconnectOnError: (err: Error) => {
-    const reconnectErrors = ['READONLY', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'ENOTFOUND'];
-    if (reconnectErrors.some(e => err.message.includes(e))) {
-      logger.warn(`Reconnecting due to: ${err.message}`);
-      return true;
-    }
-    return false;
+    logger.warn(`Redis reconnect triggered: ${err.message}`);
+    return true;
   },
 
-  // Longer timeouts for cloud
+  // Generous timeouts for cloud
   connectTimeout: 30000,
-  commandTimeout: 10000,
 
-  // Enable offline queue
+  // Keep connection alive
   enableOfflineQueue: true,
-
-  // Don't fail on first connect error
-  autoResubscribe: true,
-  autoResendUnfulfilledCommands: true,
-
-  // TLS support for Zeabur (rediss://)
-  ...(isTLS && {
-    tls: {
-      rejectUnauthorized: false,
-      // Additional TLS options for compatibility
-      minVersion: 'TLSv1.2',
-    },
-  }),
+  lazyConnect: false,
 };
 
-logger.info(`Initializing Redis for BullMQ: ${url.hostname}:${connectionOptions.port} (TLS: ${isTLS}, Auth: ${!!password})`);
+logger.info('Initializing Redis connections for BullMQ queues...');
 
 // Define queue names
 export const QUEUE_NAMES = {
@@ -88,22 +50,50 @@ export const QUEUE_NAMES = {
   TOKEN_REFRESH: 'token-refresh',
 } as const;
 
-// Create queues with proper connection config
+// Create queues - pass URL string + options
+// BullMQ/ioredis will handle the URL parsing and TLS configuration
 export const generateQueue = new Queue(QUEUE_NAMES.GENERATE, {
-  connection: connectionOptions,
+  connection: {
+    ...connectionOptions,
+    // Parse URL manually for BullMQ since it doesn't accept URL strings directly
+    ...(redisUrl.includes('://') ? parseRedisUrl(redisUrl) : { host: redisUrl }),
+  },
 });
 
 export const publishQueue = new Queue(QUEUE_NAMES.PUBLISH, {
-  connection: connectionOptions,
+  connection: {
+    ...connectionOptions,
+    ...(redisUrl.includes('://') ? parseRedisUrl(redisUrl) : { host: redisUrl }),
+  },
 });
 
 export const tokenRefreshQueue = new Queue(QUEUE_NAMES.TOKEN_REFRESH, {
-  connection: connectionOptions,
+  connection: {
+    ...connectionOptions,
+    ...(redisUrl.includes('://') ? parseRedisUrl(redisUrl) : { host: redisUrl }),
+  },
 });
 
-// Create a test connection to verify Redis is accessible
+// Helper function to parse Redis URL
+function parseRedisUrl(urlString: string) {
+  const url = new URL(urlString);
+  const isTLS = url.protocol === 'rediss:';
+
+  return {
+    host: url.hostname,
+    port: parseInt(url.port || (isTLS ? '6380' : '6379'), 10),
+    password: url.password ? decodeURIComponent(url.password) : undefined,
+    tls: isTLS ? { rejectUnauthorized: false } : undefined,
+  };
+}
+
+// Test connection
+const testRedisConfig = parseRedisUrl(redisUrl);
+logger.info(`Redis config: ${testRedisConfig.host}:${testRedisConfig.port}, TLS: ${!!testRedisConfig.tls}, Auth: ${!!testRedisConfig.password}`);
+
 const testConnection = new Redis({
   ...connectionOptions,
+  ...testRedisConfig,
   lazyConnect: true,
 });
 
