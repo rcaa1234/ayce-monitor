@@ -4,8 +4,22 @@ import config from '../config';
 import logger from '../utils/logger';
 import { JobType } from '../types';
 
-const connection = new Redis(config.redis.url, {
+// Parse Redis URL and create connection with proper options
+const redisUrl = config.redis.url;
+const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null,
+  enableReadyCheck: false,
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+  reconnectOnError: (err) => {
+    const targetError = 'READONLY';
+    if (err.message.includes(targetError)) {
+      return true;
+    }
+    return false;
+  },
 });
 
 // Define queue names
