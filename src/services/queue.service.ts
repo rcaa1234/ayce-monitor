@@ -8,37 +8,32 @@ import { JobType } from '../types';
 const redisUrl = config.redis.url;
 logger.info(`Connecting to Redis: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
 
-// CRITICAL FIX: Use Redis URL string directly with minimal options
-// Let ioredis parse the URL and configure TLS automatically from rediss:// protocol
+// LAST RESORT: Absolute minimal configuration for Zeabur Redis
+// Removing all complex options to see if they're causing issues
 const connectionOptions = {
-  // Pass the full URL string - ioredis will extract host, port, password, and TLS settings
-  // This is more reliable than manual parsing
+  // BullMQ minimum requirements
   maxRetriesPerRequest: null,
+
+  // Disable features that might cause issues
   enableReadyCheck: false,
+  enableOfflineQueue: false,
 
-  // Simple retry strategy
+  // Minimal retry - give up fast if it won't work
   retryStrategy: (times: number) => {
-    if (times > 10) {
-      logger.error(`Redis connection failed after ${times} attempts`);
-      return null;
-    }
-    const delay = Math.min(times * 2000, 10000);
-    if (times === 1) logger.warn(`Redis connecting... (attempt ${times})`);
-    return delay;
+    if (times > 3) return null;
+    logger.warn(`Redis retry ${times}/3`);
+    return times * 1000;
   },
 
-  // Enable reconnect for transient errors
-  reconnectOnError: (err: Error) => {
-    logger.warn(`Redis reconnect triggered: ${err.message}`);
-    return true;
-  },
+  // Don't reconnect on errors - let it fail clearly
+  reconnectOnError: () => false,
 
-  // Generous timeouts for cloud
-  connectTimeout: 30000,
+  // Very long timeout - maybe network is just slow
+  connectTimeout: 60000,
 
-  // Keep connection alive
-  enableOfflineQueue: true,
-  lazyConnect: false,
+  // Don't auto-reconnect
+  autoResubscribe: false,
+  autoResendUnfulfilledCommands: false,
 };
 
 logger.info('Initializing Redis connections for BullMQ queues...');
