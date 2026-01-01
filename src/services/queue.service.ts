@@ -8,27 +8,54 @@ import { JobType } from '../types';
 const redisUrl = config.redis.url;
 logger.info(`Connecting to Redis: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
 
+// Determine if we need TLS (Zeabur and most cloud providers use rediss://)
+const isTLS = redisUrl.startsWith('rediss://');
+
 const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
-  lazyConnect: true,
+  // Remove lazyConnect to avoid timing issues
   retryStrategy: (times) => {
-    if (times > 10) {
+    if (times > 20) {
       logger.error(`Redis retry attempts exceeded: ${times}`);
-      return null;
+      return null; // Stop retrying
     }
-    const delay = Math.min(times * 100, 3000);
+    const delay = Math.min(times * 500, 5000);
     logger.warn(`Redis retry attempt ${times}, delay: ${delay}ms`);
     return delay;
   },
   reconnectOnError: (err) => {
-    logger.error('Redis reconnect on error:', err.message);
-    return true;
+    const targetErrors = ['READONLY', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE'];
+    if (targetErrors.some(e => err.message.includes(e))) {
+      logger.warn(`Redis reconnecting due to: ${err.message}`);
+      return true; // Reconnect
+    }
+    return false;
   },
+  // Add connection timeout
+  connectTimeout: 30000,
+  // Add command timeout
+  commandTimeout: 5000,
+  // Keep alive settings
+  keepAlive: 30000,
+  // TLS settings for secure connections (Zeabur)
+  ...(isTLS && {
+    tls: {
+      rejectUnauthorized: false, // Some cloud providers use self-signed certs
+    },
+  }),
+  // Disable auto pipelining to reduce connection issues
+  enableAutoPipelining: false,
+  // Family preference (IPv4 first)
+  family: 4,
 });
 
+// Connection event handlers
 connection.on('error', (err) => {
-  logger.error('Redis connection error:', err);
+  // Don't log every single error to avoid log spam
+  if (!err.message.includes('ECONNRESET')) {
+    logger.error(`Redis connection error: ${err.message}`);
+  }
 });
 
 connection.on('connect', () => {
@@ -43,9 +70,8 @@ connection.on('close', () => {
   logger.warn('Redis connection closed');
 });
 
-// Connect immediately
-connection.connect().catch((err) => {
-  logger.error('Failed to connect to Redis:', err);
+connection.on('reconnecting', () => {
+  logger.info('Redis reconnecting...');
 });
 
 // Define queue names
