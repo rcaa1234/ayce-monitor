@@ -14,48 +14,72 @@ const isTLS = redisUrl.startsWith('rediss://');
 // Parse Redis URL components for ioredis
 const url = new URL(redisUrl);
 
+// Extract password from URL (handle both username:password and just password)
+let password: string | undefined;
+if (url.password) {
+  password = decodeURIComponent(url.password);
+} else if (url.username) {
+  // Some Redis URLs put password in username field
+  password = decodeURIComponent(url.username);
+}
+
 // Critical: BullMQ needs the full connection configuration
 // MUST include host, port, and all other settings
 const connectionOptions: any = {
   host: url.hostname,
   port: parseInt(url.port || (isTLS ? '6380' : '6379'), 10),
 
-  // Add password if present in URL
-  ...(url.password && { password: url.password }),
+  // Add password if present
+  ...(password && { password }),
 
   // BullMQ requirements
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
 
-  // Simplified retry strategy
+  // More aggressive retry for cloud environments
   retryStrategy: (times: number) => {
-    if (times > 5) {
+    if (times > 10) {
       logger.error(`Redis max retries (${times}) exceeded`);
       return null;
     }
-    const delay = times * 2000;
-    logger.warn(`Redis retry ${times}/5, delay: ${delay}ms`);
+    // Exponential backoff: 1s, 2s, 4s, 8s, max 10s
+    const delay = Math.min(Math.pow(2, times) * 1000, 10000);
+    logger.warn(`Redis retry ${times}/10, delay: ${delay}ms`);
     return delay;
   },
 
-  // Disable reconnect on error to prevent connection storms
-  reconnectOnError: () => false,
+  // Allow reconnect on transient errors
+  reconnectOnError: (err: Error) => {
+    const reconnectErrors = ['READONLY', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'ENOTFOUND'];
+    if (reconnectErrors.some(e => err.message.includes(e))) {
+      logger.warn(`Reconnecting due to: ${err.message}`);
+      return true;
+    }
+    return false;
+  },
 
-  // Timeouts
-  connectTimeout: 20000,
+  // Longer timeouts for cloud
+  connectTimeout: 30000,
+  commandTimeout: 10000,
 
   // Enable offline queue
   enableOfflineQueue: true,
+
+  // Don't fail on first connect error
+  autoResubscribe: true,
+  autoResendUnfulfilledCommands: true,
 
   // TLS support for Zeabur (rediss://)
   ...(isTLS && {
     tls: {
       rejectUnauthorized: false,
+      // Additional TLS options for compatibility
+      minVersion: 'TLSv1.2',
     },
   }),
 };
 
-logger.info(`Initializing Redis for BullMQ: ${url.hostname}:${connectionOptions.port}`);
+logger.info(`Initializing Redis for BullMQ: ${url.hostname}:${connectionOptions.port} (TLS: ${isTLS}, Auth: ${!!password})`);
 
 // Define queue names
 export const QUEUE_NAMES = {
