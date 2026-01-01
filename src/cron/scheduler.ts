@@ -6,147 +6,6 @@ import { RowDataPacket } from 'mysql2';
 import config from '../config';
 import { PostStatus } from '../types';
 
-// Store dynamic schedule jobs
-const scheduleJobs: cron.ScheduledTask[] = [];
-
-/**
- * Generate content based on settings
- */
-async function generateScheduledContent() {
-  logger.info('Running scheduled content generation...');
-
-  try {
-    // Get settings
-    const { SettingsModel } = await import('../models/settings.model');
-    const aiEngine = await SettingsModel.get('ai_engine');
-    const customPrompt = await SettingsModel.get('custom_prompt');
-    const lineNotifyUserId = await SettingsModel.get('line_notify_user_id');
-
-    // Find user by LINE User ID from settings, or fallback to content_creator
-    const pool = getPool();
-    let creatorId: string;
-
-    if (lineNotifyUserId) {
-      // Find user by LINE User ID
-      const [users] = await pool.execute<RowDataPacket[]>(
-        `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
-        [lineNotifyUserId]
-      );
-
-      if (users.length > 0) {
-        creatorId = users[0].id;
-        logger.info(`Using LINE notify user (${lineNotifyUserId}) as creator`);
-      } else {
-        logger.warn(`LINE User ID ${lineNotifyUserId} not found, using fallback`);
-        // Fallback to content_creator
-        const [fallbackUsers] = await pool.execute<RowDataPacket[]>(
-          `SELECT u.id FROM users u
-           INNER JOIN user_roles ur ON u.id = ur.user_id
-           INNER JOIN roles r ON ur.role_id = r.id
-           WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
-           LIMIT 1`
-        );
-
-        if (fallbackUsers.length === 0) {
-          logger.error('No active content creator found and LINE user not found');
-          return;
-        }
-        creatorId = fallbackUsers[0].id;
-      }
-    } else {
-      // No LINE User ID set, use content_creator
-      const [users] = await pool.execute<RowDataPacket[]>(
-        `SELECT u.id FROM users u
-         INNER JOIN user_roles ur ON u.id = ur.user_id
-         INNER JOIN roles r ON ur.role_id = r.id
-         WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
-         LIMIT 1`
-      );
-
-      if (users.length === 0) {
-        logger.warn('No active content creator found and no LINE User ID configured');
-        return;
-      }
-      creatorId = users[0].id;
-    }
-
-    // Create a new post and trigger generation
-    const { PostModel } = await import('../models/post.model');
-    const post = await PostModel.create({
-      created_by: creatorId,
-      status: PostStatus.DRAFT,
-    });
-
-    await queueService.addGenerateJob({
-      postId: post.id,
-      createdBy: creatorId,
-      stylePreset: customPrompt,
-      engine: aiEngine,
-    });
-
-    logger.info(`Scheduled generation job created for post ${post.id} using ${aiEngine}`);
-  } catch (error) {
-    logger.error('Scheduled generation failed:', error);
-  }
-}
-
-/**
- * Initialize dynamic schedule from settings
- */
-/**
- * Initialize or reload dynamic schedule from settings
- * This function is exported so it can be called when settings are updated
- */
-export async function initializeDynamicSchedule() {
-  try {
-    const { SettingsModel } = await import('../models/settings.model');
-    const scheduleConfig = await SettingsModel.get('schedule_config');
-
-    if (!scheduleConfig) {
-      logger.warn('No schedule configuration found, using default');
-      return;
-    }
-
-    // Clear existing schedule jobs
-    scheduleJobs.forEach(job => job.stop());
-    scheduleJobs.length = 0;
-
-    // Create cron jobs for each enabled day
-    const dayMap: Record<string, number> = {
-      sunday: 0,
-      monday: 1,
-      tuesday: 2,
-      wednesday: 3,
-      thursday: 4,
-      friday: 5,
-      saturday: 6,
-    };
-
-    for (const [day, dayConfig] of Object.entries(scheduleConfig)) {
-      const config = dayConfig as { enabled: boolean; time: string };
-      if (config.enabled) {
-        const [hour, minute] = config.time.split(':');
-        const dayOfWeek = dayMap[day];
-
-        // Cron format: minute hour day month dayOfWeek
-        const cronExpression = `${minute} ${hour} * * ${dayOfWeek}`;
-
-        const job = cron.schedule(cronExpression, generateScheduledContent, {
-          scheduled: true,
-          timezone: 'Asia/Taipei',
-        });
-
-        scheduleJobs.push(job);
-        logger.info(`Scheduled content generation for ${day} at ${config.time}`);
-      }
-    }
-
-    logger.info(`✓ Initialized ${scheduleJobs.length} dynamic schedule jobs`);
-  } catch (error) {
-    logger.error('Failed to initialize dynamic schedule:', error);
-  }
-}
-
 /**
  * Check for expired review requests
  * Runs every hour
@@ -307,35 +166,403 @@ export const cleanupOldInsights = cron.schedule('0 3 * * *', async () => {
 });
 
 /**
+ * Execute scheduled posts
+ * 用途：每 5 分鐘檢查一次，自動執行到期的排程
+ * 影響範圍：新增排程執行器，不影響現有排程系統
+ *
+ * 執行邏輯：
+ * 1. 查詢 status='PENDING' 且 scheduled_time <= now 的排程
+ * 2. 取得對應的模板內容
+ * 3. 建立 Post 並加入生成隊列
+ * 4. 更新排程狀態為 'GENERATED'
+ * 5. 記錄到 post_performance_log（初始值）
+ */
+export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
+  logger.info('Checking for scheduled posts to execute...');
+
+  try {
+    const pool = getPool();
+    const { PostModel } = await import('../models/post.model');
+    const { generateUUID } = await import('../utils/uuid');
+
+    // 查詢需要執行的排程
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      `SELECT ds.*, ct.prompt, ct.name as template_name
+       FROM daily_scheduled_posts ds
+       JOIN content_templates ct ON ds.template_id = ct.id
+       WHERE ds.status = 'PENDING'
+         AND ds.scheduled_time <= NOW()
+       ORDER BY ds.scheduled_time ASC
+       LIMIT 10`
+    );
+
+    if (schedules.length === 0) {
+      logger.info('No scheduled posts to execute');
+      return;
+    }
+
+    logger.info(`Found ${schedules.length} scheduled post(s) to execute`);
+
+    // 取得建立者 ID（使用第一個 active 的 content_creator 或 admin）
+    const [users] = await pool.execute<RowDataPacket[]>(
+      `SELECT u.id FROM users u
+       INNER JOIN user_roles ur ON u.id = ur.user_id
+       INNER JOIN roles r ON ur.role_id = r.id
+       WHERE r.name IN ('content_creator', 'admin') AND u.status = 'ACTIVE'
+       ORDER BY CASE r.name WHEN 'content_creator' THEN 1 WHEN 'admin' THEN 2 END
+       LIMIT 1`
+    );
+
+    if (users.length === 0) {
+      logger.error('No active user found to create scheduled posts');
+      return;
+    }
+
+    const creatorId = users[0].id;
+
+    // 執行每個排程
+    for (const schedule of schedules) {
+      try {
+        logger.info(`Executing schedule ${schedule.id} for template "${schedule.template_name}" at ${schedule.scheduled_time}`);
+
+        // 建立貼文
+        const post = await PostModel.create({
+          created_by: creatorId,
+          status: PostStatus.DRAFT,
+        });
+
+        logger.info(`Created post ${post.id} for schedule ${schedule.id}`);
+
+        // 加入生成隊列（使用模板的提示詞）
+        await queueService.addGenerateJob({
+          postId: post.id,
+          createdBy: creatorId,
+          stylePreset: schedule.prompt, // 使用模板的提示詞
+        });
+
+        logger.info(`Added generation job for post ${post.id}`);
+
+        // 更新排程狀態為 GENERATED，並記錄 post_id
+        await pool.execute(
+          `UPDATE daily_scheduled_posts
+           SET status = 'GENERATED', post_id = ?, updated_at = NOW()
+           WHERE id = ?`,
+          [post.id, schedule.id]
+        );
+
+        // 記錄到 post_performance_log（初始值，等待發文後更新）
+        const logId = generateUUID();
+        const scheduledTime = new Date(schedule.scheduled_time);
+        await pool.execute(
+          `INSERT INTO post_performance_log
+           (id, post_id, template_id, posted_at, posted_hour, posted_minute, day_of_week, selection_method, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            logId,
+            post.id,
+            schedule.template_id,
+            schedule.scheduled_time,
+            scheduledTime.getHours(),
+            scheduledTime.getMinutes(),
+            scheduledTime.getDay(),
+            schedule.selection_method || 'MANUAL'
+          ]
+        );
+
+        logger.info(`✓ Schedule ${schedule.id} executed successfully, created post ${post.id}`);
+      } catch (error) {
+        logger.error(`Failed to execute schedule ${schedule.id}:`, error);
+
+        // 更新排程狀態為 FAILED
+        await pool.execute(
+          `UPDATE daily_scheduled_posts
+           SET status = 'FAILED', updated_at = NOW()
+           WHERE id = ?`,
+          [schedule.id]
+        );
+      }
+    }
+
+    logger.info(`✓ Executed ${schedules.length} scheduled post(s)`);
+  } catch (error) {
+    logger.error('Failed to execute scheduled posts:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
+ * createDailyAutoSchedule
+ * 用途：每天自動建立排程,使用 UCB 策略選擇最佳時段和模板
+ * 執行時間：每天 00:00
+ * 影響：新增功能,不影響現有排程
+ */
+export async function createDailyAutoSchedule() {
+  logger.info('Creating daily auto schedule using UCB strategy...');
+
+  try {
+    const pool = getPool();
+    const { ucbService } = await import('../services/ucb.service');
+    const { generateUUID } = await import('../utils/uuid');
+
+    // 檢查配置是否啟用
+    const config = await ucbService.getConfig();
+    if (!config.auto_schedule_enabled) {
+      logger.info('Auto schedule is disabled, skipping');
+      return;
+    }
+
+    // 檢查今天是否已有排程
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const [existing] = await pool.execute<RowDataPacket[]>(
+      'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
+      [todayStr]
+    );
+
+    if (existing.length > 0) {
+      logger.info(`Daily auto schedule for ${todayStr} already exists, skipping`);
+      return;
+    }
+
+    // 使用 UCB 選擇最佳時段和模板
+    const selection = await ucbService.selectOptimalSchedule(today);
+
+    if (!selection) {
+      logger.warn('UCB service returned no selection, cannot create schedule');
+      return;
+    }
+
+    // 建立自動排程記錄
+    const scheduleId = generateUUID();
+    await pool.execute(
+      `INSERT INTO daily_auto_schedule
+       (id, schedule_date, selected_time_slot_id, selected_template_id, scheduled_time,
+        status, ucb_score, selection_reason, created_at)
+       VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())`,
+      [
+        scheduleId,
+        todayStr,
+        selection.timeSlot.id,
+        selection.template.id,
+        selection.scheduledTime,
+        selection.ucbScore,
+        selection.reason,
+      ]
+    );
+
+    logger.info(`✓ Daily auto schedule created: ${selection.template.name} at ${selection.scheduledTime.toLocaleTimeString('zh-TW')}`);
+    logger.info(`  Reason: ${selection.reason}`);
+  } catch (error) {
+    logger.error('Failed to create daily auto schedule:', error);
+  }
+}
+
+/**
+ * Daily Auto Schedule Creator
+ * 用途：每天 00:00 自動建立排程
+ */
+const dailyAutoScheduler = cron.schedule('0 0 * * *', createDailyAutoSchedule, {
+  scheduled: false,
+  timezone: 'Asia/Taipei',
+});
+
+/**
+ * executeAutoScheduledPosts
+ * 用途：執行自動排程建立的貼文
+ * 頻率：每 5 分鐘檢查一次
+ * 影響：與原有 executeScheduledPosts 並行運作
+ */
+export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () => {
+  logger.info('Checking for auto-scheduled posts to execute...');
+
+  try {
+    const pool = getPool();
+    const { PostModel } = await import('../models/post.model');
+    const { generateUUID } = await import('../utils/uuid');
+
+    // 查詢待執行的自動排程
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      `SELECT das.*, ct.prompt, ct.name as template_name
+       FROM daily_auto_schedule das
+       JOIN content_templates ct ON das.selected_template_id = ct.id
+       WHERE das.status = 'PENDING'
+         AND das.scheduled_time <= NOW()
+       ORDER BY das.scheduled_time ASC
+       LIMIT 10`
+    );
+
+    if (schedules.length === 0) {
+      logger.info('No auto-scheduled posts to execute');
+      return;
+    }
+
+    logger.info(`Found ${schedules.length} auto-scheduled post(s) to execute`);
+
+    // 取得 UCB 配置（含 Threads 帳號和 LINE User ID）
+    const { ucbService } = await import('../services/ucb.service');
+    const ucbConfig = await ucbService.getConfig();
+
+    // 執行每個排程
+    for (const schedule of schedules) {
+      try {
+        // 取得建立者: 優先使用 UCB config 的 LINE User ID，否則使用 content_creator 角色
+        let creatorId: string;
+
+        if (ucbConfig.line_user_id) {
+          // 使用 LINE User ID 查找用戶
+          const [lineUsers] = await pool.execute<RowDataPacket[]>(
+            `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+            [ucbConfig.line_user_id]
+          );
+
+          if (lineUsers.length > 0) {
+            creatorId = lineUsers[0].id;
+            logger.info(`Using UCB LINE User ID (${ucbConfig.line_user_id}) as creator`);
+          } else {
+            logger.warn(`UCB LINE User ID ${ucbConfig.line_user_id} not found, using content_creator fallback`);
+            // Fallback to content_creator
+            const [users] = await pool.execute<RowDataPacket[]>(
+              `SELECT u.id FROM users u
+               INNER JOIN user_roles ur ON u.id = ur.user_id
+               INNER JOIN roles r ON ur.role_id = r.id
+               WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
+               LIMIT 1`
+            );
+
+            if (users.length === 0) {
+              throw new Error('No active content creator found and LINE user not found');
+            }
+            creatorId = users[0].id;
+          }
+        } else {
+          // No LINE User ID set, use content_creator
+          const [users] = await pool.execute<RowDataPacket[]>(
+            `SELECT u.id FROM users u
+             INNER JOIN user_roles ur ON u.id = ur.user_id
+             INNER JOIN roles r ON ur.role_id = r.id
+             WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
+             LIMIT 1`
+          );
+
+          if (users.length === 0) {
+            throw new Error('No active content creator found');
+          }
+          creatorId = users[0].id;
+        }
+
+        // 建立 Post (DRAFT)
+        const post = await PostModel.create({
+          status: PostStatus.DRAFT,
+          created_by: creatorId,
+        });
+
+        // 如果有設定 Threads 帳號，更新到資料庫
+        if (ucbConfig.threads_account_id) {
+          await pool.execute(
+            `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
+            [ucbConfig.threads_account_id, post.id]
+          );
+          logger.info(`Created post ${post.id} for auto-schedule ${schedule.id} with Threads account ${ucbConfig.threads_account_id}`);
+        } else {
+          logger.info(`Created post ${post.id} for auto-schedule ${schedule.id} without specific Threads account`);
+        }
+
+        // 加入生成佇列
+        await queueService.addGenerateJob({
+          postId: post.id,
+          createdBy: creatorId,
+          stylePreset: schedule.prompt,
+        });
+
+        // 更新排程狀態
+        await pool.execute(
+          `UPDATE daily_auto_schedule
+           SET status = 'GENERATED', post_id = ?, executed_at = NOW(), updated_at = NOW()
+           WHERE id = ?`,
+          [post.id, schedule.id]
+        );
+
+        // 記錄到 post_performance_log（初始值）
+        const logId = generateUUID();
+        const scheduledTime = new Date(schedule.scheduled_time);
+        await pool.execute(
+          `INSERT INTO post_performance_log
+           (id, post_id, template_id, time_slot_id, posted_at, posted_hour, posted_minute, day_of_week,
+            ucb_score, was_exploration, selection_reason, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            logId,
+            post.id,
+            schedule.selected_template_id,
+            schedule.selected_time_slot_id,
+            schedule.scheduled_time,
+            scheduledTime.getHours(),
+            scheduledTime.getMinutes(),
+            scheduledTime.getDay(),
+            schedule.ucb_score,
+            schedule.selection_reason?.includes('探索') ? true : false,
+            schedule.selection_reason
+          ]
+        );
+
+        logger.info(`✓ Auto-schedule ${schedule.id} executed successfully`);
+      } catch (error) {
+        logger.error(`Failed to execute auto-schedule ${schedule.id}:`, error);
+
+        // 更新排程狀態為 FAILED
+        await pool.execute(
+          `UPDATE daily_auto_schedule
+           SET status = 'FAILED', error_message = ?, updated_at = NOW()
+           WHERE id = ?`,
+          [error instanceof Error ? error.message : String(error), schedule.id]
+        );
+      }
+    }
+
+    logger.info(`✓ Executed ${schedules.length} auto-scheduled post(s)`);
+  } catch (error) {
+    logger.error('Failed to execute auto-scheduled posts:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
-  // Initialize dynamic schedule from settings
-  await initializeDynamicSchedule();
-
   // Start fixed schedulers
   checkExpiredReviews.start();
   tokenRefreshCheck.start();
   dailyReviewReminder.start();
   syncInsightsData.start();
   cleanupOldInsights.start();
+  executeScheduledPosts.start();
 
-  logger.info('✓ All schedulers started');
+  // Start UCB auto-scheduling
+  dailyAutoScheduler.start();
+  executeAutoScheduledPosts.start();
+
+  logger.info('✓ All schedulers started (UCB auto-scheduling enabled)');
 }
 
 /**
  * Stop all schedulers
  */
 export function stopSchedulers() {
-  // Stop dynamic schedule jobs
-  scheduleJobs.forEach(job => job.stop());
-
   // Stop fixed schedulers
   checkExpiredReviews.stop();
   tokenRefreshCheck.stop();
   dailyReviewReminder.stop();
   syncInsightsData.stop();
   cleanupOldInsights.stop();
+  executeScheduledPosts.stop();
+
+  // Stop UCB auto-scheduling
+  dailyAutoScheduler.stop();
+  executeAutoScheduledPosts.stop();
 
   logger.info('✓ All schedulers stopped');
 }

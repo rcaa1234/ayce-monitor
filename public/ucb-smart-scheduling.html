@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能排程系統 - UCB 模板管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .back-btn:hover {
+            text-decoration: underline;
+        }
+
+        /* Tabs */
+        .tabs {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: #f0f0f0;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .main-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e7ff;
+            color: #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #c7d2fe;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        /* Templates Grid */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .template-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .template-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .template-card.disabled {
+            opacity: 0.6;
+            background: #f9fafb;
+        }
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+
+        .template-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 5px;
+        }
+
+        .template-description {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .template-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-enabled {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-disabled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .template-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .stat-value.highlight {
+            color: #667eea;
+        }
+
+        .template-prompt {
+            font-size: 14px;
+            color: #374151;
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 15px;
+            max-height: 80px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .template-actions .btn {
+            flex: 1;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            line-height: 1;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #666;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* UCB Config */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .config-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .config-card h3 {
+            color: #111827;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-box h4 {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        .stat-box p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        /* Schedule History */
+        .schedule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .schedule-item {
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .schedule-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .schedule-date {
+            font-weight: 600;
+            color: #111827;
+            font-size: 16px;
+        }
+
+        .schedule-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-generated {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-posted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-cancelled {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .schedule-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .schedule-info-item {
+            color: #6b7280;
+        }
+
+        .schedule-info-item strong {
+            color: #111827;
+        }
+
+        .schedule-reason {
+            background: #f9fafb;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #4b5563;
+            border-left: 3px solid #667eea;
+        }
+
+        .schedule-reason strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        /* Preview Modal */
+        .preview-content {
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            line-height: 1.8;
+            font-size: 15px;
+            color: #1f2937;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e5e7eb;
+        }
+
+        .preview-loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .preview-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-test {
+            background: #10b981;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-test:hover {
+            background: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <a href="/index.html" class="back-btn">← 返回主頁</a>
+            <h1>📝 智能排程系統</h1>
+            <p>建立和管理 AI 生成提示詞模板，配置 UCB 智能排程</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('templates')">📝 模板管理</button>
+            <button class="tab" onclick="switchTab('ucb-config')">🤖 UCB 配置</button>
+            <button class="tab" onclick="switchTab('schedule-history')">📊 排程歷史</button>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templatesTab" class="tab-content active">
+            <div class="main-content">
+                <div class="action-bar">
+                    <h2>我的模板</h2>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+                </div>
+                <div id="templates-container"></div>
+            </div>
+        </div>
+
+        <!-- UCB Config Tab -->
+        <div id="ucbConfigTab" class="tab-content">
+            <div class="main-content">
+                <h2 style="margin-bottom: 25px;">UCB 智能排程配置</h2>
+
+                <div class="config-grid">
+                    <!-- Left: Configuration Form -->
+                    <div class="config-card">
+                        <h3>⚙️ 參數設定</h3>
+                        <form id="ucb-config-form" onsubmit="saveUCBConfig(event)">
+                            <div class="form-group">
+                                <label for="exploration-factor">探索係數 (1.0-2.0)</label>
+                                <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1" value="1.5" required>
+                                <small>數值越高，系統越願意嘗試新模板（探索性強）</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="min-trials">最少試驗次數</label>
+                                <input type="number" id="min-trials" min="1" max="20" value="5" required>
+                                <small>每個模板至少嘗試幾次後才開始優化選擇</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="posts-per-day">每天發文次數</label>
+                                <input type="number" id="posts-per-day" min="1" max="10" value="1" required>
+                                <small>系統每天自動建立幾個排程</small>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="auto-schedule-enabled" checked>
+                                    <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動排程</label>
+                                </div>
+                                <small>每天 00:00 自動使用 UCB 建立排程</small>
+                            </div>
+
+                            <button type="submit" class="btn btn-success" style="width: 100%;">💾 儲存配置</button>
+                        </form>
+                    </div>
+
+                    <!-- Right: Statistics -->
+                    <div class="config-card">
+                        <h3>📊 系統統計</h3>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <h4 id="total-templates">0</h4>
+                                <p>總模板數</p>
+                            </div>
+                            <div class="stat-box">
+                                <h4 id="total-time-slots">0</h4>
+                                <p>時段數量</p>
+                            </div>
+                            <div class="stat-box">
+                                <h4 id="total-posts">0</h4>
+                                <p>總發文數</p>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 25px;">
+                            <button class="btn btn-primary" onclick="triggerDailySchedule()" style="width: 100%;">
+                                🚀 立即觸發排程（測試用）
+                            </button>
+                            <small style="display: block; margin-top: 10px; color: #6b7280; text-align: center;">
+                                手動觸發 UCB 演算法建立今天的排程
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ucb-message"></div>
+            </div>
+        </div>
+
+        <!-- Schedule History Tab -->
+        <div id="scheduleHistoryTab" class="tab-content">
+            <div class="main-content">
+                <div class="action-bar">
+                    <h2>自動排程歷史</h2>
+                    <button class="btn btn-secondary" onclick="loadScheduleHistory()">🔄 重新整理</button>
+                </div>
+                <div id="schedule-history-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Modal -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">新增模板</h2>
+                <button class="close-modal" onclick="closeModal()">×</button>
+            </div>
+            <form id="template-form" onsubmit="saveTemplate(event)">
+                <div class="form-group">
+                    <label for="template-name">模板名稱 *</label>
+                    <input type="text" id="template-name" required placeholder="例如：知識分享型">
+                </div>
+
+                <div class="form-group">
+                    <label for="template-description">模板描述</label>
+                    <input type="text" id="template-description" placeholder="簡短說明這個模板的用途">
+                </div>
+
+                <div class="form-group">
+                    <label for="template-engine">AI 引擎 *</label>
+                    <select id="template-engine" required>
+                        <option value="GPT5_2">GPT-5.2 (推薦)</option>
+                        <option value="GPT5_2_INSTANT">GPT-5.2 Instant (快速)</option>
+                        <option value="GPT4O">GPT-4o</option>
+                        <option value="GEMINI_3_FLASH">Gemini 3 Flash</option>
+                        <option value="GEMINI_3_PRO_PREVIEW">Gemini 3 Pro</option>
+                        <option value="GEMINI_2_5_FLASH">Gemini 2.5 Flash</option>
+                    </select>
+                    <small>此模板生成內容時將使用的 AI 引擎</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="template-prompt">提示詞內容 *</label>
+                    <textarea id="template-prompt" required placeholder="請產生一篇 Threads 貼文..."></textarea>
+                    <small>這是給 AI 的指令，請詳細描述你希望 AI 生成什麼樣的內容</small>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="template-enabled" checked>
+                        <label for="template-enabled" style="margin-bottom: 0;">啟用此模板</label>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="button" class="btn btn-test" onclick="testCurrentTemplate()">🧪 測試生成</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📝 內容預覽</h2>
+                <button class="close-modal" onclick="closePreviewModal()">×</button>
+            </div>
+
+            <div id="preview-result"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closePreviewModal()">關閉</button>
+                <button class="btn btn-primary" onclick="regeneratePreview()">🔄 重新生成</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let templates = [];
+        let currentEditingId = null;
+
+        // Tab Switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            if (tabName === 'templates') {
+                document.getElementById('templatesTab').classList.add('active');
+                document.querySelectorAll('.tab')[0].classList.add('active');
+                loadTemplates();
+            } else if (tabName === 'ucb-config') {
+                document.getElementById('ucbConfigTab').classList.add('active');
+                document.querySelectorAll('.tab')[1].classList.add('active');
+                loadUCBConfig();
+                loadStatistics();
+            } else if (tabName === 'schedule-history') {
+                document.getElementById('scheduleHistoryTab').classList.add('active');
+                document.querySelectorAll('.tab')[2].classList.add('active');
+                loadScheduleHistory();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/index.html';
+                return;
+            }
+            loadTemplates();
+        });
+
+        // ==================== TEMPLATES ====================
+
+        async function loadTemplates() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/templates`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入失敗');
+
+                const data = await response.json();
+                templates = data.templates || [];
+                renderTemplates();
+            } catch (error) {
+                document.getElementById('templates-container').innerHTML =
+                    `<div class="error-message">載入模板失敗: ${error.message}</div>`;
+            }
+        }
+
+        function renderTemplates() {
+            const container = document.getElementById('templates-container');
+
+            if (templates.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <h3>還沒有任何模板</h3>
+                        <p>點擊「新增模板」開始建立你的第一個內容模板</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="templates-grid">
+                    ${templates.map(template => {
+                        const avgRate = parseFloat(template.avg_engagement_rate) || 0;
+                        const engineName = getEngineName(template.preferred_engine || 'GPT5_2');
+                        return `
+                        <div class="template-card ${template.enabled ? '' : 'disabled'}">
+                            <div class="template-header">
+                                <div>
+                                    <div class="template-name">${escapeHtml(template.name)}</div>
+                                    ${template.description ? `<div class="template-description">${escapeHtml(template.description)}</div>` : ''}
+                                    <div style="margin-top: 5px; font-size: 12px; color: #667eea;">
+                                        <strong>🤖 AI 引擎：</strong>${engineName}
+                                    </div>
+                                </div>
+                                <span class="template-status ${template.enabled ? 'status-enabled' : 'status-disabled'}">
+                                    ${template.enabled ? '啟用' : '停用'}
+                                </span>
+                            </div>
+
+                            <div class="template-stats">
+                                <div class="stat">
+                                    <div class="stat-label">使用次數</div>
+                                    <div class="stat-value">${template.total_uses || 0}</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-label">平均互動率</div>
+                                    <div class="stat-value highlight">${avgRate.toFixed(2)}%</div>
+                                </div>
+                            </div>
+
+                            <div class="template-prompt">${escapeHtml(template.prompt)}</div>
+
+                            <div class="template-actions">
+                                <button class="btn btn-test" onclick="testTemplate('${template.id}')">🧪 測試</button>
+                                <button class="btn btn-secondary" onclick="editTemplate('${template.id}')">編輯</button>
+                                <button class="btn btn-danger" onclick="deleteTemplate('${template.id}', '${escapeHtml(template.name)}')">刪除</button>
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            `;
+        }
+
+        function openCreateModal() {
+            currentEditingId = null;
+            document.getElementById('modal-title').textContent = '新增模板';
+            document.getElementById('template-form').reset();
+            document.getElementById('template-enabled').checked = true;
+            document.getElementById('template-engine').value = 'GPT5_2'; // 預設值
+            document.getElementById('templateModal').classList.add('active');
+        }
+
+        function editTemplate(id) {
+            const template = templates.find(t => t.id === id);
+            if (!template) return;
+
+            currentEditingId = id;
+            document.getElementById('modal-title').textContent = '編輯模板';
+            document.getElementById('template-name').value = template.name;
+            document.getElementById('template-description').value = template.description || '';
+            document.getElementById('template-engine').value = template.preferred_engine || 'GPT5_2';
+            document.getElementById('template-prompt').value = template.prompt;
+            document.getElementById('template-enabled').checked = template.enabled;
+            document.getElementById('templateModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('templateModal').classList.remove('active');
+            currentEditingId = null;
+        }
+
+        async function saveTemplate(event) {
+            event.preventDefault();
+
+            const data = {
+                name: document.getElementById('template-name').value,
+                description: document.getElementById('template-description').value,
+                preferred_engine: document.getElementById('template-engine').value,
+                prompt: document.getElementById('template-prompt').value,
+                enabled: document.getElementById('template-enabled').checked
+            };
+
+            try {
+                const token = localStorage.getItem('token');
+                const url = currentEditingId
+                    ? `${API_BASE}/templates/${currentEditingId}`
+                    : `${API_BASE}/templates`;
+                const method = currentEditingId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) throw new Error('儲存失敗');
+
+                closeModal();
+                loadTemplates();
+                showMessage('templates-container', '模板已儲存！', 'success');
+            } catch (error) {
+                alert('儲存失敗: ' + error.message);
+            }
+        }
+
+        async function deleteTemplate(id, name) {
+            if (!confirm(`確定要刪除模板「${name}」嗎？`)) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/templates/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('刪除失敗');
+
+                loadTemplates();
+                showMessage('templates-container', '模板已刪除', 'success');
+            } catch (error) {
+                alert('刪除失敗: ' + error.message);
+            }
+        }
+
+        // ==================== UCB CONFIG ====================
+
+        async function loadUCBConfig() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入配置失敗');
+
+                const data = await response.json();
+                const config = data.config;
+
+                if (config) {
+                    document.getElementById('exploration-factor').value = parseFloat(config.exploration_factor) || 1.5;
+                    document.getElementById('min-trials').value = parseInt(config.min_trials_per_template) || 5;
+                    document.getElementById('posts-per-day').value = parseInt(config.posts_per_day) || 1;
+                    document.getElementById('auto-schedule-enabled').checked = Boolean(config.auto_schedule_enabled);
+                }
+            } catch (error) {
+                console.error('載入配置失敗:', error);
+            }
+        }
+
+        async function saveUCBConfig(event) {
+            event.preventDefault();
+
+            const data = {
+                exploration_factor: parseFloat(document.getElementById('exploration-factor').value),
+                min_trials_per_template: parseInt(document.getElementById('min-trials').value),
+                posts_per_day: parseInt(document.getElementById('posts-per-day').value),
+                auto_schedule_enabled: document.getElementById('auto-schedule-enabled').checked
+            };
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) throw new Error('儲存失敗');
+
+                showMessage('ucb-message', '配置已儲存！', 'success');
+            } catch (error) {
+                showMessage('ucb-message', '儲存失敗: ' + error.message, 'error');
+            }
+        }
+
+        async function loadStatistics() {
+            try {
+                const token = localStorage.getItem('token');
+
+                // Load templates count
+                const templatesRes = await fetch(`${API_BASE}/templates`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const templatesData = await templatesRes.json();
+                document.getElementById('total-templates').textContent = templatesData.templates?.length || 0;
+
+                // Load time slots count (if endpoint exists)
+                try {
+                    const timeSlotsRes = await fetch(`${API_BASE}/time-slots`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const timeSlotsData = await timeSlotsRes.json();
+                    document.getElementById('total-time-slots').textContent = timeSlotsData.timeSlots?.length || 0;
+                } catch {
+                    document.getElementById('total-time-slots').textContent = '0';
+                }
+
+                // Total posts (placeholder - would need real endpoint)
+                document.getElementById('total-posts').textContent = '—';
+            } catch (error) {
+                console.error('載入統計失敗:', error);
+            }
+        }
+
+        async function triggerDailySchedule() {
+            if (!confirm('確定要立即觸發今天的排程嗎？')) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/trigger-daily-schedule`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('觸發失敗');
+
+                const data = await response.json();
+                showMessage('ucb-message', '排程已建立！', 'success');
+
+                // Switch to schedule history
+                setTimeout(() => {
+                    switchTab('schedule-history');
+                }, 1500);
+            } catch (error) {
+                showMessage('ucb-message', '觸發失敗: ' + error.message, 'error');
+            }
+        }
+
+        // ==================== SCHEDULE HISTORY ====================
+
+        async function loadScheduleHistory() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/auto-schedules`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('載入失敗');
+
+                const data = await response.json();
+                const schedules = data.schedules || [];
+                renderScheduleHistory(schedules);
+            } catch (error) {
+                document.getElementById('schedule-history-container').innerHTML =
+                    `<div class="error-message">載入排程歷史失敗: ${error.message}</div>`;
+            }
+        }
+
+        function renderScheduleHistory(schedules) {
+            const container = document.getElementById('schedule-history-container');
+
+            if (schedules.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📅</div>
+                        <h3>還沒有排程記錄</h3>
+                        <p>系統會在每天 00:00 自動建立排程，或點擊「立即觸發排程」進行測試</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="schedule-list">
+                    ${schedules.map(schedule => {
+                        const statusMap = {
+                            'PENDING': { label: '待執行', class: 'status-pending' },
+                            'GENERATED': { label: '已生成', class: 'status-generated' },
+                            'POSTED': { label: '已發布', class: 'status-posted' },
+                            'FAILED': { label: '失敗', class: 'status-failed' },
+                            'CANCELLED': { label: '已取消', class: 'status-cancelled' }
+                        };
+                        const status = statusMap[schedule.status] || { label: schedule.status, class: '' };
+
+                        return `
+                        <div class="schedule-item">
+                            <div class="schedule-header">
+                                <div class="schedule-date">📅 ${formatDate(schedule.schedule_date)}</div>
+                                <span class="schedule-status ${status.class}">${status.label}</span>
+                            </div>
+
+                            <div class="schedule-info">
+                                <div class="schedule-info-item">
+                                    <strong>發文時間:</strong> ${formatDateTime(schedule.scheduled_time)}
+                                </div>
+                                <div class="schedule-info-item">
+                                    <strong>使用模板:</strong> ${escapeHtml(schedule.template_name || '未知')}
+                                </div>
+                                <div class="schedule-info-item">
+                                    <strong>UCB 分數:</strong> ${schedule.ucb_score ? parseFloat(schedule.ucb_score).toFixed(4) : '—'}
+                                </div>
+                                <div class="schedule-info-item">
+                                    <strong>時段:</strong> ${escapeHtml(schedule.time_slot_name || '未知')}
+                                </div>
+                            </div>
+
+                            ${schedule.selection_reason ? `
+                                <div class="schedule-reason">
+                                    <strong>AI 決策原因:</strong>
+                                    ${escapeHtml(schedule.selection_reason)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `}).join('')}
+                </div>
+            `;
+        }
+
+        // ==================== HELPERS ====================
+
+        function getEngineName(engineCode) {
+            const engineNames = {
+                'GPT5_2': 'GPT-5.2',
+                'GPT5_2_INSTANT': 'GPT-5.2 Instant',
+                'GPT4O': 'GPT-4o',
+                'GEMINI_3_FLASH': 'Gemini 3 Flash',
+                'GEMINI_3_PRO_PREVIEW': 'Gemini 3 Pro',
+                'GEMINI_2_5_FLASH': 'Gemini 2.5 Flash'
+            };
+            return engineNames[engineCode] || engineCode;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        }
+
+        function formatDateTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showMessage(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success-message' : 'error-message';
+            messageDiv.textContent = message;
+
+            container.insertBefore(messageDiv, container.firstChild);
+
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        // ==================== TEMPLATE TESTING ====================
+
+        let currentTestPrompt = '';
+
+        let currentTestEngine = 'GPT5_2'; // 儲存當前測試使用的引擎
+
+        async function testTemplate(templateId) {
+            const template = templates.find(t => t.id === templateId);
+            if (!template) return;
+
+            currentTestPrompt = template.prompt;
+            currentTestEngine = template.preferred_engine || 'GPT5_2';
+            openPreviewModal(template.name, currentTestEngine);
+            await generatePreview();
+        }
+
+        async function testCurrentTemplate() {
+            const prompt = document.getElementById('template-prompt').value;
+            const engine = document.getElementById('template-engine').value;
+            const name = document.getElementById('template-name').value || '未命名模板';
+
+            if (!prompt) {
+                alert('請先填寫提示詞內容');
+                return;
+            }
+
+            currentTestPrompt = prompt;
+            currentTestEngine = engine;
+            openPreviewModal(name, currentTestEngine);
+            await generatePreview();
+        }
+
+        function openPreviewModal(templateName, engine) {
+            document.getElementById('previewModal').classList.add('active');
+            document.querySelector('#previewModal .modal-header h2').textContent = `📝 ${templateName} - 內容預覽`;
+            // 顯示使用的引擎
+            const engineName = getEngineName(engine);
+            document.querySelector('#previewModal .modal-header h2').textContent = `📝 ${templateName} - 內容預覽 (${engineName})`;
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').classList.remove('active');
+        }
+
+        async function regeneratePreview() {
+            await generatePreview();
+        }
+
+        async function generatePreview() {
+            const resultDiv = document.getElementById('preview-result');
+            const engine = currentTestEngine; // 使用儲存的引擎
+            const engineName = getEngineName(engine);
+
+            // Show loading
+            resultDiv.innerHTML = `
+                <div class="preview-loading">
+                    <div class="spinner"></div>
+                    <p>AI 正在生成內容...</p>
+                    <p style="font-size: 13px; color: #9ca3af;">使用引擎: ${engineName}</p>
+                </div>
+            `;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/generate/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: currentTestPrompt,
+                        engine: engine
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '生成失敗');
+                }
+
+                const data = await response.json();
+
+                resultDiv.innerHTML = `
+                    <div class="preview-content">${escapeHtml(data.content)}</div>
+                    <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0369a1;">
+                        <strong>💡 提示：</strong>這是 AI 根據模板提示詞生成的內容範例。每次生成的內容都會有所不同。
+                        <br><strong>使用引擎：</strong>${getEngineName(data.engine || engine)}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-message">
+                        生成失敗: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
