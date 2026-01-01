@@ -2,7 +2,7 @@ import { getPool } from '../database/connection';
 import { User, UserStatus } from '../types';
 import { generateUUID } from '../utils/uuid';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export class UserModel {
   /**

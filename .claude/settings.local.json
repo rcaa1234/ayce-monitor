@@ -69,7 +69,8 @@
       "Bash(del \"d:\\\\threads bot\\\\scripts\\\\fix-type-annotations.js\")",
       "Bash(if [ -f \"nul\" ])",
       "Bash(then rm nul)",
-      "Bash(else echo \"No nul file found\")"
+      "Bash(else echo \"No nul file found\")",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
 import config from '../config';
 import { generateUUID } from '../utils/uuid';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const roles = [
   { name: 'admin', description: '系統管理員' },
