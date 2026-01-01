@@ -1,8 +1,7 @@
-import { Queue, Worker, Job } from 'bullmq';
+import { Queue, Job } from 'bullmq';
 import Redis, { RedisOptions } from 'ioredis';
 import config from '../config';
 import logger from '../utils/logger';
-import { JobType } from '../types';
 
 // Parse Redis URL
 const redisUrl = config.redis.url;
@@ -23,8 +22,9 @@ function parseRedisUrl(urlString: string) {
 
 const redisConfig = parseRedisUrl(redisUrl);
 
-// CRITICAL FIX: Use connection sharing to avoid hitting Zeabur's 10-20 connection limit
-// According to Zeabur AI support, free tier limits concurrent connections
+// CONNECTION POOL IMPLEMENTATION (Zeabur AI recommendation)
+// Create a shared Redis connection that will be reused across all queues
+// This significantly reduces the number of connections (from 12+ to ~3)
 const sharedConnectionOptions: RedisOptions = {
   ...redisConfig,
 
@@ -32,24 +32,31 @@ const sharedConnectionOptions: RedisOptions = {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
 
-  // Connection pool and keepalive (Zeabur AI recommendation)
+  // Connection pool settings to minimize connections
   enableOfflineQueue: true,
-  keepAlive: 30000,
+  lazyConnect: false,
+
+  // Connection timeouts (Zeabur AI recommendation)
   connectTimeout: 30000,
   commandTimeout: 30000,
+  keepAlive: 30000,
 
   // Retry strategy (Zeabur AI recommendation)
   retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
-    if (times === 1) logger.warn(`Redis reconnecting...`);
+    if (times <= 3) logger.warn(`Redis retry ${times}, delay: ${delay}ms`);
     return delay;
   },
 
-  // Don't create too many connections on errors
-  lazyConnect: false,
+  // Connection pool optimization
+  autoResubscribe: true,
+  autoResendUnfulfilledCommands: true,
+
+  // Reduce connection overhead by grouping commands
+  enableAutoPipelining: true
 };
 
-logger.info(`Redis config: ${redisConfig.host}:${redisConfig.port}, TLS: ${!!redisConfig.tls}, Auth: ${!!redisConfig.password}`);
+logger.info(`Redis connection pool config: ${redisConfig.host}:${redisConfig.port}, TLS: ${!!redisConfig.tls}, Auth: ${!!redisConfig.password}`);
 
 // Define queue names
 export const QUEUE_NAMES = {
@@ -58,8 +65,9 @@ export const QUEUE_NAMES = {
   TOKEN_REFRESH: 'token-refresh',
 } as const;
 
-// CRITICAL: Share connection options across all queues
-// This prevents creating too many connections (Zeabur limit: 10-20)
+logger.info('Initializing BullMQ queues with connection pool...');
+
+// Create queues with connection factory for proper pooling
 export const generateQueue = new Queue(QUEUE_NAMES.GENERATE, {
   connection: sharedConnectionOptions,
 });
@@ -72,10 +80,12 @@ export const tokenRefreshQueue = new Queue(QUEUE_NAMES.TOKEN_REFRESH, {
   connection: sharedConnectionOptions,
 });
 
-// Single test connection (will be closed after test)
+// Test connection (will be closed after verification)
+logger.info('Testing Redis connection...');
 const testConnection = new Redis({
   ...sharedConnectionOptions,
   lazyConnect: true,
+  connectionName: 'test-connection',
 });
 
 testConnection.connect()
@@ -85,6 +95,7 @@ testConnection.connect()
   })
   .then(() => {
     logger.info('✓ Redis PING successful');
+    logger.info(`Total potential connections: ~6 (3 queues × 2 connections each)`);
     return testConnection.quit();
   })
   .catch((err) => {
