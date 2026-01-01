@@ -6,20 +6,46 @@ import { JobType } from '../types';
 
 // Parse Redis URL and create connection with proper options
 const redisUrl = config.redis.url;
+logger.info(`Connecting to Redis: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
+
 const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  lazyConnect: true,
   retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
+    if (times > 10) {
+      logger.error(`Redis retry attempts exceeded: ${times}`);
+      return null;
+    }
+    const delay = Math.min(times * 100, 3000);
+    logger.warn(`Redis retry attempt ${times}, delay: ${delay}ms`);
     return delay;
   },
   reconnectOnError: (err) => {
-    const targetError = 'READONLY';
-    if (err.message.includes(targetError)) {
-      return true;
-    }
-    return false;
+    logger.error('Redis reconnect on error:', err.message);
+    return true;
   },
+});
+
+connection.on('error', (err) => {
+  logger.error('Redis connection error:', err);
+});
+
+connection.on('connect', () => {
+  logger.info('✓ Redis connected successfully');
+});
+
+connection.on('ready', () => {
+  logger.info('✓ Redis ready to accept commands');
+});
+
+connection.on('close', () => {
+  logger.warn('Redis connection closed');
+});
+
+// Connect immediately
+connection.connect().catch((err) => {
+  logger.error('Failed to connect to Redis:', err);
 });
 
 // Define queue names
