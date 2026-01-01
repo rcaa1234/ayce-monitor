@@ -11,20 +11,29 @@ logger.info(`Connecting to Redis: ${redisUrl.replace(/:[^:@]+@/, ':****@')}`);
 // Determine if we need TLS (Zeabur and most cloud providers use rediss://)
 const isTLS = redisUrl.startsWith('rediss://');
 
-// Critical: Use simpler, more stable Redis configuration for Zeabur
-// The key issue is that Zeabur Redis has connection limits and stability issues
+// Parse Redis URL components for ioredis
+const url = new URL(redisUrl);
+
+// Critical: BullMQ needs the full connection configuration
+// MUST include host, port, and all other settings
 const connectionOptions: any = {
+  host: url.hostname,
+  port: parseInt(url.port || (isTLS ? '6380' : '6379'), 10),
+
+  // Add password if present in URL
+  ...(url.password && { password: url.password }),
+
   // BullMQ requirements
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
 
-  // Simplified retry strategy - fewer retries, longer delays
+  // Simplified retry strategy
   retryStrategy: (times: number) => {
     if (times > 5) {
       logger.error(`Redis max retries (${times}) exceeded`);
       return null;
     }
-    const delay = times * 2000; // 2s, 4s, 6s, 8s, 10s
+    const delay = times * 2000;
     logger.warn(`Redis retry ${times}/5, delay: ${delay}ms`);
     return delay;
   },
@@ -32,13 +41,13 @@ const connectionOptions: any = {
   // Disable reconnect on error to prevent connection storms
   reconnectOnError: () => false,
 
-  // Longer timeouts for stability
+  // Timeouts
   connectTimeout: 20000,
 
-  // Enable offline queue to buffer commands
+  // Enable offline queue
   enableOfflineQueue: true,
 
-  // TLS support for Zeabur
+  // TLS support for Zeabur (rediss://)
   ...(isTLS && {
     tls: {
       rejectUnauthorized: false,
@@ -46,8 +55,7 @@ const connectionOptions: any = {
   }),
 };
 
-// Log connection attempt
-logger.info('Initializing Redis connection for BullMQ...');
+logger.info(`Initializing Redis for BullMQ: ${url.hostname}:${connectionOptions.port}`);
 
 // Define queue names
 export const QUEUE_NAMES = {
@@ -56,8 +64,7 @@ export const QUEUE_NAMES = {
   TOKEN_REFRESH: 'token-refresh',
 } as const;
 
-// Create queues - BullMQ will manage connections internally
-// Pass connection options, not a Redis instance
+// Create queues with proper connection config
 export const generateQueue = new Queue(QUEUE_NAMES.GENERATE, {
   connection: connectionOptions,
 });
@@ -71,7 +78,7 @@ export const tokenRefreshQueue = new Queue(QUEUE_NAMES.TOKEN_REFRESH, {
 });
 
 // Create a test connection to verify Redis is accessible
-const testConnection = new Redis(redisUrl, {
+const testConnection = new Redis({
   ...connectionOptions,
   lazyConnect: true,
 });
