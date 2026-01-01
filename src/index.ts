@@ -56,8 +56,9 @@ async function start() {
 
     // Start server
     const port = config.app.port;
-    app.listen(port, () => {
-      logger.info(`🚀 Server running on port ${port}`);
+    const host = '0.0.0.0'; // Listen on all network interfaces for container deployment
+    app.listen(port, host, () => {
+      logger.info(`🚀 Server running on ${host}:${port}`);
       logger.info(`Environment: ${config.app.env}`);
       logger.info(`Base URL: ${config.app.baseUrl}`);
     });
