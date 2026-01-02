@@ -2505,9 +2505,9 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
 
     logger.info('🧪 Quick test: Generating content for LINE approval test');
 
-    // 從 UCB 配置取得 LINE User ID 和 Threads 帳號
+    // 從 UCB 配置取得 LINE User ID
     const [configs] = await pool.execute<RowDataPacket[]>(
-      `SELECT line_user_id, threads_account_id FROM smart_schedule_config WHERE enabled = true LIMIT 1`
+      `SELECT line_user_id FROM smart_schedule_config WHERE enabled = true LIMIT 1`
     );
 
     if (configs.length === 0 || !configs[0].line_user_id) {
@@ -2519,11 +2519,14 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
     }
 
     const lineUserId = configs[0].line_user_id;
-    const threadsAccountId = configs[0].threads_account_id;
 
-    // 找到對應的使用者
+    // 找到對應的使用者並取得 Threads 帳號
     const [users] = await pool.execute<RowDataPacket[]>(
-      `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+      `SELECT u.id, ta.id as threads_account_id
+       FROM users u
+       LEFT JOIN threads_accounts ta ON u.id = ta.user_id AND ta.is_active = true
+       WHERE u.line_user_id = ? AND u.status = 'ACTIVE'
+       LIMIT 1`,
       [lineUserId]
     );
 
@@ -2536,6 +2539,7 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
     }
 
     const creatorId = users[0].id;
+    const threadsAccountId = users[0].threads_account_id;
 
     // 隨機選擇一個啟用的模板
     const [templates] = await pool.execute<RowDataPacket[]>(
