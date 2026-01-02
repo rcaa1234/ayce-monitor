@@ -2379,6 +2379,31 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       );
     }
 
+    // 同步更新使用者的 LINE User ID (關鍵修正!)
+    // 當設定了 line_user_id 時,找到對應的使用者並更新其 line_user_id 欄位
+    if (line_user_id) {
+      const [users] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM users WHERE line_user_id = ? OR email = ? LIMIT 1`,
+        [line_user_id, 'admin@example.com']
+      );
+
+      if (users.length > 0) {
+        // 使用者已存在,更新 LINE User ID
+        await pool.execute(
+          `UPDATE users SET line_user_id = ? WHERE id = ?`,
+          [line_user_id, users[0].id]
+        );
+        logger.info(`Updated LINE User ID for user ${users[0].id}`);
+      } else {
+        // 預設更新 admin 帳號
+        await pool.execute(
+          `UPDATE users SET line_user_id = ? WHERE email = ?`,
+          [line_user_id, 'admin@example.com']
+        );
+        logger.info(`Updated LINE User ID for admin user`);
+      }
+    }
+
     logger.info('Updated UCB config with account and notification settings');
 
     res.json({
