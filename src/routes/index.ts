@@ -2568,13 +2568,11 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
 
     logger.info(`✓ Created post: ${post.id}`);
 
-    // 設定 Threads 帳號
+    // Threads 帳號會透過 created_by -> users -> threads_accounts 關聯自動取得
     if (threadsAccountId) {
-      await pool.execute(
-        `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
-        [threadsAccountId, post.id]
-      );
-      logger.info(`✓ Set Threads account: ${threadsAccountId}`);
+      logger.info(`✓ User has Threads account: ${threadsAccountId}`);
+    } else {
+      logger.warn(`⚠ User does not have a default Threads account`);
     }
 
     // 加入生成佇列
