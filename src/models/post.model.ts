@@ -10,15 +10,15 @@ export class PostModel {
   static async create(data: {
     created_by: string;
     status?: PostStatus;
-    threads_account_id?: string;
+    threads_account_id?: string; // 保留參數以維持向後相容,但不使用
     scheduled_for?: Date | null;
   }): Promise<Post> {
     const pool = getPool();
     const id = generateUUID();
 
     await pool.execute<ResultSetHeader>(
-      `INSERT INTO posts (id, status, created_by, threads_account_id, scheduled_for) VALUES (?, ?, ?, ?, ?)`,
-      [id, data.status || PostStatus.DRAFT, data.created_by, data.threads_account_id || null, data.scheduled_for || null]
+      `INSERT INTO posts (id, status, created_by, scheduled_for) VALUES (?, ?, ?, ?)`,
+      [id, data.status || PostStatus.DRAFT, data.created_by, data.scheduled_for || null]
     );
 
     return this.findById(id) as Promise<Post>;
