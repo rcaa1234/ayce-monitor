@@ -2492,134 +2492,111 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 
 /**
  * POST /api/trigger-daily-schedule
- * 用途：手動觸發每日自動排程（測試用）
- * 參數：immediate (boolean) - 是否立即執行（用於測試）
+ * 用途：快速測試內容生成和 LINE 通知流程（測試用）
+ * 說明：此功能完全獨立於 UCB 排程系統，用於測試整個審核發布流程
  */
 router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { immediate } = req.body;
-    const { createDailyAutoSchedule } = await import('../cron/scheduler');
     const { getPool } = await import('../database/connection');
     const pool = getPool();
+    const { PostModel } = await import('../models/post.model');
+    const { PostStatus } = await import('../types');
+    const queueService = (await import('../services/queue.service')).default;
 
-    // 建立排程
-    await createDailyAutoSchedule();
+    logger.info('🧪 Quick test: Generating content for LINE approval test');
 
-    // 如果是立即執行模式，馬上觸發生成
-    if (immediate) {
-      const { PostModel } = await import('../models/post.model');
-      const { PostStatus } = await import('../types');
-      const { generateUUID } = await import('../utils/uuid');
-      const { ucbService } = await import('../services/ucb.service');
-      const queueService = (await import('../services/queue.service')).default;
+    // 從 UCB 配置取得 LINE User ID 和 Threads 帳號
+    const [configs] = await pool.execute<RowDataPacket[]>(
+      `SELECT line_user_id, threads_account_id FROM smart_schedule_config WHERE enabled = true LIMIT 1`
+    );
 
-      // 取得剛建立的排程
-      const today = new Date().toISOString().split('T')[0];
-      const [schedules] = await pool.execute<RowDataPacket[]>(
-        `SELECT das.*, ct.prompt, ct.preferred_engine
-         FROM daily_auto_schedule das
-         JOIN content_templates ct ON das.selected_template_id = ct.id
-         WHERE das.schedule_date = ? AND das.status = 'PENDING'
-         LIMIT 1`,
-        [today]
-      );
-
-      if (schedules.length === 0) {
-        res.json({
-          success: true,
-          message: '排程已建立，但找不到待執行的排程',
-        });
-        return;
-      }
-
-      const schedule = schedules[0];
-      const ucbConfig = await ucbService.getConfig();
-
-      // 取得建立者
-      let creatorId: string;
-      if (ucbConfig.line_user_id) {
-        const [lineUsers] = await pool.execute<RowDataPacket[]>(
-          `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
-          [ucbConfig.line_user_id]
-        );
-        if (lineUsers.length > 0) {
-          creatorId = lineUsers[0].id;
-        } else {
-          throw new Error('設定的 LINE User ID 找不到對應的使用者');
-        }
-      } else {
-        throw new Error('請先在 UCB 設定中設定 LINE User ID');
-      }
-
-      // 建立 Post (DRAFT)
-      const post = await PostModel.create({
-        status: PostStatus.DRAFT,
-        created_by: creatorId,
+    if (configs.length === 0 || !configs[0].line_user_id) {
+      res.status(400).json({
+        error: '請先在 UCB 設定中設定 LINE User ID',
+        hint: '前往 UCB 智能排程設定頁面，填寫您的 LINE User ID'
       });
-
-      // 如果有設定 Threads 帳號，更新到資料庫
-      if (ucbConfig.threads_account_id) {
-        await pool.execute(
-          `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
-          [ucbConfig.threads_account_id, post.id]
-        );
-      }
-
-      // 加入生成佇列，使用模板的偏好引擎
-      await queueService.addGenerateJob({
-        postId: post.id,
-        createdBy: creatorId,
-        stylePreset: schedule.prompt,
-        engine: schedule.preferred_engine || 'GPT5_2',
-      });
-
-      // 更新排程狀態
-      await pool.execute(
-        `UPDATE daily_auto_schedule
-         SET status = 'GENERATED', post_id = ?, executed_at = NOW(), updated_at = NOW()
-         WHERE id = ?`,
-        [post.id, schedule.id]
-      );
-
-      // 記錄到 post_performance_log
-      const logId = generateUUID();
-      const scheduledTime = new Date(schedule.scheduled_time);
-      await pool.execute(
-        `INSERT INTO post_performance_log
-         (id, post_id, template_id, time_slot_id, posted_at, posted_hour, posted_minute, day_of_week,
-          ucb_score, was_exploration, selection_reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          logId,
-          post.id,
-          schedule.selected_template_id,
-          schedule.selected_time_slot_id,
-          schedule.scheduled_time,
-          scheduledTime.getHours(),
-          scheduledTime.getMinutes(),
-          scheduledTime.getDay(),
-          schedule.ucb_score,
-          schedule.selection_reason?.includes('探索') ? true : false,
-          schedule.selection_reason
-        ]
-      );
-
-      logger.info(`✓ Immediate test execution: Created post ${post.id} and added to generation queue`);
-
-      res.json({
-        success: true,
-        message: '已觸發 UCB 排程並立即生成文章，請查看 LINE 通知',
-        postId: post.id,
-      });
-    } else {
-      res.json({
-        success: true,
-        message: '已觸發每日自動排程',
-      });
+      return;
     }
+
+    const lineUserId = configs[0].line_user_id;
+    const threadsAccountId = configs[0].threads_account_id;
+
+    // 找到對應的使用者
+    const [users] = await pool.execute<RowDataPacket[]>(
+      `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+      [lineUserId]
+    );
+
+    if (users.length === 0) {
+      res.status(400).json({
+        error: 'LINE User ID 找不到對應的使用者',
+        hint: '請確認 LINE User ID 是否正確'
+      });
+      return;
+    }
+
+    const creatorId = users[0].id;
+
+    // 隨機選擇一個啟用的模板
+    const [templates] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, name, prompt, preferred_engine FROM content_templates
+       WHERE enabled = true
+       ORDER BY RAND()
+       LIMIT 1`
+    );
+
+    if (templates.length === 0) {
+      res.status(400).json({
+        error: '沒有可用的內容模板',
+        hint: '請先建立至少一個啟用的內容模板'
+      });
+      return;
+    }
+
+    const template = templates[0];
+    logger.info(`📝 Using template: ${template.name}`);
+
+    // 建立 Post (DRAFT 狀態)
+    const post = await PostModel.create({
+      status: PostStatus.DRAFT,
+      created_by: creatorId,
+    });
+
+    logger.info(`✓ Created post: ${post.id}`);
+
+    // 設定 Threads 帳號
+    if (threadsAccountId) {
+      await pool.execute(
+        `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
+        [threadsAccountId, post.id]
+      );
+      logger.info(`✓ Set Threads account: ${threadsAccountId}`);
+    }
+
+    // 加入生成佇列
+    await queueService.addGenerateJob({
+      postId: post.id,
+      createdBy: creatorId,
+      stylePreset: template.prompt,
+      engine: template.preferred_engine || 'GPT5_2',
+    });
+
+    logger.info(`✓ Added to generation queue with engine: ${template.preferred_engine || 'GPT5_2'}`);
+    logger.info(`📱 LINE notification will be sent to: ${lineUserId}`);
+
+    res.json({
+      success: true,
+      message: '✅ 測試已啟動！文章生成完成後會發送 LINE 通知給您審核',
+      details: {
+        postId: post.id,
+        templateName: template.name,
+        lineUserId: lineUserId,
+        engine: template.preferred_engine || 'GPT5_2',
+      }
+    });
   } catch (error: any) {
-    logger.error('Failed to trigger daily schedule:', error);
-    res.status(500).json({ error: '無法觸發排程', message: error.message });
+    logger.error('Failed to trigger test generation:', error);
+    res.status(500).json({ error: '無法啟動測試', message: error.message });
   }
 });
 
