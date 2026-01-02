@@ -2524,7 +2524,7 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
     const [users] = await pool.execute<RowDataPacket[]>(
       `SELECT u.id, ta.id as threads_account_id
        FROM users u
-       LEFT JOIN threads_accounts ta ON u.id = ta.user_id AND ta.is_active = true
+       LEFT JOIN threads_accounts ta ON u.id = ta.user_id AND ta.status = 'ACTIVE' AND ta.is_default = 1
        WHERE u.line_user_id = ? AND u.status = 'ACTIVE'
        LIMIT 1`,
       [lineUserId]
