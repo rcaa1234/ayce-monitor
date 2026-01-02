@@ -11,14 +11,15 @@ export class PostModel {
     created_by: string;
     status?: PostStatus;
     threads_account_id?: string; // 保留參數以維持向後相容,但不使用
-    scheduled_for?: Date | null;
+    scheduled_for?: Date | null; // 保留參數以維持向後相容,但不使用
   }): Promise<Post> {
     const pool = getPool();
     const id = generateUUID();
 
+    // 只使用 posts 表中實際存在的基本欄位
     await pool.execute<ResultSetHeader>(
-      `INSERT INTO posts (id, status, created_by, scheduled_for) VALUES (?, ?, ?, ?)`,
-      [id, data.status || PostStatus.DRAFT, data.created_by, data.scheduled_for || null]
+      `INSERT INTO posts (id, status, created_by) VALUES (?, ?, ?)`,
+      [id, data.status || PostStatus.DRAFT, data.created_by]
     );
 
     return this.findById(id) as Promise<Post>;
