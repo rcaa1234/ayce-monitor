@@ -19,6 +19,7 @@
     "setup": "npm run migrate && npm run seed",
     "cleanup": "node scripts/cleanup-test-data.js",
     "setup-timeslots": "node scripts/setup-time-slots.js",
+    "verify-schema": "node scripts/verify-database-schema.js",
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "insights:test": "node scripts/quick-test-insights.js",
