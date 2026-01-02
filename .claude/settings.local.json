@@ -70,7 +70,8 @@
       "Bash(if [ -f \"nul\" ])",
       "Bash(then rm nul)",
       "Bash(else echo \"No nul file found\")",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }
