@@ -18,8 +18,8 @@ export async function up(): Promise<void> {
     // 1. Create post_insights table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS post_insights (
-        id VARCHAR(36) PRIMARY KEY,
-        post_id VARCHAR(36) NOT NULL,
+        id CHAR(36) PRIMARY KEY,
+        post_id CHAR(36) NOT NULL,
         likes INT DEFAULT 0,
         replies INT DEFAULT 0,
         reposts INT DEFAULT 0,
@@ -40,8 +40,8 @@ export async function up(): Promise<void> {
     // 2. Create post_insights_history table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS post_insights_history (
-        id VARCHAR(36) PRIMARY KEY,
-        post_id VARCHAR(36) NOT NULL,
+        id CHAR(36) PRIMARY KEY,
+        post_id CHAR(36) NOT NULL,
         snapshot_date DATE NOT NULL COMMENT '快照日期',
         likes INT DEFAULT 0,
         replies INT DEFAULT 0,
@@ -61,8 +61,8 @@ export async function up(): Promise<void> {
     // 3. Create template_performance table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS template_performance (
-        id VARCHAR(36) PRIMARY KEY,
-        template_id VARCHAR(36) NOT NULL,
+        id CHAR(36) PRIMARY KEY,
+        template_id CHAR(36) NOT NULL,
         stat_date DATE NOT NULL COMMENT '統計日期',
         posts_count INT DEFAULT 0 COMMENT '使用次數',
         avg_likes DECIMAL(10,2) DEFAULT 0.00,
@@ -89,8 +89,8 @@ export async function up(): Promise<void> {
     // 4. Create timeslot_performance table
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS timeslot_performance (
-        id VARCHAR(36) PRIMARY KEY,
-        timeslot_id VARCHAR(36) NOT NULL,
+        id CHAR(36) PRIMARY KEY,
+        timeslot_id CHAR(36) NOT NULL,
         stat_date DATE NOT NULL,
         posts_count INT DEFAULT 0,
         avg_likes DECIMAL(10,2) DEFAULT 0.00,
