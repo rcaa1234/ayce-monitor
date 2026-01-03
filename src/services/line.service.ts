@@ -45,7 +45,8 @@ class LineService {
       data.content,
       token,
       data.postId,
-      data.revisionId
+      data.revisionId,
+      data.reviewerLineUserId
     );
 
     // Send to LINE user
@@ -66,12 +67,13 @@ class LineService {
     content: string,
     token: string,
     postId: string,
-    revisionId: string
+    revisionId: string,
+    lineUserId: string
   ): FlexMessage {
     const baseUrl = config.app.baseUrl;
-    const approveUrl = `${baseUrl}/api/review/approve?token=${token}`;
-    const regenerateUrl = `${baseUrl}/api/review/regenerate?token=${token}`;
-    const skipUrl = `${baseUrl}/api/review/skip?token=${token}`;
+    const approveUrl = `${baseUrl}/api/review/approve?token=${token}&lineUserId=${lineUserId}`;
+    const regenerateUrl = `${baseUrl}/api/review/regenerate?token=${token}&lineUserId=${lineUserId}`;
+    const skipUrl = `${baseUrl}/api/review/skip?token=${token}&lineUserId=${lineUserId}`;
 
     const bubble: FlexBubble = {
       type: 'bubble',
