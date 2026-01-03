@@ -1829,11 +1829,16 @@
                     }
 
                     container.innerHTML = accounts.map(acc => `
-                        <div class="post-card">
-                            <h3>@${acc.username}</h3>
-                            <p><strong>帳號 ID:</strong> ${acc.threads_user_id || acc.account_id}</p>
+                        <div class="post-card" style="${acc.is_default ? 'border-left: 4px solid #28a745;' : ''}">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <h3>@${acc.username}</h3>
+                                ${acc.is_default ? '<span style="background: #28a745; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">預設帳號</span>' : ''}
+                            </div>
+                            <p><strong>帳號 ID:</strong> ${acc.account_id || '(未設定)'}</p>
+                            <p><strong>狀態:</strong> ${acc.status === 'ACTIVE' ? '<span style="color: #28a745;">✓ 啟用中</span>' : '<span style="color: #dc3545;">已鎖定</span>'}</p>
                             <p><strong>連結時間:</strong> ${new Date(acc.created_at).toLocaleString('zh-TW')}</p>
                             <div class="post-actions">
+                                ${!acc.is_default ? `<button class="btn btn-small" style="background: #28a745;" onclick="setDefaultAccount('${acc.id}')">設為預設</button>` : ''}
                                 <button class="btn btn-small btn-danger" onclick="removeThreadsAccount('${acc.id}')">解除連結</button>
                             </div>
                         </div>
@@ -1867,6 +1872,29 @@
                 }
             } catch (error) {
                 showAlert('dashboardAlert', `授權失敗: ${error.message}`, 'error');
+            }
+        }
+
+        async function setDefaultAccount(accountId) {
+            try {
+                const response = await fetch(`${API_BASE}/threads/accounts/${accountId}/set-default`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    showAlert('dashboardAlert', '✅ 已設為預設帳號', 'success');
+                    loadThreadsAccountsList();
+                    // Reload UCB config to refresh account selector
+                    if (typeof loadUcbConfig === 'function') {
+                        loadUcbConfig();
+                    }
+                } else {
+                    const data = await response.json();
+                    showAlert('dashboardAlert', data.error || '設定失敗', 'error');
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '設定失敗: ' + error.message, 'error');
             }
         }
 

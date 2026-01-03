@@ -329,12 +329,19 @@ router.get('/threads/oauth/callback', async (req: Request, res: Response): Promi
     const accountId = generateUUID();
     const authId = generateUUID();
 
+    // Check if this is the first account (set as default)
+    const [existingAccounts] = await pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM threads_accounts WHERE user_id = ?',
+      [userId]
+    );
+    const isFirstAccount = existingAccounts[0].count === 0;
+
     // Insert account
-    logger.info(`Inserting account: accountId=${accountId}, userId=${userId}, username=${username}, threadsUserId=${actualUserId}`);
+    logger.info(`Inserting account: accountId=${accountId}, userId=${userId}, username=${username}, threadsUserId=${actualUserId}, isDefault=${isFirstAccount}`);
 
     await pool.execute(
-      'INSERT INTO threads_accounts (id, user_id, username, account_id) VALUES (?, ?, ?, ?)',
-      [accountId, userId, username, actualUserId]
+      'INSERT INTO threads_accounts (id, user_id, username, account_id, status, is_default) VALUES (?, ?, ?, ?, ?, ?)',
+      [accountId, userId, username, actualUserId, 'ACTIVE', isFirstAccount ? 1 : 0]
     );
 
     // Encrypt and store token
@@ -413,6 +420,52 @@ router.get('/threads/accounts', authenticate, async (req: Request, res: Response
     res.json({ accounts });
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to load accounts', message: error.message });
+  }
+});
+
+router.post('/threads/accounts/:id/set-default', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = (req as AuthRequest).user!.id;
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    // Start transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Unset all defaults for this user
+      await connection.execute(
+        'UPDATE threads_accounts SET is_default = 0 WHERE user_id = ?',
+        [userId]
+      );
+
+      // Set this account as default
+      const [result] = await connection.execute<ResultSetHeader>(
+        'UPDATE threads_accounts SET is_default = 1 WHERE id = ? AND user_id = ?',
+        [id, userId]
+      );
+
+      if (result.affectedRows === 0) {
+        await connection.rollback();
+        res.status(404).json({ error: 'Account not found' });
+        return;
+      }
+
+      await connection.commit();
+      logger.info(`Set account ${id} as default for user ${userId}`);
+      res.json({ message: 'Default account set successfully' });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error: any) {
+    logger.error('Failed to set default account:', error);
+    res.status(500).json({ error: 'Failed to set default account', message: error.message });
   }
 });
 
