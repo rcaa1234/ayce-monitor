@@ -30,7 +30,8 @@
     "migrate:statistics": "ts-node src/database/migrations/create-statistics-tables.ts",
     "migrate:statistics:prod": "node dist/database/migrations/create-statistics-tables.js",
     "cleanup:statistics": "node scripts/cleanup-statistics-tables.js",
-    "check:posts-structure": "node scripts/check-posts-table-structure.js"
+    "check:posts-structure": "node scripts/check-posts-table-structure.js",
+    "list:tables": "node scripts/list-all-tables.js"
   },
   "keywords": [
     "threads",
