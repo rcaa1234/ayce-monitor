@@ -172,7 +172,7 @@ export class StatisticsModel {
             )
             FROM posts p2
             LEFT JOIN post_insights pi2 ON p2.id = pi2.post_id
-            LEFT JOIN time_slots ts ON p2.time_slot_id = ts.id
+            LEFT JOIN schedule_time_slots ts ON p2.time_slot_id = ts.id
             WHERE p2.template_id = t.id
               AND p2.status = 'POSTED'
               AND pi2.engagement_rate IS NOT NULL
@@ -215,7 +215,7 @@ export class StatisticsModel {
           COALESCE(AVG(pi.engagement_rate), 0) as avg_engagement_rate,
           COALESCE(AVG(pi.likes), 0) as avg_likes,
           COALESCE(AVG(pi.views), 0) as avg_views
-        FROM time_slots ts
+        FROM schedule_time_slots ts
         LEFT JOIN posts p ON ts.id = p.time_slot_id
         LEFT JOIN post_insights pi ON p.id = pi.post_id
         WHERE p.status = 'POSTED'
@@ -332,7 +332,7 @@ export class StatisticsModel {
         FROM posts p
         LEFT JOIN post_insights pi ON p.id = pi.post_id
         LEFT JOIN content_templates t ON p.template_id = t.id
-        LEFT JOIN time_slots ts ON p.time_slot_id = ts.id
+        LEFT JOIN schedule_time_slots ts ON p.time_slot_id = ts.id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT ? OFFSET ?`,
@@ -366,7 +366,7 @@ export class StatisticsModel {
           ts.day_of_week,
           ts.hour,
           COALESCE(AVG(pi.engagement_rate), 0) as avg_engagement_rate
-        FROM time_slots ts
+        FROM schedule_time_slots ts
         LEFT JOIN posts p ON ts.id = p.time_slot_id
         LEFT JOIN post_insights pi ON p.id = pi.post_id
         WHERE p.status = 'POSTED'

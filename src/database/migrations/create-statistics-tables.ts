@@ -105,7 +105,7 @@ export async function up(): Promise<void> {
         total_views INT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (timeslot_id) REFERENCES time_slots(id) ON DELETE CASCADE,
+        FOREIGN KEY (timeslot_id) REFERENCES schedule_time_slots(id) ON DELETE CASCADE,
         UNIQUE KEY unique_timeslot_date (timeslot_id, stat_date),
         INDEX idx_stat_date (stat_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
