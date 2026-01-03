@@ -33,7 +33,7 @@ export async function up(): Promise<void> {
         FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
         UNIQUE KEY unique_post (post_id),
         INDEX idx_last_synced (last_synced_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     `);
     logger.info('✓ Created post_insights table');
 
@@ -54,7 +54,7 @@ export async function up(): Promise<void> {
         FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
         UNIQUE KEY unique_post_snapshot (post_id, snapshot_date),
         INDEX idx_snapshot_date (snapshot_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     `);
     logger.info('✓ Created post_insights_history table');
 
@@ -82,7 +82,7 @@ export async function up(): Promise<void> {
         FOREIGN KEY (template_id) REFERENCES post_templates(id) ON DELETE CASCADE,
         UNIQUE KEY unique_template_date (template_id, stat_date),
         INDEX idx_stat_date (stat_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     `);
     logger.info('✓ Created template_performance table');
 
@@ -108,7 +108,7 @@ export async function up(): Promise<void> {
         FOREIGN KEY (timeslot_id) REFERENCES time_slots(id) ON DELETE CASCADE,
         UNIQUE KEY unique_timeslot_date (timeslot_id, stat_date),
         INDEX idx_stat_date (stat_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
     `);
     logger.info('✓ Created timeslot_performance table');
 
