@@ -35,28 +35,52 @@ async function cleanup() {
     await connection.execute('DROP TABLE IF EXISTS post_insights');
     console.log('✓ Dropped post_insights');
 
-    // Check if posts table has extended columns
+    // Check and remove posts table extended columns one by one
+    console.log('\nChecking posts table extended columns...');
     const [columns] = await connection.execute(`
       SELECT COLUMN_NAME
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
         AND TABLE_NAME = 'posts'
-        AND COLUMN_NAME IN ('content_length', 'has_media', 'media_type', 'hashtag_count')
+        AND COLUMN_NAME IN ('template_id', 'time_slot_id', 'content_length', 'has_media', 'media_type', 'hashtag_count')
     `);
 
     if (columns.length > 0) {
-      console.log('\nRemoving extended columns from posts table...');
-      await connection.execute(`
-        ALTER TABLE posts
-          DROP COLUMN IF EXISTS content_length,
-          DROP COLUMN IF EXISTS has_media,
-          DROP COLUMN IF EXISTS media_type,
-          DROP COLUMN IF EXISTS hashtag_count
-      `);
-      console.log('✓ Removed extended columns from posts');
+      console.log('Removing extended columns from posts table...');
+      const columnsToRemove = columns.map(c => c.COLUMN_NAME);
+
+      // Remove foreign keys first if they exist
+      if (columnsToRemove.includes('template_id')) {
+        try {
+          await connection.execute('ALTER TABLE posts DROP FOREIGN KEY fk_posts_template');
+          console.log('  ✓ Dropped foreign key fk_posts_template');
+        } catch (e) {
+          // FK might not exist, continue
+        }
+      }
+
+      if (columnsToRemove.includes('time_slot_id')) {
+        try {
+          await connection.execute('ALTER TABLE posts DROP FOREIGN KEY fk_posts_timeslot');
+          console.log('  ✓ Dropped foreign key fk_posts_timeslot');
+        } catch (e) {
+          // FK might not exist, continue
+        }
+      }
+
+      // Remove columns one by one
+      for (const col of columnsToRemove) {
+        await connection.execute(`ALTER TABLE posts DROP COLUMN ${col}`);
+        console.log(`  ✓ Dropped column ${col}`);
+      }
+
+      console.log('✓ Removed all extended columns from posts');
+    } else {
+      console.log('✓ No extended columns to remove from posts');
     }
 
-    // Check if post_performance_log has extended columns
+    // Check and remove post_performance_log extended columns one by one
+    console.log('\nChecking post_performance_log table extended columns...');
     const [logColumns] = await connection.execute(`
       SELECT COLUMN_NAME
       FROM INFORMATION_SCHEMA.COLUMNS
@@ -66,13 +90,17 @@ async function cleanup() {
     `);
 
     if (logColumns.length > 0) {
-      console.log('\nRemoving extended columns from post_performance_log table...');
-      await connection.execute(`
-        ALTER TABLE post_performance_log
-          DROP COLUMN IF EXISTS insights_synced,
-          DROP COLUMN IF EXISTS insights_synced_at
-      `);
-      console.log('✓ Removed extended columns from post_performance_log');
+      console.log('Removing extended columns from post_performance_log table...');
+      const logColumnsToRemove = logColumns.map(c => c.COLUMN_NAME);
+
+      for (const col of logColumnsToRemove) {
+        await connection.execute(`ALTER TABLE post_performance_log DROP COLUMN ${col}`);
+        console.log(`  ✓ Dropped column ${col}`);
+      }
+
+      console.log('✓ Removed all extended columns from post_performance_log');
+    } else {
+      console.log('✓ No extended columns to remove from post_performance_log');
     }
 
     console.log('\n✅ Cleanup completed successfully!');
