@@ -29,6 +29,7 @@
     "set-default-account": "node scripts/set-default-account.js",
     "migrate:statistics": "ts-node src/database/migrations/create-statistics-tables.ts",
     "migrate:statistics:prod": "node dist/database/migrations/create-statistics-tables.js",
+    "verify:migration": "node scripts/verify-and-migrate.js",
     "cleanup:statistics": "node scripts/cleanup-statistics-tables.js",
     "check:posts-structure": "node scripts/check-posts-table-structure.js",
     "list:tables": "node scripts/list-all-tables.js"
