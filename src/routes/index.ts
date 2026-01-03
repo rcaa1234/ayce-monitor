@@ -410,10 +410,10 @@ router.get('/threads/accounts', authenticate, async (req: Request, res: Response
     const pool = getPool();
 
     const [accounts] = await pool.execute<any>(
-      `SELECT ta.id, ta.username, ta.account_id as threads_user_id, ta.created_at
+      `SELECT ta.id, ta.username, ta.account_id, ta.status, ta.is_default, ta.created_at
        FROM threads_accounts ta
        WHERE ta.user_id = ?
-       ORDER BY ta.created_at DESC`,
+       ORDER BY ta.is_default DESC, ta.created_at DESC`,
       [(req as AuthRequest).user!.id]
     );
 
