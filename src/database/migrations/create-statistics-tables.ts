@@ -79,7 +79,7 @@ export async function up(): Promise<void> {
         hashtag_usage_count INT DEFAULT 0 COMMENT 'hashtag 使用次數',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (template_id) REFERENCES post_templates(id) ON DELETE CASCADE,
+        FOREIGN KEY (template_id) REFERENCES content_templates(id) ON DELETE CASCADE,
         UNIQUE KEY unique_template_date (template_id, stat_date),
         INDEX idx_stat_date (stat_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
