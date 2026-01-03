@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import config from '../config';
 import logger from '../utils/logger';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import statisticsRoutes from './statistics.routes';
 
 const router = Router();
 
@@ -2811,5 +2812,8 @@ router.get('/diagnose', authenticate, async (req: Request, res: Response): Promi
     res.status(500).json({ error: '診斷失敗', message: error.message });
   }
 });
+
+// Statistics routes
+router.use('/statistics', statisticsRoutes);
 
 export default router;

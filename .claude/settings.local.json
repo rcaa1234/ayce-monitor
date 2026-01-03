@@ -71,7 +71,8 @@
       "Bash(then rm nul)",
       "Bash(else echo \"No nul file found\")",
       "Bash(npm uninstall:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npm run migrate:statistics:*)"
     ]
   }
 }

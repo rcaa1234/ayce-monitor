@@ -3240,23 +3240,35 @@
         // Load statistics summary
         async function loadStatsSummary() {
             try {
-                // TODO: Replace with actual API call
-                // const response = await fetch(`${API_BASE}/statistics/overview`, {
-                //     headers: { 'Authorization': `Bearer ${token}` }
-                // });
-                // const data = await response.json();
+                // Fetch overview statistics from API
+                const [overviewRes, syncStatusRes] = await Promise.all([
+                    fetch(`${API_BASE}/statistics/overview?days=7`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${API_BASE}/statistics/sync-status`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
 
-                // Mock data for now
+                const overviewData = await overviewRes.json();
+                const syncData = await syncStatusRes.json();
+
+                if (!overviewData.success) {
+                    throw new Error(overviewData.error || 'Failed to load overview');
+                }
+
                 const data = {
-                    total_posts: 42,
-                    total_views: 12580,
-                    total_likes: 856,
-                    avg_engagement_rate: 6.8,
-                    last_sync: new Date().toLocaleString('zh-TW'),
+                    total_posts: overviewData.data.overview.total_posts,
+                    total_views: overviewData.data.overview.total_views,
+                    total_likes: overviewData.data.overview.total_likes,
+                    avg_engagement_rate: overviewData.data.overview.avg_engagement_rate.toFixed(1),
+                    last_sync: syncData.success && syncData.data.last_synced_at
+                        ? new Date(syncData.data.last_synced_at).toLocaleString('zh-TW')
+                        : '尚未同步',
                     trend_data: {
-                        dates: ['01/01', '01/02', '01/03', '01/04', '01/05', '01/06', '01/07'],
-                        views: [1200, 1450, 1680, 1520, 1890, 2050, 1790],
-                        engagement: [5.2, 6.1, 7.3, 6.5, 8.2, 7.9, 6.8]
+                        dates: overviewData.data.trend.dates.map(d => d.substring(5).replace('-', '/')),
+                        views: overviewData.data.trend.views,
+                        engagement: overviewData.data.trend.engagement.map(e => parseFloat(e.toFixed(1)))
                     }
                 };
 
@@ -3344,13 +3356,21 @@
             container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
 
             try {
-                // TODO: Replace with actual API call
-                // Mock data
-                const templates = [
-                    { name: '科技趨勢分析', posts: 12, avg_likes: 72, avg_engagement: 7.2, avg_length: 280, hashtag_rate: 85 },
-                    { name: '日常生活分享', posts: 18, avg_likes: 45, avg_engagement: 5.8, avg_length: 160, hashtag_rate: 60 },
-                    { name: '產品開箱評測', posts: 8, avg_likes: 95, avg_engagement: 9.1, avg_length: 320, hashtag_rate: 90 }
-                ];
+                const response = await fetch(`${API_BASE}/statistics/templates?days=30`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load templates');
+                }
+
+                const templates = result.data;
+
+                if (templates.length === 0) {
+                    container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">尚無樣板數據</p>';
+                    return;
+                }
 
                 let html = '';
                 templates.forEach(template => {
@@ -3358,11 +3378,16 @@
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                             <div style="font-weight: bold; margin-bottom: 8px;">${template.name}</div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
-                                <div>使用次數: ${template.posts}</div>
-                                <div>平均按讚: ${template.avg_likes}</div>
-                                <div>參與率: ${template.avg_engagement}%</div>
-                                <div>平均長度: ${template.avg_length} 字</div>
+                                <div>使用次數: ${template.total_uses || 0}</div>
+                                <div>平均按讚: ${Math.round(template.avg_likes || 0)}</div>
+                                <div>參與率: ${(template.avg_engagement_rate || 0).toFixed(1)}%</div>
+                                <div>平均觀看: ${Math.round(template.avg_views || 0)}</div>
                             </div>
+                            ${template.best_performing_time ? `
+                                <div style="margin-top: 8px; font-size: 11px; color: #28a745;">
+                                    ⭐ 最佳時段: ${template.best_performing_time}
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 });
@@ -3381,22 +3406,36 @@
             container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
 
             try {
-                // TODO: Replace with actual API call
-                // Mock data
-                const timeslots = [
-                    { label: '09:00 - 12:00', posts: 15, avg_engagement: 8.2 },
-                    { label: '12:00 - 15:00', posts: 12, avg_engagement: 6.5 },
-                    { label: '18:00 - 21:00', posts: 20, avg_engagement: 9.1 }
-                ];
+                const response = await fetch(`${API_BASE}/statistics/timeslots?days=30`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load timeslots');
+                }
+
+                const timeslots = result.data;
+
+                if (timeslots.length === 0) {
+                    container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">尚無時段數據</p>';
+                    return;
+                }
+
+                // 組織時段標籤
+                const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 
                 let html = '';
                 timeslots.forEach(slot => {
+                    const label = `${dayNames[slot.day_of_week]} ${String(slot.hour).padStart(2, '0')}:00`;
                     html += `
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <div style="font-weight: bold; margin-bottom: 8px;">${slot.label}</div>
+                            <div style="font-weight: bold; margin-bottom: 8px;">${label}</div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
-                                <div>使用次數: ${slot.posts}</div>
-                                <div>參與率: ${slot.avg_engagement}%</div>
+                                <div>使用次數: ${slot.posts_count || 0}</div>
+                                <div>參與率: ${(slot.avg_engagement_rate || 0).toFixed(1)}%</div>
+                                <div>平均按讚: ${Math.round(slot.avg_likes || 0)}</div>
+                                <div>平均觀看: ${Math.round(slot.avg_views || 0)}</div>
                             </div>
                         </div>
                     `;
@@ -3416,12 +3455,21 @@
             container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
 
             try {
-                // TODO: Replace with actual API call
-                // Mock data
-                const posts = [
-                    { id: 1, content: '這是一篇測試貼文的內容...', date: '2026-01-03 10:00', likes: 72, views: 1250, engagement: 5.8 },
-                    { id: 2, content: '分享今天的心得與感想...', date: '2026-01-02 15:30', likes: 45, views: 890, engagement: 5.1 }
-                ];
+                const response = await fetch(`${API_BASE}/statistics/posts?limit=20&sortBy=posted_at&sortOrder=DESC`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load posts');
+                }
+
+                const posts = result.data.posts;
+
+                if (posts.length === 0) {
+                    container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">尚無貼文數據</p>';
+                    return;
+                }
 
                 let html = `
                     <table style="width: 100%; font-size: 12px; background: white; border-radius: 8px; overflow: hidden;">
@@ -3437,12 +3485,14 @@
                 `;
 
                 posts.forEach(post => {
+                    const content = post.content || '';
+                    const truncated = content.length > 30 ? content.substring(0, 30) + '...' : content;
                     html += `
                         <tr style="border-top: 1px solid #e5e7eb;">
-                            <td style="padding: 10px;">${post.content.substring(0, 30)}...</td>
-                            <td style="padding: 10px; text-align: center;">${post.likes}</td>
-                            <td style="padding: 10px; text-align: center;">${post.views}</td>
-                            <td style="padding: 10px; text-align: center;">${post.engagement}%</td>
+                            <td style="padding: 10px;">${truncated}</td>
+                            <td style="padding: 10px; text-align: center;">${post.likes || 0}</td>
+                            <td style="padding: 10px; text-align: center;">${post.views || 0}</td>
+                            <td style="padding: 10px; text-align: center;">${(post.engagement_rate || 0).toFixed(1)}%</td>
                         </tr>
                     `;
                 });
@@ -3467,17 +3517,29 @@
             try {
                 showAlert('dashboardAlert', '開始同步 Insights 數據...', 'info');
 
-                // TODO: Replace with actual API call
-                // const response = await fetch(`${API_BASE}/statistics/sync`, {
-                //     method: 'POST',
-                //     headers: { 'Authorization': `Bearer ${token}` }
-                // });
+                const response = await fetch(`${API_BASE}/statistics/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days: 7, limit: 50 })
+                });
 
-                // Mock delay
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Sync failed');
+                }
 
-                showAlert('dashboardAlert', '✅ Insights 同步完成', 'success');
-                loadStatsSummary();
+                showAlert('dashboardAlert', '✅ ' + result.message, 'success');
+
+                // 等待 2 秒後重新載入統計數據
+                setTimeout(() => {
+                    loadStatsSummary();
+                    if (currentStatsTab === 'templates') loadStatsTemplates();
+                    if (currentStatsTab === 'timeslots') loadStatsTimeslots();
+                    if (currentStatsTab === 'details') loadStatsDetails();
+                }, 2000);
 
             } catch (error) {
                 console.error('Failed to trigger sync:', error);
