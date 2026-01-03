@@ -2,11 +2,10 @@
  * Statistics Model
  * 提供統計數據的資料庫查詢方法
  *
- * 注意：此模型基於實際的資料庫結構設計
- * - posts 表沒有 content 欄位，內容在 post_revisions 表
- * - content_templates 表使用 preferred_engine 而非 engine
- * - schedule_time_slots 沒有 day_of_week/hour，使用 start_hour/start_minute 等
- * - 統計基於 post_performance_log 表（已有完整的統計欄位）
+ * 數據來源：所有已發布的貼文（不限於UCB排程）
+ * - 基於 posts 表（status = 'POSTED'）
+ * - LEFT JOIN post_insights 獲取互動數據
+ * - LEFT JOIN content_templates 和 schedule_time_slots 獲取關聯資訊
  */
 
 import { getPool } from '../database/connection';
@@ -66,8 +65,16 @@ export interface PostDetail {
 
 export class StatisticsModel {
   /**
+   * 計算參與率
+   */
+  private static calculateEngagementRate(views: number, likes: number, replies: number, reposts: number = 0): number {
+    if (views === 0) return 0;
+    const totalEngagement = (likes || 0) + (replies || 0) + (reposts || 0);
+    return (totalEngagement / views) * 100;
+  }
+
+  /**
    * 獲取統計總覽數據
-   * 基於 post_performance_log 表
    */
   static async getOverviewStats(days: number = 7): Promise<{
     overview: OverviewStats;
@@ -76,22 +83,28 @@ export class StatisticsModel {
     const pool = getPool();
 
     try {
-      // 計算時間範圍
       const endDate = new Date();
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      // 1. 獲取總覽統計（從 post_performance_log）
+      // 1. 獲取總覽統計
       const [overviewRows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          COUNT(DISTINCT ppl.post_id) as total_posts,
-          COALESCE(SUM(ppl.views), 0) as total_views,
-          COALESCE(SUM(ppl.likes), 0) as total_likes,
-          COALESCE(SUM(ppl.replies), 0) as total_replies,
-          COALESCE(AVG(ppl.engagement_rate), 0) as avg_engagement_rate
-        FROM post_performance_log ppl
-        WHERE ppl.posted_at >= ?
-          AND ppl.posted_at <= ?`,
+          COUNT(DISTINCT p.id) as total_posts,
+          COALESCE(SUM(pi.views), 0) as total_views,
+          COALESCE(SUM(pi.likes), 0) as total_likes,
+          COALESCE(SUM(pi.replies), 0) as total_replies,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+          AND p.posted_at <= ?`,
         [startDate, endDate]
       );
 
@@ -100,13 +113,20 @@ export class StatisticsModel {
       // 2. 獲取趨勢數據（每日統計）
       const [trendRows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          DATE(ppl.posted_at) as date,
-          COALESCE(SUM(ppl.views), 0) as views,
-          COALESCE(AVG(ppl.engagement_rate), 0) as engagement_rate
-        FROM post_performance_log ppl
-        WHERE ppl.posted_at >= ?
-          AND ppl.posted_at <= ?
-        GROUP BY DATE(ppl.posted_at)
+          DATE(p.posted_at) as date,
+          COALESCE(SUM(pi.views), 0) as views,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+          AND p.posted_at <= ?
+        GROUP BY DATE(p.posted_at)
         ORDER BY date ASC`,
         [startDate, endDate]
       );
@@ -140,7 +160,6 @@ export class StatisticsModel {
 
   /**
    * 獲取樣板統計數據
-   * 基於 content_templates 和 post_performance_log
    */
   static async getTemplateStats(days: number = 30): Promise<TemplateStats[]> {
     const pool = getPool();
@@ -154,36 +173,40 @@ export class StatisticsModel {
           t.id,
           t.name,
           COALESCE(t.preferred_engine, 'GPT5_2') as preferred_engine,
-          COUNT(DISTINCT ppl.post_id) as total_uses,
-          COALESCE(AVG(ppl.engagement_rate), 0) as avg_engagement_rate,
-          COALESCE(AVG(ppl.likes), 0) as avg_likes,
-          COALESCE(AVG(ppl.views), 0) as avg_views,
+          COUNT(DISTINCT p.id) as total_uses,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate,
+          COALESCE(AVG(pi.likes), 0) as avg_likes,
+          COALESCE(AVG(pi.views), 0) as avg_views,
           (
             SELECT CONCAT(
-              CASE ppl2.day_of_week
-                WHEN 0 THEN '週日'
-                WHEN 1 THEN '週一'
-                WHEN 2 THEN '週二'
-                WHEN 3 THEN '週三'
-                WHEN 4 THEN '週四'
-                WHEN 5 THEN '週五'
-                WHEN 6 THEN '週六'
-              END,
+              DATE_FORMAT(p2.posted_at, '%W'),
               ' ',
-              LPAD(ppl2.posted_hour, 2, '0'),
-              ':',
-              LPAD(ppl2.posted_minute, 2, '0')
+              DATE_FORMAT(p2.posted_at, '%H:%i')
             )
-            FROM post_performance_log ppl2
-            WHERE ppl2.template_id = t.id
-              AND ppl2.engagement_rate IS NOT NULL
-            ORDER BY ppl2.engagement_rate DESC
+            FROM posts p2
+            LEFT JOIN post_insights pi2 ON p2.id = pi2.post_id
+            WHERE p2.template_id = t.id
+              AND p2.status = 'POSTED'
+              AND pi2.views IS NOT NULL
+            ORDER BY (
+              CASE
+                WHEN pi2.views > 0 THEN ((pi2.likes + pi2.replies + COALESCE(pi2.reposts, 0)) / pi2.views)
+                ELSE 0
+              END
+            ) DESC
             LIMIT 1
           ) as best_performing_time
         FROM content_templates t
-        LEFT JOIN post_performance_log ppl ON t.id = ppl.template_id
-        WHERE ppl.posted_at >= ? OR ppl.posted_at IS NULL
+        LEFT JOIN posts p ON t.id = p.template_id AND p.status = 'POSTED'
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.posted_at >= ? OR p.posted_at IS NULL
         GROUP BY t.id, t.name, t.preferred_engine
+        HAVING total_uses > 0
         ORDER BY avg_engagement_rate DESC`,
         [startDate]
       );
@@ -197,7 +220,6 @@ export class StatisticsModel {
 
   /**
    * 獲取時段統計數據
-   * 基於 schedule_time_slots 和 post_performance_log
    */
   static async getTimeslotStats(days: number = 30): Promise<TimeslotStats[]> {
     const pool = getPool();
@@ -212,14 +234,21 @@ export class StatisticsModel {
           ts.name,
           ts.start_hour,
           ts.start_minute,
-          COUNT(DISTINCT ppl.post_id) as posts_count,
-          COALESCE(AVG(ppl.engagement_rate), 0) as avg_engagement_rate,
-          COALESCE(AVG(ppl.likes), 0) as avg_likes,
-          COALESCE(AVG(ppl.views), 0) as avg_views
+          COUNT(DISTINCT p.id) as posts_count,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate,
+          COALESCE(AVG(pi.likes), 0) as avg_likes,
+          COALESCE(AVG(pi.views), 0) as avg_views
         FROM schedule_time_slots ts
-        LEFT JOIN post_performance_log ppl ON ts.id = ppl.time_slot_id
-        WHERE ppl.posted_at >= ? OR ppl.posted_at IS NULL
+        LEFT JOIN posts p ON ts.id = p.time_slot_id AND p.status = 'POSTED'
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.posted_at >= ? OR p.posted_at IS NULL
         GROUP BY ts.id, ts.name, ts.start_hour, ts.start_minute
+        HAVING posts_count > 0
         ORDER BY ts.start_hour ASC, ts.start_minute ASC`,
         [startDate]
       );
@@ -232,8 +261,7 @@ export class StatisticsModel {
   }
 
   /**
-   * 獲取貼文明細列表（支援分頁和篩選）
-   * 基於 post_performance_log，JOIN posts 和 post_revisions 獲取內容
+   * 獲取貼文明細列表
    */
   static async getPostDetails(params: {
     page?: number;
@@ -260,35 +288,35 @@ export class StatisticsModel {
       const sortOrder = params.sortOrder || 'DESC';
 
       // 構建 WHERE 條件
-      const conditions: string[] = [];
+      const conditions: string[] = ["p.status = 'POSTED'"];
       const queryParams: any[] = [];
 
       if (params.templateId) {
-        conditions.push('ppl.template_id = ?');
+        conditions.push('p.template_id = ?');
         queryParams.push(params.templateId);
       }
 
       if (params.timeslotId) {
-        conditions.push('ppl.time_slot_id = ?');
+        conditions.push('p.time_slot_id = ?');
         queryParams.push(params.timeslotId);
       }
 
       if (params.dateFrom) {
-        conditions.push('ppl.posted_at >= ?');
+        conditions.push('p.posted_at >= ?');
         queryParams.push(params.dateFrom);
       }
 
       if (params.dateTo) {
-        conditions.push('ppl.posted_at <= ?');
+        conditions.push('p.posted_at <= ?');
         queryParams.push(params.dateTo);
       }
 
-      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
       // 1. 獲取總數
       const [countRows] = await pool.execute<RowDataPacket[]>(
-        `SELECT COUNT(DISTINCT ppl.post_id) as total
-        FROM post_performance_log ppl
+        `SELECT COUNT(DISTINCT p.id) as total
+        FROM posts p
         ${whereClause}`,
         queryParams
       );
@@ -297,30 +325,41 @@ export class StatisticsModel {
       const totalPages = Math.ceil(total / limit);
 
       // 2. 獲取貼文列表
-      const sortColumn = sortBy === 'engagement_rate' ? 'ppl.engagement_rate' :
-                        sortBy === 'views' ? 'ppl.views' : 'ppl.posted_at';
+      let sortColumn = 'p.posted_at';
+      if (sortBy === 'views') {
+        sortColumn = 'pi.views';
+      } else if (sortBy === 'engagement_rate') {
+        sortColumn = 'engagement_rate_calc';
+      }
 
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
           p.id,
-          LEFT(pr.content, 100) as content_preview,
-          ppl.posted_at,
+          LEFT(COALESCE(pr.content, ''), 100) as content_preview,
+          p.posted_at,
           t.name as template_name,
           ts.name as timeslot_name,
-          COALESCE(ppl.views, 0) as views,
-          COALESCE(ppl.likes, 0) as likes,
-          COALESCE(ppl.replies, 0) as replies,
-          COALESCE(ppl.engagement_rate, 0) as engagement_rate,
+          COALESCE(pi.views, 0) as views,
+          COALESCE(pi.likes, 0) as likes,
+          COALESCE(pi.replies, 0) as replies,
+          CASE
+            WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+            ELSE 0
+          END as engagement_rate,
+          CASE
+            WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+            ELSE 0
+          END as engagement_rate_calc,
           COALESCE(p.content_length, 0) as content_length,
           COALESCE(p.hashtag_count, 0) as hashtag_count,
           COALESCE(p.media_type, 'NONE') as media_type
-        FROM post_performance_log ppl
-        INNER JOIN posts p ON ppl.post_id = p.id
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
         LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
           SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
         )
-        LEFT JOIN content_templates t ON ppl.template_id = t.id
-        LEFT JOIN schedule_time_slots ts ON ppl.time_slot_id = ts.id
+        LEFT JOIN content_templates t ON p.template_id = t.id
+        LEFT JOIN schedule_time_slots ts ON p.time_slot_id = ts.id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT ? OFFSET ?`,
@@ -341,7 +380,6 @@ export class StatisticsModel {
 
   /**
    * 獲取熱力圖數據（星期 × 小時）
-   * 基於 post_performance_log 的 day_of_week 和 posted_hour
    */
   static async getHeatmapData(days: number = 30): Promise<number[][]> {
     const pool = getPool();
@@ -352,12 +390,19 @@ export class StatisticsModel {
 
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          ppl.day_of_week,
-          ppl.posted_hour,
-          COALESCE(AVG(ppl.engagement_rate), 0) as avg_engagement_rate
-        FROM post_performance_log ppl
-        WHERE ppl.posted_at >= ?
-        GROUP BY ppl.day_of_week, ppl.posted_hour`,
+          DAYOFWEEK(p.posted_at) - 1 as day_of_week,
+          HOUR(p.posted_at) as hour,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+        GROUP BY day_of_week, hour`,
         [startDate]
       );
 
@@ -366,7 +411,7 @@ export class StatisticsModel {
 
       // 填充數據
       rows.forEach((row: any) => {
-        heatmap[row.day_of_week][row.posted_hour] = Number(row.avg_engagement_rate);
+        heatmap[row.day_of_week][row.hour] = Number(row.avg_engagement_rate);
       });
 
       return heatmap;

@@ -371,7 +371,10 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
 
     // 檢查配置是否啟用
     const config = await ucbService.getConfig();
+    logger.info(`[UCB Scheduler] Checking - auto_schedule_enabled: ${config.auto_schedule_enabled}`);
+
     if (!config.auto_schedule_enabled) {
+      logger.info('[UCB Scheduler] Auto schedule is disabled, skipping');
       return;
     }
 
@@ -384,7 +387,10 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
       [todayStr]
     );
 
+    logger.info(`[UCB Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
+
     if (existing.length > 0) {
+      logger.info('[UCB Scheduler] Schedule already exists for today, skipping');
       return; // 已有排程,不重複建立
     }
 
@@ -402,10 +408,18 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
     // 當前時間
     const now = new Date();
 
+    logger.info(`[UCB Scheduler] Time check:
+  - Current time: ${now.toLocaleTimeString('zh-TW', { hour12: false })}
+  - Post start time: ${startTime.toLocaleTimeString('zh-TW', { hour12: false })}
+  - Should create at: ${scheduleCreationTime.toLocaleTimeString('zh-TW', { hour12: false })}
+  - Should create now: ${now >= scheduleCreationTime}`);
+
     // 如果當前時間已經過了建立排程的時間,且還沒有排程,就立即建立
     if (now >= scheduleCreationTime && existing.length === 0) {
       logger.info(`⏰ Time to create daily schedule (${Math.floor((now.getTime() - scheduleCreationTime.getTime()) / 60000)} minutes after scheduled creation time)`);
       await createDailyAutoSchedule();
+    } else {
+      logger.info('[UCB Scheduler] Not time to create schedule yet, waiting...');
     }
   } catch (error) {
     logger.error('Error in dynamic daily auto scheduler:', error);
