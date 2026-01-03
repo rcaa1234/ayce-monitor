@@ -28,7 +28,8 @@
     "diagnose": "node scripts/diagnose-publish-flow.js",
     "set-default-account": "node scripts/set-default-account.js",
     "migrate:statistics": "ts-node src/database/migrations/create-statistics-tables.ts",
-    "migrate:statistics:prod": "node dist/database/migrations/create-statistics-tables.js"
+    "migrate:statistics:prod": "node dist/database/migrations/create-statistics-tables.js",
+    "cleanup:statistics": "node scripts/cleanup-statistics-tables.js"
   },
   "keywords": [
     "threads",
