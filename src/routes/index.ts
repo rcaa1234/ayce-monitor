@@ -2644,4 +2644,119 @@ router.post('/generate/test', authenticate, async (req: Request, res: Response):
   }
 });
 
+/**
+ * GET /api/diagnose
+ * 診斷發布流程
+ */
+router.get('/diagnose', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+    const diagnostics: any = {
+      timestamp: new Date().toISOString(),
+      checks: {},
+    };
+
+    // 1. 檢查 Threads 帳號
+    const [accounts] = await pool.execute<RowDataPacket[]>(
+      `SELECT ta.id, ta.user_id, ta.username, ta.account_id, ta.status, ta.is_default,
+              t.expires_at, t.status as token_status
+       FROM threads_accounts ta
+       LEFT JOIN threads_auth t ON ta.id = t.account_id
+       ORDER BY ta.is_default DESC, ta.created_at DESC
+       LIMIT 3`
+    );
+
+    diagnostics.checks.threadsAccounts = {
+      total: accounts.length,
+      accounts: accounts.map((acc: any) => ({
+        id: acc.id,
+        userId: acc.user_id,
+        username: acc.username,
+        accountId: acc.account_id,
+        status: acc.status,
+        isDefault: acc.is_default,
+        tokenStatus: acc.token_status,
+        tokenExpires: acc.expires_at,
+        issues: [
+          !acc.account_id && '❌ 缺少 account_id',
+          !acc.is_default && '⚠️ 不是預設帳號',
+          acc.token_status !== 'OK' && '⚠️ Token 狀態異常',
+          acc.expires_at && new Date(acc.expires_at) < new Date() && '⚠️ Token 已過期',
+        ].filter(Boolean),
+      })),
+    };
+
+    // 2. 檢查最近的文章
+    const [posts] = await pool.execute<RowDataPacket[]>(
+      `SELECT p.id, p.status, p.created_at, p.approved_at, p.posted_at,
+              p.post_url, p.threads_media_id,
+              p.last_error_code, p.last_error_message
+       FROM posts p
+       ORDER BY p.created_at DESC
+       LIMIT 5`
+    );
+
+    diagnostics.checks.recentPosts = {
+      total: posts.length,
+      posts: posts.map((post: any) => ({
+        id: post.id,
+        status: post.status,
+        createdAt: post.created_at,
+        approvedAt: post.approved_at,
+        postedAt: post.posted_at,
+        postUrl: post.post_url,
+        threadsMediaId: post.threads_media_id,
+        error: post.last_error_code || post.last_error_message ? {
+          code: post.last_error_code,
+          message: post.last_error_message,
+        } : null,
+        issues: [
+          post.status === 'APPROVED' && !post.posted_at && '⚠️ 已核准但未發布',
+          post.status === 'FAILED' && '❌ 發布失敗',
+        ].filter(Boolean),
+      })),
+    };
+
+    // 3. 檢查環境變數
+    diagnostics.checks.environment = {
+      redisUrl: process.env.REDIS_URL ? '✓ 已設定' : '❌ 未設定',
+      mysqlHost: process.env.MYSQL_HOST || 'localhost',
+      mysqlDatabase: process.env.MYSQL_DATABASE || 'threads_bot_db',
+    };
+
+    // 4. 分析問題
+    const defaultAccount = accounts.find((a: any) => a.is_default);
+    const approvedNotPosted = posts.filter((p: any) => p.status === 'APPROVED' && !p.posted_at);
+    const failed = posts.filter((p: any) => p.status === 'FAILED');
+
+    diagnostics.analysis = {
+      hasDefaultAccount: !!defaultAccount,
+      defaultAccountHasId: defaultAccount?.account_id ? true : false,
+      approvedButNotPostedCount: approvedNotPosted.length,
+      failedPostsCount: failed.length,
+      recommendations: [],
+    };
+
+    if (!defaultAccount) {
+      diagnostics.analysis.recommendations.push('需要設定預設 Threads 帳號');
+    } else if (!defaultAccount.account_id) {
+      diagnostics.analysis.recommendations.push('預設帳號缺少 account_id,需要重新授權或手動更新');
+    }
+
+    if (approvedNotPosted.length > 0) {
+      diagnostics.analysis.recommendations.push('有已核准但未發布的文章,可能是 Worker 未執行或 Redis 連接問題');
+    }
+
+    if (failed.length > 0) {
+      diagnostics.analysis.recommendations.push('有發布失敗的文章,請查看錯誤訊息');
+    }
+
+    res.json(diagnostics);
+  } catch (error: any) {
+    logger.error('Diagnostic failed:', error);
+    res.status(500).json({ error: '診斷失敗', message: error.message });
+  }
+});
+
 export default router;

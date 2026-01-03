@@ -198,7 +198,8 @@ class ThreadsService {
    */
   async saveAccount(data: {
     username: string;
-    userId: string;
+    userId: string; // Threads User ID (account_id)
+    systemUserId: string; // System user ID (user_id)
     accessToken: string;
     expiresIn: number;
     scopes?: string[];
@@ -223,9 +224,9 @@ class ThreadsService {
 
       // Insert account
       await connection.execute<ResultSetHeader>(
-        `INSERT INTO threads_accounts (id, username, status, is_default)
-         VALUES (?, ?, 'ACTIVE', ?)`,
-        [accountId, data.username, data.isDefault ? 1 : 0]
+        `INSERT INTO threads_accounts (id, user_id, username, account_id, status, is_default)
+         VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
+        [accountId, data.systemUserId, data.username, data.userId, data.isDefault ? 1 : 0]
       );
 
       // Insert auth

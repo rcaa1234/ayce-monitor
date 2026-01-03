@@ -23,7 +23,9 @@
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "insights:test": "node scripts/quick-test-insights.js",
-    "insights:info": "node scripts/get-token-info.js"
+    "insights:info": "node scripts/get-token-info.js",
+    "check-threads-account": "node scripts/fix-threads-account-id.js",
+    "diagnose": "node scripts/diagnose-publish-flow.js"
   },
   "keywords": [
     "threads",
