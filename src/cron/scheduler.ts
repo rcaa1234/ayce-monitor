@@ -360,10 +360,57 @@ export async function createDailyAutoSchedule() {
 }
 
 /**
- * Daily Auto Schedule Creator
- * 用途：每天 00:00 自動建立排程
+ * Dynamic Daily Auto Schedule Creator
+ * 用途：動態在發文時段開始前 30 分鐘自動建立排程
+ * 頻率：每 10 分鐘檢查一次是否需要建立排程
  */
-const dailyAutoScheduler = cron.schedule('0 0 * * *', createDailyAutoSchedule, {
+const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
+  try {
+    const pool = getPool();
+    const { ucbService } = await import('../services/ucb.service');
+
+    // 檢查配置是否啟用
+    const config = await ucbService.getConfig();
+    if (!config.auto_schedule_enabled) {
+      return;
+    }
+
+    // 檢查今天是否已有排程
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const [existing] = await pool.execute<RowDataPacket[]>(
+      'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
+      [todayStr]
+    );
+
+    if (existing.length > 0) {
+      return; // 已有排程,不重複建立
+    }
+
+    // 取得發文時段開始時間
+    const timeRangeStart = config.time_range_start || '09:00:00';
+    const [hour, minute] = timeRangeStart.split(':').map(Number);
+
+    // 計算今天的發文時段開始時間
+    const startTime = new Date();
+    startTime.setHours(hour, minute, 0, 0);
+
+    // 計算應該建立排程的時間 (開始前 30 分鐘)
+    const scheduleCreationTime = new Date(startTime.getTime() - 30 * 60 * 1000);
+
+    // 當前時間
+    const now = new Date();
+
+    // 如果當前時間已經過了建立排程的時間,且還沒有排程,就立即建立
+    if (now >= scheduleCreationTime && existing.length === 0) {
+      logger.info(`⏰ Time to create daily schedule (${Math.floor((now.getTime() - scheduleCreationTime.getTime()) / 60000)} minutes after scheduled creation time)`);
+      await createDailyAutoSchedule();
+    }
+  } catch (error) {
+    logger.error('Error in dynamic daily auto scheduler:', error);
+  }
+}, {
   scheduled: false,
   timezone: 'Asia/Taipei',
 });
