@@ -1059,8 +1059,17 @@
                     <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads 授權</button>
                 </div>
 
-                <h3 style="margin-bottom: 15px;">已連結的 Threads 帳號</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">已連結的 Threads 帳號</h3>
+                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;">🔍 診斷發布問題</button>
+                </div>
                 <div id="threadsAccountsList" class="posts-grid"></div>
+
+                <!-- Diagnostics Result -->
+                <div id="diagnosticsResult" style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
+                    <h3 style="margin-bottom: 15px;">🔍 診斷結果</h3>
+                    <div id="diagnosticsContent"></div>
+                </div>
             </div>
 
                 <!-- Manual Post Sub-tab -->
@@ -1879,6 +1888,114 @@
                 }
             } catch (error) {
                 showAlert('dashboardAlert', '解除失敗: ' + error.message, 'error');
+            }
+        }
+
+        async function runDiagnostics() {
+            const resultDiv = document.getElementById('diagnosticsResult');
+            const contentDiv = document.getElementById('diagnosticsContent');
+
+            // Show loading
+            resultDiv.style.display = 'block';
+            contentDiv.innerHTML = '<p style="color: #666;">🔄 診斷中...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/diagnose`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error('診斷請求失敗');
+                }
+
+                const data = await response.json();
+
+                // Build diagnostic HTML
+                let html = '';
+
+                // Threads Accounts
+                html += '<div style="margin-bottom: 20px;">';
+                html += '<h4 style="margin-bottom: 10px;">📱 Threads 帳號狀態</h4>';
+                if (data.checks.threadsAccounts.total === 0) {
+                    html += '<p style="color: #dc3545;">❌ 找不到任何 Threads 帳號</p>';
+                } else {
+                    data.checks.threadsAccounts.accounts.forEach((acc, i) => {
+                        html += `<div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${acc.issues.length > 0 ? '#ffc107' : '#28a745'}">`;
+                        html += `<p style="margin: 5px 0;"><strong>帳號 ${i + 1}:</strong> ${acc.username}</p>`;
+                        html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">Account ID: ${acc.accountId || '❌ 未設定'}</p>`;
+                        html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">狀態: ${acc.status}</p>`;
+                        html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">預設帳號: ${acc.isDefault ? '✓ 是' : '否'}</p>`;
+                        html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">Token 狀態: ${acc.tokenStatus || '無'}</p>`;
+                        if (acc.issues.length > 0) {
+                            html += `<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">`;
+                            acc.issues.forEach(issue => {
+                                html += `<p style="margin: 3px 0; font-size: 13px; color: #856404;">${issue}</p>`;
+                            });
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
+                    });
+                }
+                html += '</div>';
+
+                // Recent Posts
+                html += '<div style="margin-bottom: 20px;">';
+                html += '<h4 style="margin-bottom: 10px;">📝 最近的文章</h4>';
+                if (data.checks.recentPosts.total === 0) {
+                    html += '<p style="color: #666;">目前沒有文章</p>';
+                } else {
+                    data.checks.recentPosts.posts.slice(0, 3).forEach((post, i) => {
+                        const statusColor = {
+                            'POSTED': '#28a745',
+                            'APPROVED': '#ffc107',
+                            'FAILED': '#dc3545',
+                            'PENDING_REVIEW': '#17a2b8'
+                        }[post.status] || '#6c757d';
+
+                        html += `<div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${statusColor}">`;
+                        html += `<p style="margin: 5px 0;"><strong>文章 ${i + 1}:</strong> <span style="color: ${statusColor}; font-weight: bold;">${post.status}</span></p>`;
+                        html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">建立: ${new Date(post.createdAt).toLocaleString('zh-TW')}</p>`;
+                        if (post.approvedAt) {
+                            html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">核准: ${new Date(post.approvedAt).toLocaleString('zh-TW')}</p>`;
+                        }
+                        if (post.postedAt) {
+                            html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">發布: ${new Date(post.postedAt).toLocaleString('zh-TW')}</p>`;
+                        }
+                        if (post.error) {
+                            html += `<div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px;">`;
+                            html += `<p style="margin: 3px 0; font-size: 13px; color: #721c24;">錯誤: ${post.error.message || post.error.code}</p>`;
+                            html += `</div>`;
+                        }
+                        if (post.issues.length > 0) {
+                            html += `<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">`;
+                            post.issues.forEach(issue => {
+                                html += `<p style="margin: 3px 0; font-size: 13px; color: #856404;">${issue}</p>`;
+                            });
+                            html += `</div>`;
+                        }
+                        html += `</div>`;
+                    });
+                }
+                html += '</div>';
+
+                // Analysis & Recommendations
+                html += '<div style="background: white; padding: 15px; border-radius: 8px;">';
+                html += '<h4 style="margin-bottom: 10px;">💡 診斷建議</h4>';
+                if (data.analysis.recommendations.length === 0) {
+                    html += '<p style="color: #28a745;">✅ 所有設定看起來正常</p>';
+                } else {
+                    html += '<ul style="margin: 0; padding-left: 20px;">';
+                    data.analysis.recommendations.forEach(rec => {
+                        html += `<li style="margin: 8px 0; color: #856404;">${rec}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                html += '</div>';
+
+                contentDiv.innerHTML = html;
+
+            } catch (error) {
+                contentDiv.innerHTML = `<p style="color: #dc3545;">❌ 診斷失敗: ${error.message}</p>`;
             }
         }
 
