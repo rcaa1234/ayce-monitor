@@ -5,6 +5,7 @@ import { InsightsModel } from '../models/insights.model';
 import { PostModel } from '../models/post.model';
 import threadsService from './threads.service';
 import { PeriodType } from '../types';
+import { threadsAPILimiter } from '../utils/threads-api-limiter';
 
 /**
  * Threads Insights Service
@@ -30,15 +31,18 @@ class ThreadsInsightsService {
       // 需要 threads_manage_insights 權限
       logger.info(`Fetching insights for media ${threadsMediaId}...`);
 
-      const response = await axios.get(
-        `${config.threads.apiBaseUrl}/v1.0/${threadsMediaId}/insights`,
-        {
-          params: {
-            metric: 'views,likes,replies,reposts,quotes,shares',
-            access_token: accessToken,
-          },
-        }
-      );
+      // Use rate limiter to handle API limits and retries
+      const response = await threadsAPILimiter.execute(async () => {
+        return await axios.get(
+          `${config.threads.apiBaseUrl}/v1.0/${threadsMediaId}/insights`,
+          {
+            params: {
+              metric: 'views,likes,replies,reposts,quotes,shares',
+              access_token: accessToken,
+            },
+          }
+        );
+      }, `insights-${threadsMediaId}`);
 
       // Insights API 回傳格式: { data: [{ name: 'views', values: [{value: 123}] }, ...] }
       const metrics = response.data.data;
@@ -176,7 +180,7 @@ class ThreadsInsightsService {
       let successCount = 0;
       let failCount = 0;
 
-      // 逐個同步（避免 API 限流）
+      // 逐個同步（Rate limiter will handle API throttling automatically)
       for (const post of posts) {
         const success = await this.syncPostInsights(post.id);
         if (success) {
@@ -185,8 +189,7 @@ class ThreadsInsightsService {
           failCount++;
         }
 
-        // 避免 API 限流，每次請求間隔 1 秒
-        await this.sleep(1000);
+        // Note: Rate limiter handles delays automatically, no manual sleep needed
       }
 
       logger.info(`✓ Insights sync completed: ${successCount} succeeded, ${failCount} failed`);
@@ -256,15 +259,18 @@ class ThreadsInsightsService {
     posts_count: number;
   } | null> {
     try {
-      const response = await axios.get(
-        `${config.threads.apiBaseUrl}/me`,
-        {
-          params: {
-            fields: 'followers_count,following_count,media_count',
-            access_token: accessToken,
-          },
-        }
-      );
+      // Use rate limiter for account info API call
+      const response = await threadsAPILimiter.execute(async () => {
+        return await axios.get(
+          `${config.threads.apiBaseUrl}/me`,
+          {
+            params: {
+              fields: 'followers_count,following_count,media_count',
+              access_token: accessToken,
+            },
+          }
+        );
+      }, `account-info-${userId}`);
 
       return {
         followers_count: response.data.followers_count || 0,

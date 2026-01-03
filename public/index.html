@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Threads 半自動發文系統 - 管理介面</title>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -850,28 +852,129 @@
 
             <!-- Overview Tab -->
             <div id="overviewTab" class="tab-content active">
-                <h2 style="margin-bottom: 20px;">系統總覽</h2>
-                <div class="stats" id="stats">
-                    <div class="stat-card">
-                        <h3 id="totalPosts">0</h3>
-                        <p>總貼文數</p>
+                <!-- Two Column Layout -->
+                <div style="display: grid; grid-template-columns: 1fr 450px; gap: 30px;">
+
+                    <!-- Left Column: System Overview -->
+                    <div>
+                        <h2 style="margin-bottom: 20px;">系統總覽</h2>
+                        <div class="stats" id="stats">
+                            <div class="stat-card">
+                                <h3 id="totalPosts">0</h3>
+                                <p>總貼文數</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="draftPosts">0</h3>
+                                <p>草稿</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="pendingPosts">0</h3>
+                                <p>待審核</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3 id="postedPosts">0</h3>
+                                <p>已發布</p>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-bottom: 15px;">最近貼文</h3>
+                        <div id="recentPosts" class="posts-grid"></div>
                     </div>
-                    <div class="stat-card">
-                        <h3 id="draftPosts">0</h3>
-                        <p>草稿</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="pendingPosts">0</h3>
-                        <p>待審核</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="postedPosts">0</h3>
-                        <p>已發布</p>
+
+                    <!-- Right Column: Statistics Panel -->
+                    <div>
+                        <h2 style="margin-bottom: 20px;">貼文統計</h2>
+
+                        <!-- Statistics Sub-tabs -->
+                        <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
+                            <button class="stats-sub-tab active" onclick="switchStatsTab('summary')" style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                                📊 摘要
+                            </button>
+                            <button class="stats-sub-tab" onclick="switchStatsTab('templates')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                                📝 樣板
+                            </button>
+                            <button class="stats-sub-tab" onclick="switchStatsTab('timeslots')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                                ⏰ 時段
+                            </button>
+                            <button class="stats-sub-tab" onclick="switchStatsTab('details')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                                📋 明細
+                            </button>
+                        </div>
+
+                        <!-- Statistics Summary Sub-tab -->
+                        <div id="statsSummaryTab" class="stats-sub-content active" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px;">
+                            <h3 style="margin-bottom: 15px; font-size: 16px;">整體表現</h3>
+
+                            <!-- Key Metrics -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalPosts">-</div>
+                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">已發布貼文</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalViews">-</div>
+                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">總觀看數</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalLikes">-</div>
+                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">總按讚數</div>
+                                </div>
+                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsAvgEngagement">-</div>
+                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">平均參與率</div>
+                                </div>
+                            </div>
+
+                            <!-- 7-Day Trend Chart -->
+                            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                <h4 style="font-size: 14px; margin-bottom: 10px; color: #333;">最近 7 天趨勢</h4>
+                                <canvas id="stats7DayChart" width="400" height="200"></canvas>
+                            </div>
+
+                            <!-- Sync Status -->
+                            <div id="statsSyncStatus" style="background: white; padding: 15px; border-radius: 8px; font-size: 13px; color: #666;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span>上次同步: <span id="statsLastSync">-</span></span>
+                                    <button onclick="triggerManualSync()" style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🔄 手動同步
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Templates Sub-tab -->
+                        <div id="statsTemplatesTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                            <h3 style="margin-bottom: 15px; font-size: 16px;">樣板分析</h3>
+                            <div id="statsTemplatesList" style="max-height: 500px; overflow-y: auto;">
+                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Timeslots Sub-tab -->
+                        <div id="statsTimeslotsTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                            <h3 style="margin-bottom: 15px; font-size: 16px;">時段分析</h3>
+                            <div id="statsTimeslotsList" style="max-height: 500px; overflow-y: auto;">
+                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Details Sub-tab -->
+                        <div id="statsDetailsTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                            <h3 style="margin-bottom: 15px; font-size: 16px;">貼文明細</h3>
+
+                            <!-- Export Button -->
+                            <div style="margin-bottom: 15px; text-align: right;">
+                                <button onclick="exportStatsToCSV()" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                                    📥 匯出 CSV
+                                </button>
+                            </div>
+
+                            <div id="statsDetailsList" style="max-height: 450px; overflow-y: auto;">
+                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <h3 style="margin-bottom: 15px;">最近貼文</h3>
-                <div id="recentPosts" class="posts-grid"></div>
             </div>
 
             <!-- Posts Tab -->
@@ -3077,11 +3180,318 @@
         setInterval(() => {
             if (token && document.getElementById('dashboard').classList.contains('active')) {
                 const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab.id === 'overviewTab') loadOverview();
+                if (activeTab.id === 'overviewTab') {
+                    loadOverview();
+                    loadStatsSummary(); // Also refresh stats
+                }
                 if (activeTab.id === 'postsTab') loadPosts();
                 if (activeTab.id === 'accountsTab') loadThreadsAccountsList();
             }
         }, 30000); // Refresh every 30 seconds
+
+        // ========== STATISTICS FUNCTIONS ==========
+
+        let stats7DayChartInstance = null;
+
+        // Switch between statistics sub-tabs
+        function switchStatsTab(tabName) {
+            // Remove active class from all stats sub-tabs
+            document.querySelectorAll('.stats-sub-tab').forEach(tab => {
+                tab.style.background = '#e5e7eb';
+                tab.style.color = '#333';
+                tab.classList.remove('active');
+            });
+
+            // Hide all stats sub-content
+            document.querySelectorAll('.stats-sub-content').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            // Activate selected tab
+            event.target.style.background = '#667eea';
+            event.target.style.color = 'white';
+            event.target.classList.add('active');
+
+            // Show selected content
+            const contentMap = {
+                'summary': 'statsSummaryTab',
+                'templates': 'statsTemplatesTab',
+                'timeslots': 'statsTimeslotsTab',
+                'details': 'statsDetailsTab'
+            };
+
+            const contentId = contentMap[tabName];
+            if (contentId) {
+                document.getElementById(contentId).style.display = 'block';
+            }
+
+            // Load data for the selected tab
+            if (tabName === 'summary') {
+                loadStatsSummary();
+            } else if (tabName === 'templates') {
+                loadStatsTemplates();
+            } else if (tabName === 'timeslots') {
+                loadStatsTimeslots();
+            } else if (tabName === 'details') {
+                loadStatsDetails();
+            }
+        }
+
+        // Load statistics summary
+        async function loadStatsSummary() {
+            try {
+                // TODO: Replace with actual API call
+                // const response = await fetch(`${API_BASE}/statistics/overview`, {
+                //     headers: { 'Authorization': `Bearer ${token}` }
+                // });
+                // const data = await response.json();
+
+                // Mock data for now
+                const data = {
+                    total_posts: 42,
+                    total_views: 12580,
+                    total_likes: 856,
+                    avg_engagement_rate: 6.8,
+                    last_sync: new Date().toLocaleString('zh-TW'),
+                    trend_data: {
+                        dates: ['01/01', '01/02', '01/03', '01/04', '01/05', '01/06', '01/07'],
+                        views: [1200, 1450, 1680, 1520, 1890, 2050, 1790],
+                        engagement: [5.2, 6.1, 7.3, 6.5, 8.2, 7.9, 6.8]
+                    }
+                };
+
+                // Update summary metrics
+                document.getElementById('statsTotalPosts').textContent = data.total_posts;
+                document.getElementById('statsTotalViews').textContent = data.total_views.toLocaleString();
+                document.getElementById('statsTotalLikes').textContent = data.total_likes.toLocaleString();
+                document.getElementById('statsAvgEngagement').textContent = data.avg_engagement_rate + '%';
+                document.getElementById('statsLastSync').textContent = data.last_sync;
+
+                // Update 7-day trend chart
+                const ctx = document.getElementById('stats7DayChart');
+                if (ctx) {
+                    // Destroy existing chart if it exists
+                    if (stats7DayChartInstance) {
+                        stats7DayChartInstance.destroy();
+                    }
+
+                    stats7DayChartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.trend_data.dates,
+                            datasets: [
+                                {
+                                    label: '觀看數',
+                                    data: data.trend_data.views,
+                                    borderColor: '#667eea',
+                                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    yAxisID: 'y'
+                                },
+                                {
+                                    label: '參與率 (%)',
+                                    data: data.trend_data.engagement,
+                                    borderColor: '#764ba2',
+                                    backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                                    borderWidth: 2,
+                                    tension: 0.4,
+                                    yAxisID: 'y1'
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        font: { size: 11 },
+                                        padding: 10
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    type: 'linear',
+                                    position: 'left',
+                                    title: { display: true, text: '觀看數', font: { size: 10 } },
+                                    ticks: { font: { size: 10 } }
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    position: 'right',
+                                    title: { display: true, text: '參與率 (%)', font: { size: 10 } },
+                                    ticks: { font: { size: 10 } },
+                                    grid: { drawOnChartArea: false }
+                                }
+                            }
+                        }
+                    });
+                }
+
+            } catch (error) {
+                console.error('Failed to load statistics summary:', error);
+                showAlert('dashboardAlert', '統計數據載入失敗', 'danger');
+            }
+        }
+
+        // Load template statistics
+        async function loadStatsTemplates() {
+            const container = document.getElementById('statsTemplatesList');
+            container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
+
+            try {
+                // TODO: Replace with actual API call
+                // Mock data
+                const templates = [
+                    { name: '科技趨勢分析', posts: 12, avg_likes: 72, avg_engagement: 7.2, avg_length: 280, hashtag_rate: 85 },
+                    { name: '日常生活分享', posts: 18, avg_likes: 45, avg_engagement: 5.8, avg_length: 160, hashtag_rate: 60 },
+                    { name: '產品開箱評測', posts: 8, avg_likes: 95, avg_engagement: 9.1, avg_length: 320, hashtag_rate: 90 }
+                ];
+
+                let html = '';
+                templates.forEach(template => {
+                    html += `
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="font-weight: bold; margin-bottom: 8px;">${template.name}</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
+                                <div>使用次數: ${template.posts}</div>
+                                <div>平均按讚: ${template.avg_likes}</div>
+                                <div>參與率: ${template.avg_engagement}%</div>
+                                <div>平均長度: ${template.avg_length} 字</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Failed to load template statistics:', error);
+                container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        // Load timeslot statistics
+        async function loadStatsTimeslots() {
+            const container = document.getElementById('statsTimeslotsList');
+            container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
+
+            try {
+                // TODO: Replace with actual API call
+                // Mock data
+                const timeslots = [
+                    { label: '09:00 - 12:00', posts: 15, avg_engagement: 8.2 },
+                    { label: '12:00 - 15:00', posts: 12, avg_engagement: 6.5 },
+                    { label: '18:00 - 21:00', posts: 20, avg_engagement: 9.1 }
+                ];
+
+                let html = '';
+                timeslots.forEach(slot => {
+                    html += `
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="font-weight: bold; margin-bottom: 8px;">${slot.label}</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
+                                <div>使用次數: ${slot.posts}</div>
+                                <div>參與率: ${slot.avg_engagement}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Failed to load timeslot statistics:', error);
+                container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        // Load post details
+        async function loadStatsDetails() {
+            const container = document.getElementById('statsDetailsList');
+            container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
+
+            try {
+                // TODO: Replace with actual API call
+                // Mock data
+                const posts = [
+                    { id: 1, content: '這是一篇測試貼文的內容...', date: '2026-01-03 10:00', likes: 72, views: 1250, engagement: 5.8 },
+                    { id: 2, content: '分享今天的心得與感想...', date: '2026-01-02 15:30', likes: 45, views: 890, engagement: 5.1 }
+                ];
+
+                let html = `
+                    <table style="width: 100%; font-size: 12px; background: white; border-radius: 8px; overflow: hidden;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="padding: 10px; text-align: left;">內容</th>
+                                <th style="padding: 10px; text-align: center;">按讚</th>
+                                <th style="padding: 10px; text-align: center;">觀看</th>
+                                <th style="padding: 10px; text-align: center;">參與率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                posts.forEach(post => {
+                    html += `
+                        <tr style="border-top: 1px solid #e5e7eb;">
+                            <td style="padding: 10px;">${post.content.substring(0, 30)}...</td>
+                            <td style="padding: 10px; text-align: center;">${post.likes}</td>
+                            <td style="padding: 10px; text-align: center;">${post.views}</td>
+                            <td style="padding: 10px; text-align: center;">${post.engagement}%</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+
+            } catch (error) {
+                console.error('Failed to load post details:', error);
+                container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        // Export statistics to CSV
+        function exportStatsToCSV() {
+            // TODO: Implement CSV export functionality
+            showAlert('dashboardAlert', 'CSV 匯出功能開發中', 'info');
+        }
+
+        // Trigger manual sync
+        async function triggerManualSync() {
+            try {
+                showAlert('dashboardAlert', '開始同步 Insights 數據...', 'info');
+
+                // TODO: Replace with actual API call
+                // const response = await fetch(`${API_BASE}/statistics/sync`, {
+                //     method: 'POST',
+                //     headers: { 'Authorization': `Bearer ${token}` }
+                // });
+
+                // Mock delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                showAlert('dashboardAlert', '✅ Insights 同步完成', 'success');
+                loadStatsSummary();
+
+            } catch (error) {
+                console.error('Failed to trigger sync:', error);
+                showAlert('dashboardAlert', '同步失敗', 'danger');
+            }
+        }
+
+        // Initialize statistics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (token) {
+                loadStatsSummary();
+            }
+        });
+
     </script>
 </body>
 </html>
