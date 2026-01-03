@@ -6,7 +6,7 @@ import { UserModel } from '../models/user.model';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 import logger from '../utils/logger';
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 const router = Router();
 
