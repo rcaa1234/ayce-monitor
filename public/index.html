@@ -852,38 +852,32 @@
 
             <!-- Overview Tab -->
             <div id="overviewTab" class="tab-content active">
-                <!-- Two Column Layout -->
-                <div style="display: grid; grid-template-columns: 1fr 450px; gap: 30px;">
-
-                    <!-- Left Column: System Overview -->
-                    <div>
-                        <h2 style="margin-bottom: 20px;">系統總覽</h2>
-                        <div class="stats" id="stats">
-                            <div class="stat-card">
-                                <h3 id="totalPosts">0</h3>
-                                <p>總貼文數</p>
-                            </div>
-                            <div class="stat-card">
-                                <h3 id="draftPosts">0</h3>
-                                <p>草稿</p>
-                            </div>
-                            <div class="stat-card">
-                                <h3 id="pendingPosts">0</h3>
-                                <p>待審核</p>
-                            </div>
-                            <div class="stat-card">
-                                <h3 id="postedPosts">0</h3>
-                                <p>已發布</p>
-                            </div>
+                <!-- System Overview -->
+                <div style="margin-bottom: 30px;">
+                    <h2 style="margin-bottom: 20px;">系統總覽</h2>
+                    <div class="stats" id="stats">
+                        <div class="stat-card">
+                            <h3 id="totalPosts">0</h3>
+                            <p>總貼文數</p>
                         </div>
-
-                        <h3 style="margin-bottom: 15px;">最近貼文</h3>
-                        <div id="recentPosts" class="posts-grid"></div>
+                        <div class="stat-card">
+                            <h3 id="draftPosts">0</h3>
+                            <p>草稿</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="pendingPosts">0</h3>
+                            <p>待審核</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="postedPosts">0</h3>
+                            <p>已發布</p>
+                        </div>
                     </div>
+                </div>
 
-                    <!-- Right Column: Statistics Panel -->
-                    <div>
-                        <h2 style="margin-bottom: 20px;">貼文統計</h2>
+                <!-- Statistics Panel -->
+                <div>
+                    <h2 style="margin-bottom: 20px;">貼文統計</h2>
 
                         <!-- Statistics Sub-tabs -->
                         <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
@@ -975,7 +969,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
             <!-- Posts Tab -->
             <div id="postsTab" class="tab-content">
@@ -1460,10 +1453,6 @@
                 document.getElementById('draftPosts').textContent = statuses.DRAFT || 0;
                 document.getElementById('pendingPosts').textContent = statuses.PENDING_REVIEW || 0;
                 document.getElementById('postedPosts').textContent = statuses.POSTED || 0;
-
-                // Show recent posts
-                const recentPosts = posts.slice(0, 5);
-                renderPosts(recentPosts, 'recentPosts');
             } catch (error) {
                 showAlert('dashboardAlert', '載入總覽失敗: ' + error.message, 'error');
             }
