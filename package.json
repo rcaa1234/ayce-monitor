@@ -32,6 +32,7 @@
     "verify:migration": "node scripts/verify-and-migrate.js",
     "cleanup:statistics": "node scripts/cleanup-statistics-tables.js",
     "check:posts-structure": "node scripts/check-posts-table-structure.js",
+    "check:all-structures": "node scripts/check-all-table-structures.js",
     "list:tables": "node scripts/list-all-tables.js"
   },
   "keywords": [
