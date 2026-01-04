@@ -1,6 +1,7 @@
 import { validateConfig } from './config';
 import logger from './utils/logger';
 import { createDatabasePool, closeDatabasePool } from './database/connection';
+import { startSchedulers, stopSchedulers } from './cron/scheduler';
 import generateWorker from './workers/generate.worker';
 import publishWorker from './workers/publish.worker';
 import tokenRefreshWorker from './workers/token-refresh.worker';
@@ -15,6 +16,9 @@ async function startWorkers() {
     // Connect to database
     await createDatabasePool();
 
+    // Start cron schedulers (including UCB auto-scheduling)
+    startSchedulers();
+
     logger.info('✓ Generate worker started');
     logger.info('✓ Publish worker started');
     logger.info('✓ Token refresh worker started');
@@ -28,6 +32,7 @@ async function startWorkers() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down workers...');
+  stopSchedulers();
   await generateWorker.close();
   await publishWorker.close();
   await tokenRefreshWorker.close();
@@ -37,6 +42,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down workers...');
+  stopSchedulers();
   await generateWorker.close();
   await publishWorker.close();
   await tokenRefreshWorker.close();
