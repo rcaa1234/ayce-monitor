@@ -159,7 +159,7 @@ async function diagnose() {
 
     const today = new Date().toISOString().split('T')[0];
     const [todaySchedules] = await connection.execute(`
-      SELECT id, schedule_date, posts_count, created_at
+      SELECT id, schedule_date, status, scheduled_time, created_at
       FROM daily_auto_schedule
       WHERE schedule_date = ?
     `, [today]);
@@ -168,7 +168,8 @@ async function diagnose() {
     if (todaySchedules.length > 0) {
       todaySchedules.forEach((schedule, idx) => {
         console.log(`  ${idx + 1}. ID: ${schedule.id}`);
-        console.log(`     Posts count: ${schedule.posts_count}`);
+        console.log(`     Status: ${schedule.status}`);
+        console.log(`     Scheduled time: ${schedule.scheduled_time}`);
         console.log(`     Created at: ${schedule.created_at}`);
       });
     } else {
@@ -181,7 +182,7 @@ async function diagnose() {
     console.log('='.repeat(70));
 
     const [recentSchedules] = await connection.execute(`
-      SELECT schedule_date, posts_count, created_at
+      SELECT schedule_date, status, scheduled_time, created_at
       FROM daily_auto_schedule
       ORDER BY schedule_date DESC
       LIMIT 5
@@ -190,7 +191,7 @@ async function diagnose() {
     if (recentSchedules.length > 0) {
       console.log('');
       recentSchedules.forEach((schedule, idx) => {
-        console.log(`  ${idx + 1}. ${schedule.schedule_date} - ${schedule.posts_count} 篇貼文 (建立於 ${schedule.created_at})`);
+        console.log(`  ${idx + 1}. ${schedule.schedule_date} - ${schedule.status} (排程時間: ${schedule.scheduled_time}, 建立於 ${schedule.created_at})`);
       });
     } else {
       console.log('\n  ⚠️ 沒有任何排程歷史記錄');
