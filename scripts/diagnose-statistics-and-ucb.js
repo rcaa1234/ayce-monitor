@@ -122,18 +122,18 @@ async function diagnose() {
     console.log('='.repeat(70));
 
     const [ucbConfig] = await connection.execute(`
-      SELECT * FROM ucb_config LIMIT 1
+      SELECT * FROM smart_schedule_config WHERE enabled = true LIMIT 1
     `);
 
     if (ucbConfig.length > 0) {
       const config = ucbConfig[0];
       console.log('\nUCB 配置：');
-      console.log(`  auto_schedule_enabled: ${config.auto_schedule_enabled ? '✅ 啟用' : '❌ 停用'}`);
-      console.log(`  time_range_start:      ${config.time_range_start}`);
-      console.log(`  time_range_end:        ${config.time_range_end}`);
-      console.log(`  posts_per_day:         ${config.posts_per_day}`);
-      console.log(`  min_test_iterations:   ${config.min_test_iterations}`);
-      console.log(`  exploration_rate:      ${config.exploration_rate}`);
+      console.log(`  auto_schedule_enabled:   ${config.auto_schedule_enabled ? '✅ 啟用' : '❌ 停用'}`);
+      console.log(`  time_range_start:        ${config.time_range_start}`);
+      console.log(`  time_range_end:          ${config.time_range_end}`);
+      console.log(`  posts_per_day:           ${config.posts_per_day}`);
+      console.log(`  min_trials_per_template: ${config.min_trials_per_template}`);
+      console.log(`  exploration_factor:      ${config.exploration_factor}`);
 
       // 計算應該建立排程的時間
       const [hour, minute] = config.time_range_start.split(':').map(Number);
@@ -148,7 +148,8 @@ async function diagnose() {
       console.log(`  應建立排程時間:     ${scheduleCreationTime.toLocaleTimeString('zh-TW', { hour12: false })}`);
       console.log(`  是否應該建立排程:   ${now >= scheduleCreationTime ? '✅ 是' : '❌ 否'}`);
     } else {
-      console.log('\n❌ UCB 配置不存在');
+      console.log('\n❌ UCB 配置不存在或未啟用');
+      console.log('   請在 UCB 設定頁面建立並啟用配置');
     }
 
     // ==================== 5. 檢查今日排程 ====================
@@ -257,12 +258,13 @@ async function diagnose() {
       suggestions.push('👉 需要執行統計遷移: npm run migrate:statistics:prod');
     }
 
-    if (ucbConfig.length > 0 && !ucbConfig[0].auto_schedule_enabled) {
+    if (ucbConfig.length === 0) {
+      issues.push('❌ UCB 配置不存在或未啟用');
+      suggestions.push('👉 在 UCB 設定頁面建立並啟用配置');
+    } else if (!ucbConfig[0].auto_schedule_enabled) {
       issues.push('⚠️ UCB 自動排程功能已停用');
       suggestions.push('👉 在 UCB 設定頁面啟用「啟用自動排程」選項');
-    }
-
-    if (todaySchedules.length === 0 && ucbConfig.length > 0 && ucbConfig[0].auto_schedule_enabled) {
+    } else if (todaySchedules.length === 0) {
       issues.push('⚠️ UCB 已啟用但今日沒有排程');
       suggestions.push('👉 檢查 scheduler 日誌，確認 cron job 是否正常執行');
       suggestions.push('👉 確認當前時間是否已過建立排程的時間點');
