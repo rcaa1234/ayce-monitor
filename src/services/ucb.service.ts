@@ -307,12 +307,22 @@ class UCBService {
     const hour = Math.floor(randomMinutes / 60);
     const minute = randomMinutes % 60;
 
-    const scheduledTime = new Date(targetDate);
-    scheduledTime.setHours(hour, minute, 0, 0);
+    // 使用目標日期的年月日（本地時間），搭配隨機產生的時分
+    // 用戶設定的時間是台灣時間（UTC+8），所以需要用 UTC 方法來正確處理
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const day = targetDate.getDate();
+
+    // 建立本地時間，然後轉換為 UTC
+    // 方法：先建立一個代表本地時間的字串，再解析為 Date
+    // 這樣可以確保儲存的 UTC 時間正確對應到用戶期望的本地時間
+    const localTimeStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+08:00`;
+    const scheduledTime = new Date(localTimeStr);
 
     // Debug logging
     logger.info(`[UCB Time Debug] generateRandomTime: timeSlot=${timeSlot.start_hour}:${timeSlot.start_minute} - ${timeSlot.end_hour}:${timeSlot.end_minute}`);
     logger.info(`[UCB Time Debug] generateRandomTime: startMinutes=${startMinutes}, endMinutes=${endMinutes}, randomMinutes=${randomMinutes}`);
+    logger.info(`[UCB Time Debug] generateRandomTime: localTimeStr=${localTimeStr}`);
     logger.info(`[UCB Time Debug] generateRandomTime: result=${hour}:${minute}, scheduledTime=${scheduledTime.toISOString()}`);
 
     return scheduledTime;
