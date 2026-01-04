@@ -538,7 +538,8 @@ const migrations = [
   ADD COLUMN threads_account_id CHAR(36) COMMENT 'Threads 發布帳號 ID' AFTER auto_schedule_enabled,
   ADD COLUMN line_user_id VARCHAR(100) COMMENT 'LINE 通知接收者 User ID' AFTER threads_account_id,
   ADD COLUMN time_range_start TIME DEFAULT '09:00:00' COMMENT 'UCB 發文時段開始時間' AFTER line_user_id,
-  ADD COLUMN time_range_end TIME DEFAULT '21:00:00' COMMENT 'UCB 發文時段結束時間' AFTER time_range_start;
+  ADD COLUMN time_range_end TIME DEFAULT '21:00:00' COMMENT 'UCB 發文時段結束時間' AFTER time_range_start,
+  ADD COLUMN active_days JSON DEFAULT '[]' COMMENT 'UCB 啟用星期，例如：[1,2,3,4,5,6,7] (1=週一, 7=週日)' AFTER time_range_end;
   `,
 ];
 

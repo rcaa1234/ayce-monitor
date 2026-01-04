@@ -51,6 +51,7 @@ interface UCBConfig {
   line_user_id?: string; // LINE 通知接收者 User ID
   time_range_start?: string; // UCB 發文時段開始時間 (HH:MM:SS)
   time_range_end?: string; // UCB 發文時段結束時間 (HH:MM:SS)
+  active_days?: number[]; // UCB 啟用星期 (1=週一...7=週日)
 }
 
 /**
@@ -102,6 +103,7 @@ class UCBService {
           line_user_id: undefined,
           time_range_start: '09:00:00',
           time_range_end: '21:00:00',
+          active_days: [],
         };
       }
 
@@ -115,6 +117,9 @@ class UCBService {
         line_user_id: config.line_user_id || undefined,
         time_range_start: config.time_range_start || '09:00:00',
         time_range_end: config.time_range_end || '21:00:00',
+        active_days: config.active_days
+          ? (typeof config.active_days === 'string' ? JSON.parse(config.active_days) : config.active_days)
+          : [],
       };
     } catch (error) {
       logger.error('Failed to get UCB config, using defaults:', error);
@@ -127,6 +132,7 @@ class UCBService {
         line_user_id: undefined,
         time_range_start: '09:00:00',
         time_range_end: '21:00:00',
+        active_days: [],
       };
     }
   }
@@ -313,37 +319,43 @@ class UCBService {
    */
   async selectOptimalSchedule(targetDate: Date): Promise<SelectionResult | null> {
     try {
-      // 1. 取得所有啟用的時段
-      const timeSlots = await this.getEnabledTimeSlots();
+      // 1. 從配置取得時間範圍，建立一個簡單的時段
+      const config = await this.getConfig();
+      const timeRangeStart = config.time_range_start || '09:00:00';
+      const timeRangeEnd = config.time_range_end || '21:00:00';
 
-      if (timeSlots.length === 0) {
-        logger.warn('No enabled time slots found');
-        return null;
-      }
+      const [startHour, startMinute] = timeRangeStart.split(':').map(Number);
+      const [endHour, endMinute] = timeRangeEnd.split(':').map(Number);
 
-      // 2. 選擇今天最適合的時段
-      const bestTimeSlot = this.selectBestTimeSlot(timeSlots, targetDate);
+      // 建立虛擬時段（不需要從資料庫讀取）
+      const timeSlot: TimeSlot = {
+        id: 'ucb-auto-slot',
+        name: 'UCB 自動時段',
+        start_hour: startHour,
+        start_minute: startMinute,
+        end_hour: endHour,
+        end_minute: endMinute,
+        allowed_template_ids: [], // 允許所有模板
+        active_days: [], // 不在這裡檢查，在 scheduler 檢查
+        enabled: true,
+        priority: 0,
+      };
 
-      if (!bestTimeSlot) {
-        logger.warn(`No active time slot for date: ${targetDate.toDateString()}`);
-        return null;
-      }
-
-      // 3. 使用 UCB 選擇該時段內的最佳模板
-      const bestTemplateScore = await this.selectBestTemplate(bestTimeSlot);
+      // 2. 使用 UCB 選擇最佳模板
+      const bestTemplateScore = await this.selectBestTemplate(timeSlot);
 
       if (!bestTemplateScore) {
-        logger.warn(`No valid template for time slot: ${bestTimeSlot.name}`);
+        logger.warn('No valid template found for UCB scheduling');
         return null;
       }
 
-      // 4. 在時段內隨機選擇發文時間
-      const scheduledTime = this.generateRandomTime(bestTimeSlot, targetDate);
+      // 3. 在時段內隨機選擇發文時間
+      const scheduledTime = this.generateRandomTime(timeSlot, targetDate);
 
-      logger.info(`UCB selected: ${bestTimeSlot.name} + ${bestTemplateScore.template.name} at ${scheduledTime.toISOString()}`);
+      logger.info(`UCB selected: ${bestTemplateScore.template.name} at ${scheduledTime.toISOString()}`);
 
       return {
-        timeSlot: bestTimeSlot,
+        timeSlot,
         template: bestTemplateScore.template,
         scheduledTime,
         ucbScore: bestTemplateScore.ucbScore,

@@ -2377,7 +2377,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       threads_account_id,
       line_user_id,
       time_range_start,
-      time_range_end
+      time_range_end,
+      active_days
     } = req.body;
 
     const { getPool } = await import('../database/connection');
@@ -2393,8 +2394,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       await pool.execute(
         `INSERT INTO smart_schedule_config
          (id, exploration_factor, min_trials_per_template, posts_per_day, auto_schedule_enabled,
-          threads_account_id, line_user_id, time_range_start, time_range_end, enabled)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+          threads_account_id, line_user_id, time_range_start, time_range_end, active_days, enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
         [
           id,
           exploration_factor || 1.5,
@@ -2404,7 +2405,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
           threads_account_id || null,
           line_user_id || null,
           time_range_start || '09:00:00',
-          time_range_end || '21:00:00'
+          time_range_end || '21:00:00',
+          JSON.stringify(active_days || [])
         ]
       );
     } else {
@@ -2418,7 +2420,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
              threads_account_id = ?,
              line_user_id = ?,
              time_range_start = ?,
-             time_range_end = ?
+             time_range_end = ?,
+             active_days = ?
          WHERE enabled = true`,
         [
           exploration_factor || 1.5,
@@ -2428,7 +2431,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
           threads_account_id || null,
           line_user_id || null,
           time_range_start || '09:00:00',
-          time_range_end || '21:00:00'
+          time_range_end || '21:00:00',
+          JSON.stringify(active_days || [])
         ]
       );
     }

@@ -305,13 +305,6 @@ export async function createDailyAutoSchedule() {
     const { ucbService } = await import('../services/ucb.service');
     const { generateUUID } = await import('../utils/uuid');
 
-    // 檢查配置是否啟用
-    const config = await ucbService.getConfig();
-    if (!config.auto_schedule_enabled) {
-      logger.info('Auto schedule is disabled, skipping');
-      return;
-    }
-
     // 檢查今天是否已有排程
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -361,27 +354,31 @@ export async function createDailyAutoSchedule() {
 
 /**
  * Dynamic Daily Auto Schedule Creator
- * 用途：動態在發文時段開始前 30 分鐘自動建立排程
- * 頻率：每 10 分鐘檢查一次是否需要建立排程
+ * 用途：每 10 分鐘檢查今天是否需要建立排程，如果還沒有排程就立即建立
+ * 頻率：每 10 分鐘檢查一次
  */
 const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
   try {
     const pool = getPool();
     const { ucbService } = await import('../services/ucb.service');
 
-    // 檢查配置是否啟用
+    // 檢查配置
     const config = await ucbService.getConfig();
-    logger.info(`[UCB Scheduler] Checking - auto_schedule_enabled: ${config.auto_schedule_enabled}`);
+    logger.info(`[UCB Scheduler] Checking UCB config`);
 
-    if (!config.auto_schedule_enabled) {
-      logger.info('[UCB Scheduler] Auto schedule is disabled, skipping');
+    // 檢查今天是星期幾 (1=週一, 7=週日)
+    const today = new Date();
+    const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay(); // 將 0 (週日) 轉為 7
+    const todayStr = today.toISOString().split('T')[0];
+
+    // 檢查 active_days 設定
+    const activeDays = config.active_days || [];
+    if (activeDays.length > 0 && !activeDays.includes(dayOfWeek)) {
+      logger.info(`[UCB Scheduler] Today (day ${dayOfWeek}) is not an active day, skipping`);
       return;
     }
 
     // 檢查今天是否已有排程
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
     const [existing] = await pool.execute<RowDataPacket[]>(
       'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
       [todayStr]
@@ -394,33 +391,9 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
       return; // 已有排程,不重複建立
     }
 
-    // 取得發文時段開始時間
-    const timeRangeStart = config.time_range_start || '09:00:00';
-    const [hour, minute] = timeRangeStart.split(':').map(Number);
-
-    // 計算今天的發文時段開始時間
-    const startTime = new Date();
-    startTime.setHours(hour, minute, 0, 0);
-
-    // 計算應該建立排程的時間 (開始前 30 分鐘)
-    const scheduleCreationTime = new Date(startTime.getTime() - 30 * 60 * 1000);
-
-    // 當前時間
-    const now = new Date();
-
-    logger.info(`[UCB Scheduler] Time check:
-  - Current time: ${now.toLocaleTimeString('zh-TW', { hour12: false })}
-  - Post start time: ${startTime.toLocaleTimeString('zh-TW', { hour12: false })}
-  - Should create at: ${scheduleCreationTime.toLocaleTimeString('zh-TW', { hour12: false })}
-  - Should create now: ${now >= scheduleCreationTime}`);
-
-    // 如果當前時間已經過了建立排程的時間,且還沒有排程,就立即建立
-    if (now >= scheduleCreationTime && existing.length === 0) {
-      logger.info(`⏰ Time to create daily schedule (${Math.floor((now.getTime() - scheduleCreationTime.getTime()) / 60000)} minutes after scheduled creation time)`);
-      await createDailyAutoSchedule();
-    } else {
-      logger.info('[UCB Scheduler] Not time to create schedule yet, waiting...');
-    }
+    // 如果今天還沒有排程，立即建立
+    logger.info(`⏰ Creating daily schedule for ${todayStr}`);
+    await createDailyAutoSchedule();
   } catch (error) {
     logger.error('Error in dynamic daily auto scheduler:', error);
   }

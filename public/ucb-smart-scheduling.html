@@ -689,11 +689,50 @@
                             </div>
 
                             <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="auto-schedule-enabled" checked>
-                                    <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動排程</label>
+                                <label for="time-range-start">發文時段開始</label>
+                                <input type="time" id="time-range-start" value="09:00" required>
+                                <small>UCB 會在此時段範圍內隨機選擇發文時間</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="time-range-end">發文時段結束</label>
+                                <input type="time" id="time-range-end" value="21:00" required>
+                                <small>發文時間不會超過此時間</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>啟用星期</label>
+                                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px;">
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="1" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週一</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="2" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週二</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="3" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週三</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="4" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週四</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="5" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週五</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="6" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週六</span>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                        <input type="checkbox" class="active-day" value="7" checked style="margin-bottom: 4px;">
+                                        <span style="font-size: 12px;">週日</span>
+                                    </label>
                                 </div>
-                                <small>每天 00:00 自動使用 UCB 建立排程</small>
+                                <small style="margin-top: 8px; display: block;">選擇 UCB 自動建立排程的星期，未選擇的星期不會建立排程</small>
                             </div>
 
                             <button type="submit" class="btn btn-success" style="width: 100%;">💾 儲存配置</button>
@@ -1037,6 +1076,22 @@
                     document.getElementById('min-trials').value = parseInt(config.min_trials_per_template) || 5;
                     document.getElementById('posts-per-day').value = parseInt(config.posts_per_day) || 1;
                     document.getElementById('auto-schedule-enabled').checked = Boolean(config.auto_schedule_enabled);
+
+                    // 載入時間範圍
+                    if (config.time_range_start) {
+                        const startTime = config.time_range_start.substring(0, 5); // HH:MM
+                        document.getElementById('time-range-start').value = startTime;
+                    }
+                    if (config.time_range_end) {
+                        const endTime = config.time_range_end.substring(0, 5); // HH:MM
+                        document.getElementById('time-range-end').value = endTime;
+                    }
+
+                    // 載入啟用星期
+                    const activeDays = config.active_days || [];
+                    document.querySelectorAll('.active-day').forEach(checkbox => {
+                        checkbox.checked = activeDays.length === 0 || activeDays.includes(parseInt(checkbox.value));
+                    });
                 }
             } catch (error) {
                 console.error('載入配置失敗:', error);
@@ -1046,11 +1101,20 @@
         async function saveUCBConfig(event) {
             event.preventDefault();
 
+            // 收集啟用星期
+            const activeDays = [];
+            document.querySelectorAll('.active-day:checked').forEach(checkbox => {
+                activeDays.push(parseInt(checkbox.value));
+            });
+
             const data = {
                 exploration_factor: parseFloat(document.getElementById('exploration-factor').value),
                 min_trials_per_template: parseInt(document.getElementById('min-trials').value),
                 posts_per_day: parseInt(document.getElementById('posts-per-day').value),
-                auto_schedule_enabled: document.getElementById('auto-schedule-enabled').checked
+                auto_schedule_enabled: document.getElementById('auto-schedule-enabled').checked,
+                time_range_start: document.getElementById('time-range-start').value + ':00',
+                time_range_end: document.getElementById('time-range-end').value + ':00',
+                active_days: activeDays
             };
 
             try {
