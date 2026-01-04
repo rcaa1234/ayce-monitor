@@ -23,18 +23,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
+// API Routes (must come before static files to prevent conflicts)
+app.use('/api', routes);
+
 // Serve static files (frontend)
 // Files are copied to dist/public during build
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API Routes
-app.use('/api', routes);
-
-// Serve frontend for all non-API routes
-app.get('*', (_req, res) => {
-  if (!_req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, 'public/index.html'));
-  }
+// Serve index.html for root path only (SPA fallback)
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 // Error handling

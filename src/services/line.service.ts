@@ -8,13 +8,19 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import crypto from 'crypto';
 
 class LineService {
-  private client: Client;
+  private client: Client | null;
 
   constructor() {
-    this.client = new Client({
-      channelAccessToken: config.line.channelAccessToken,
-      channelSecret: config.line.channelSecret,
-    });
+    // LINE Bot is optional - only initialize if credentials are provided
+    if (config.line.channelAccessToken && config.line.channelSecret) {
+      this.client = new Client({
+        channelAccessToken: config.line.channelAccessToken,
+        channelSecret: config.line.channelSecret,
+      });
+    } else {
+      this.client = null;
+      logger.warn('LINE Bot credentials not configured - LINE features will be disabled');
+    }
   }
 
   /**
@@ -27,6 +33,10 @@ class LineService {
     content: string;
     reviewerUserId: string;
   }): Promise<string> {
+    if (!this.client) {
+      throw new Error('LINE Bot is not configured');
+    }
+
     const pool = getPool();
     const requestId = generateUUID();
     const token = this.generateReviewToken();
@@ -228,6 +238,11 @@ class LineService {
    * Send notification message
    */
   async sendNotification(lineUserId: string, message: string): Promise<void> {
+    if (!this.client) {
+      logger.warn('LINE Bot is not configured - notification not sent');
+      return;
+    }
+
     try {
       await this.client.pushMessage(lineUserId, {
         type: 'text',
@@ -244,6 +259,11 @@ class LineService {
    * Send Flex Message
    */
   async sendFlexMessage(lineUserId: string, bubble: FlexBubble): Promise<void> {
+    if (!this.client) {
+      logger.warn('LINE Bot is not configured - Flex message not sent');
+      return;
+    }
+
     try {
       const flexMessage: FlexMessage = {
         type: 'flex',
