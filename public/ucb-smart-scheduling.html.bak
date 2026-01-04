@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>智能排程系統 - UCB 模板管理 v2.0</title>
+    <title>智能排程系統 - UCB 模板管理</title>
     <style>
         * {
             margin: 0;
