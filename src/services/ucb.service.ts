@@ -327,6 +327,15 @@ class UCBService {
       const [startHour, startMinute] = timeRangeStart.split(':').map(Number);
       const [endHour, endMinute] = timeRangeEnd.split(':').map(Number);
 
+      // 先取得所有啟用的模板 ID，用於建立虛擬時段
+      const allTemplates = await this.getEnabledTemplates();
+      if (allTemplates.length === 0) {
+        logger.warn('No enabled templates found for UCB scheduling');
+        return null;
+      }
+      const allTemplateIds = allTemplates.map(t => t.id);
+      logger.info(`UCB found ${allTemplates.length} enabled templates: ${allTemplates.map(t => t.name).join(', ')}`);
+
       // 建立虛擬時段（不需要從資料庫讀取）
       const timeSlot: TimeSlot = {
         id: 'ucb-auto-slot',
@@ -335,7 +344,7 @@ class UCBService {
         start_minute: startMinute,
         end_hour: endHour,
         end_minute: endMinute,
-        allowed_template_ids: [], // 允許所有模板
+        allowed_template_ids: allTemplateIds, // 使用所有啟用模板的 ID
         active_days: [], // 不在這裡檢查，在 scheduler 檢查
         enabled: true,
         priority: 0,
