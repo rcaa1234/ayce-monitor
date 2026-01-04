@@ -26,6 +26,7 @@
     "insights:info": "node scripts/get-token-info.js",
     "check-threads-account": "node scripts/fix-threads-account-id.js",
     "diagnose": "node scripts/diagnose-publish-flow.js",
+    "diagnose:full": "node scripts/diagnose-statistics-and-ucb.js",
     "set-default-account": "node scripts/set-default-account.js",
     "migrate:statistics": "ts-node src/database/migrations/create-statistics-tables.ts",
     "migrate:statistics:prod": "node dist/database/migrations/create-statistics-tables.js",
