@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +30,7 @@
             background: white;
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             margin-bottom: 30px;
         }
 
@@ -75,11 +76,12 @@
             background: #c82333;
         }
 
-        .login-section, .dashboard {
+        .login-section,
+        .dashboard {
             background: white;
             padding: 40px;
             border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
         }
 
         .dashboard {
@@ -101,7 +103,9 @@
             font-weight: 500;
         }
 
-        .form-group input, .form-group textarea, .form-group select {
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e1e8ed;
@@ -110,7 +114,9 @@
             transition: border-color 0.3s;
         }
 
-        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -272,12 +278,35 @@
             font-weight: 500;
         }
 
-        .status-DRAFT { background: #e9ecef; color: #495057; }
-        .status-GENERATING { background: #fff3cd; color: #856404; }
-        .status-PENDING_REVIEW { background: #cce5ff; color: #004085; }
-        .status-APPROVED { background: #d4edda; color: #155724; }
-        .status-POSTED { background: #d1ecf1; color: #0c5460; }
-        .status-FAILED { background: #f8d7da; color: #721c24; }
+        .status-DRAFT {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .status-GENERATING {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-PENDING_REVIEW {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-APPROVED {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-POSTED {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-FAILED {
+            background: #f8d7da;
+            color: #721c24;
+        }
 
         .post-actions {
             margin-top: 15px;
@@ -331,8 +360,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .stats {
@@ -394,7 +428,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
             align-items: center;
             justify-content: center;
@@ -799,6 +833,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -879,96 +914,112 @@
                 <div>
                     <h2 style="margin-bottom: 20px;">貼文統計</h2>
 
-                        <!-- Statistics Sub-tabs -->
-                        <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
-                            <button class="stats-sub-tab active" onclick="switchStatsTab('summary')" style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                                📊 摘要
-                            </button>
-                            <button class="stats-sub-tab" onclick="switchStatsTab('templates')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                                📝 樣板
-                            </button>
-                            <button class="stats-sub-tab" onclick="switchStatsTab('timeslots')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                                ⏰ 時段
-                            </button>
-                            <button class="stats-sub-tab" onclick="switchStatsTab('details')" style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                                📋 明細
-                            </button>
-                        </div>
+                    <!-- Statistics Sub-tabs -->
+                    <div
+                        style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
+                        <button class="stats-sub-tab active" onclick="switchStatsTab('summary')"
+                            style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                            📊 摘要
+                        </button>
+                        <button class="stats-sub-tab" onclick="switchStatsTab('templates')"
+                            style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                            📝 樣板
+                        </button>
+                        <button class="stats-sub-tab" onclick="switchStatsTab('timeslots')"
+                            style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                            ⏰ 時段
+                        </button>
+                        <button class="stats-sub-tab" onclick="switchStatsTab('details')"
+                            style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                            📋 明細
+                        </button>
+                    </div>
 
-                        <!-- Statistics Summary Sub-tab -->
-                        <div id="statsSummaryTab" class="stats-sub-content active" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px;">
-                            <h3 style="margin-bottom: 15px; font-size: 16px;">整體表現</h3>
+                    <!-- Statistics Summary Sub-tab -->
+                    <div id="statsSummaryTab" class="stats-sub-content active"
+                        style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px;">
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">整體表現</h3>
 
-                            <!-- Key Metrics -->
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalPosts">-</div>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">已發布貼文</div>
+                        <!-- Key Metrics -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalPosts">-
                                 </div>
-                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalViews">-</div>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">總觀看數</div>
-                                </div>
-                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalLikes">-</div>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">總按讚數</div>
-                                </div>
-                                <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
-                                    <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsAvgEngagement">-</div>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">平均參與率</div>
-                                </div>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">已發布貼文</div>
                             </div>
-
-                            <!-- 7-Day Trend Chart -->
-                            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                <h4 style="font-size: 14px; margin-bottom: 10px; color: #333;">最近 7 天趨勢</h4>
-                                <canvas id="stats7DayChart" width="400" height="200"></canvas>
-                            </div>
-
-                            <!-- Sync Status -->
-                            <div id="statsSyncStatus" style="background: white; padding: 15px; border-radius: 8px; font-size: 13px; color: #666;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <span>上次同步: <span id="statsLastSync">-</span></span>
-                                    <button onclick="triggerManualSync()" style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        🔄 手動同步
-                                    </button>
+                            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalViews">-
                                 </div>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">總觀看數</div>
+                            </div>
+                            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #667eea;" id="statsTotalLikes">-
+                                </div>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">總按讚數</div>
+                            </div>
+                            <div style="background: white; padding: 15px; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 24px; font-weight: bold; color: #667eea;"
+                                    id="statsAvgEngagement">-</div>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">平均參與率</div>
                             </div>
                         </div>
 
-                        <!-- Statistics Templates Sub-tab -->
-                        <div id="statsTemplatesTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
-                            <h3 style="margin-bottom: 15px; font-size: 16px;">樣板分析</h3>
-                            <div id="statsTemplatesList" style="max-height: 500px; overflow-y: auto;">
-                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
-                            </div>
+                        <!-- 7-Day Trend Chart -->
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; margin-bottom: 10px; color: #333;">最近 7 天趨勢</h4>
+                            <canvas id="stats7DayChart" width="400" height="200"></canvas>
                         </div>
 
-                        <!-- Statistics Timeslots Sub-tab -->
-                        <div id="statsTimeslotsTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
-                            <h3 style="margin-bottom: 15px; font-size: 16px;">時段分析</h3>
-                            <div id="statsTimeslotsList" style="max-height: 500px; overflow-y: auto;">
-                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
-                            </div>
-                        </div>
-
-                        <!-- Statistics Details Sub-tab -->
-                        <div id="statsDetailsTab" class="stats-sub-content" style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
-                            <h3 style="margin-bottom: 15px; font-size: 16px;">貼文明細</h3>
-
-                            <!-- Export Button -->
-                            <div style="margin-bottom: 15px; text-align: right;">
-                                <button onclick="exportStatsToCSV()" style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">
-                                    📥 匯出 CSV
+                        <!-- Sync Status -->
+                        <div id="statsSyncStatus"
+                            style="background: white; padding: 15px; border-radius: 8px; font-size: 13px; color: #666;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>上次同步: <span id="statsLastSync">-</span></span>
+                                <button onclick="triggerManualSync()"
+                                    style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                    🔄 手動同步
                                 </button>
-                            </div>
-
-                            <div id="statsDetailsList" style="max-height: 450px; overflow-y: auto;">
-                                <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Statistics Templates Sub-tab -->
+                    <div id="statsTemplatesTab" class="stats-sub-content"
+                        style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">樣板分析</h3>
+                        <div id="statsTemplatesList" style="max-height: 500px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Timeslots Sub-tab -->
+                    <div id="statsTimeslotsTab" class="stats-sub-content"
+                        style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">時段分析</h3>
+                        <div id="statsTimeslotsList" style="max-height: 500px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Details Sub-tab -->
+                    <div id="statsDetailsTab" class="stats-sub-content"
+                        style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">貼文明細</h3>
+
+                        <!-- Export Button -->
+                        <div style="margin-bottom: 15px; text-align: right;">
+                            <button onclick="exportStatsToCSV()"
+                                style="padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 13px;">
+                                📥 匯出 CSV
+                            </button>
+                        </div>
+
+                        <div id="statsDetailsList" style="max-height: 450px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
 
             <!-- Posts Tab -->
             <div id="postsTab" class="tab-content">
@@ -986,7 +1037,8 @@
                     </select>
                     <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
                     <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
-                    <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn" style="display: none;">🗑️ 批次刪除</button>
+                    <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn"
+                        style="display: none;">🗑️ 批次刪除</button>
                 </div>
 
                 <div id="postsGrid" class="posts-grid"></div>
@@ -997,7 +1049,8 @@
                 <h2 style="margin-bottom: 20px;">發文排程管理</h2>
 
                 <!-- Internal Sub-tabs -->
-                <div class="sub-tabs" style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                <div class="sub-tabs"
+                    style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
                     <button class="sub-tab active" onclick="switchSchedulingSubTab('ucb')">🤖 UCB智能排程</button>
                     <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">🖊️ 手動建立</button>
                 </div>
@@ -1026,13 +1079,15 @@
                         <h3 style="margin-bottom: 15px;">LINE 通知設定</h3>
                         <div class="form-group">
                             <label>LINE User ID (接收審核通知)</label>
-                            <input type="text" id="ucbLineNotifyUserId" class="form-control" placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
+                            <input type="text" id="ucbLineNotifyUserId" class="form-control"
+                                placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
                             <p style="font-size: 12px; color: #666; margin-top: 5px;">
                                 UCB 生成文章後，系統會發送 LINE 訊息到此帳號進行審核。<br>
                                 如何取得 LINE User ID: 請加入 LINE Bot 為好友，發送「/myid」或「我的ID」或「查詢ID」即可取得
                             </p>
                         </div>
-                        <button class="btn btn-secondary" onclick="testUCBLineNotification()" style="margin-top: 10px;">測試 LINE 通知</button>
+                        <button class="btn btn-secondary" onclick="testUCBLineNotification()"
+                            style="margin-top: 10px;">測試 LINE 通知</button>
                     </div>
 
                     <div class="config-grid">
@@ -1042,7 +1097,8 @@
                             <form id="ucb-config-form" onsubmit="saveUCBConfig(event)">
                                 <div class="form-group">
                                     <label>參與 UCB 的模板</label>
-                                    <div id="ucb-templates-selector" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fafafa;">
+                                    <div id="ucb-templates-selector"
+                                        style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fafafa;">
                                         <p style="color: #999; text-align: center;">載入中...</p>
                                     </div>
                                     <small style="color: #0066cc; margin-top: 5px; display: block;">
@@ -1052,7 +1108,8 @@
 
                                 <div class="form-group">
                                     <label for="exploration-factor">探索係數 (1.0-2.0)</label>
-                                    <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1" value="1.5" required>
+                                    <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1"
+                                        value="1.5" required>
                                     <small>數值越高，系統越願意嘗試新模板（探索性強）</small>
                                 </div>
 
@@ -1070,14 +1127,67 @@
 
                                 <div class="form-group">
                                     <label for="time-range-start">發文時段 - 開始時間</label>
-                                    <input type="time" id="time-range-start" value="09:00" class="form-control" style="padding: 12px; font-size: 16px;">
+                                    <input type="time" id="time-range-start" value="09:00" class="form-control"
+                                        style="padding: 12px; font-size: 16px;">
                                     <small>UCB 將在此時間之後選擇最佳時段發文</small>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="time-range-end">發文時段 - 結束時間</label>
-                                    <input type="time" id="time-range-end" value="21:00" class="form-control" style="padding: 12px; font-size: 16px;">
+                                    <input type="time" id="time-range-end" value="21:00" class="form-control"
+                                        style="padding: 12px; font-size: 16px;">
                                     <small>UCB 將在此時間之前選擇最佳時段發文</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>啟用星期</label>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px;">
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="1" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週一</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="2" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週二</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="3" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週三</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="4" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週四</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="5" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週五</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="6" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週六</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="7" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週日</span>
+                                        </label>
+                                    </div>
+                                    <small style="margin-top: 8px; display: block;">選擇 UCB
+                                        自動建立排程的星期，未選擇的星期不會建立排程</small>
                                 </div>
 
                                 <div class="form-group">
@@ -1096,9 +1206,11 @@
                         <div class="config-card">
                             <h3>快速操作</h3>
 
-                            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
+                            <div
+                                style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
                                 <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📌 使用說明</h4>
-                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
+                                <ul
+                                    style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
                                     <li><strong>啟用自動排程</strong>：每天 00:00 自動建立排程</li>
                                     <li><strong>立即觸發</strong>：測試用，立即建立今天的排程</li>
                                     <li><strong>排程歷史</strong>：下方顯示所有 UCB 建立的排程</li>
@@ -1106,9 +1218,11 @@
                                 </ul>
                             </div>
 
-                            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+                            <div
+                                style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
                                 <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ 重要提醒</h4>
-                                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
+                                <ul
+                                    style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
                                     <li>每天只能建立一個排程（避免重複）</li>
                                     <li>必須選擇 Threads 帳號和 LINE User ID</li>
                                     <li>至少選擇一個啟用的模板</li>
@@ -1116,10 +1230,12 @@
                                 </ul>
                             </div>
 
-                            <button class="btn btn-primary" onclick="triggerDailySchedule()" style="width: 100%; padding: 15px; font-size: 16px;">
+                            <button class="btn btn-primary" onclick="triggerDailySchedule()"
+                                style="width: 100%; padding: 15px; font-size: 16px;">
                                 🧪 測試生成發送
                             </button>
-                            <small style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
+                            <small
+                                style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
                                 系統會立即生成文章並發送 LINE 通知
                             </small>
                         </div>
@@ -1147,83 +1263,93 @@
                         由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
                     </p>
                     <ol style="color: #666; line-height: 1.8;">
-                        <li>前往 <a href="https://developers.facebook.com/" target="_blank" style="color: #667eea;">Meta Developers</a> 建立應用程式</li>
+                        <li>前往 <a href="https://developers.facebook.com/" target="_blank" style="color: #667eea;">Meta
+                                Developers</a> 建立應用程式</li>
                         <li>取得 Client ID 和 Client Secret</li>
-                        <li>設定 Redirect URI 為: <code style="background: #e1e8ed; padding: 2px 6px; border-radius: 3px;">http://localhost:3000/api/threads/oauth/callback</code></li>
+                        <li>設定 Redirect URI 為: <code
+                                style="background: #e1e8ed; padding: 2px 6px; border-radius: 3px;">http://localhost:3000/api/threads/oauth/callback</code>
+                        </li>
                         <li>點擊下方按鈕開始授權</li>
                     </ol>
-                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads 授權</button>
+                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads
+                        授權</button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="margin: 0;">已連結的 Threads 帳號</h3>
-                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;">🔍 診斷發布問題</button>
+                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;">🔍
+                        診斷發布問題</button>
                 </div>
                 <div id="threadsAccountsList" class="posts-grid"></div>
 
                 <!-- Diagnostics Result -->
-                <div id="diagnosticsResult" style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
+                <div id="diagnosticsResult"
+                    style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
                     <h3 style="margin-bottom: 15px;">🔍 診斷結果</h3>
                     <div id="diagnosticsContent"></div>
                 </div>
             </div>
 
-                <!-- Manual Post Sub-tab -->
-                <div id="manualSubTab" class="sub-tab-content">
-                    <h3 style="margin-bottom: 20px;">手動建立貼文</h3>
-                    <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
+            <!-- Manual Post Sub-tab -->
+            <div id="manualSubTab" class="sub-tab-content">
+                <h3 style="margin-bottom: 20px;">手動建立貼文</h3>
+                <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
 
-                    <form onsubmit="createManualPost(event)">
-                        <div class="form-group">
-                            <label>貼文內容 *</label>
-                            <textarea id="manualPostContent" rows="10" placeholder="直接輸入您想發布的內容..." required style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; line-height: 1.6;"></textarea>
-                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                字數: <span id="contentCharCount">0</span> / 500 (Threads 建議)
-                            </p>
+                <form onsubmit="createManualPost(event)">
+                    <div class="form-group">
+                        <label>貼文內容 *</label>
+                        <textarea id="manualPostContent" rows="10" placeholder="直接輸入您想發布的內容..." required
+                            style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; line-height: 1.6;"></textarea>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            字數: <span id="contentCharCount">0</span> / 500 (Threads 建議)
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布到 Threads 帳號 *</label>
+                        <select id="manualPostThreadsAccount" required style="padding: 12px; font-size: 15px;">
+                            <option value="">請選擇帳號</option>
+                        </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            未設定帳號? 請到「Threads 帳號」分頁新增
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布時間</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="now" checked
+                                    onchange="toggleScheduleInput()">
+                                立即發布
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="scheduled"
+                                    onchange="toggleScheduleInput()">
+                                排程發布
+                            </label>
                         </div>
+                        <input type="datetime-local" id="manualPostSchedule"
+                            style="padding: 12px; font-size: 15px; display: none;">
+                    </div>
 
-                        <div class="form-group">
-                            <label>發布到 Threads 帳號 *</label>
-                            <select id="manualPostThreadsAccount" required style="padding: 12px; font-size: 15px;">
-                                <option value="">請選擇帳號</option>
-                            </select>
-                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                未設定帳號? 請到「Threads 帳號」分頁新增
-                            </p>
-                        </div>
-
-                        <div class="form-group">
-                            <label>發布時間</label>
-                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" name="publishTime" value="now" checked onchange="toggleScheduleInput()">
-                                    立即發布
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" name="publishTime" value="scheduled" onchange="toggleScheduleInput()">
-                                    排程發布
-                                </label>
-                            </div>
-                            <input type="datetime-local" id="manualPostSchedule" style="padding: 12px; font-size: 15px; display: none;">
-                        </div>
-
-                        <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">發布貼文</button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
-            <div id="templatesTab" class="tab-content">
-                <h2 style="margin-bottom: 20px;">模板設定</h2>
-                <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
-
-                <div class="action-bar">
-                    <h3>我的模板</h3>
-                    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
-                </div>
-                <div id="templates-container"></div>
+                    <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">發布貼文</button>
+                </form>
             </div>
         </div>
+
+        <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
+        <div id="templatesTab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">模板設定</h2>
+            <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
+
+            <div class="action-bar">
+                <h3>我的模板</h3>
+                <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+            </div>
+            <div id="templates-container"></div>
+        </div>
+    </div>
     </div>
 
     <!-- Post Detail Modal -->
@@ -2377,7 +2503,7 @@
         // Character counter for manual post content
         const manualContentTextarea = document.getElementById('manualPostContent');
         if (manualContentTextarea) {
-            manualContentTextarea.addEventListener('input', function() {
+            manualContentTextarea.addEventListener('input', function () {
                 const count = this.value.length;
                 document.getElementById('contentCharCount').textContent = count;
             });
@@ -2597,9 +2723,9 @@
             container.innerHTML = `
                 <div class="templates-grid">
                     ${smartSchedulingTemplates.map(template => {
-                        const avgRate = parseFloat(template.avg_engagement_rate) || 0;
-                        const engineName = getEngineName(template.preferred_engine || 'GPT5_2');
-                        return `
+                const avgRate = parseFloat(template.avg_engagement_rate) || 0;
+                const engineName = getEngineName(template.preferred_engine || 'GPT5_2');
+                return `
                         <div class="template-card ${template.enabled ? '' : 'disabled'}">
                             <div class="template-header">
                                 <div>
@@ -2795,6 +2921,12 @@
                     if (config.line_user_id) {
                         document.getElementById('ucbLineNotifyUserId').value = config.line_user_id;
                     }
+
+                    // Load active days
+                    const activeDays = config.active_days || [];
+                    document.querySelectorAll('.active-day').forEach(checkbox => {
+                        checkbox.checked = activeDays.length === 0 || activeDays.includes(parseInt(checkbox.value));
+                    });
                 }
             } catch (error) {
                 console.error('載入配置失敗:', error);
@@ -2812,7 +2944,8 @@
                 time_range_start: document.getElementById('time-range-start').value,
                 time_range_end: document.getElementById('time-range-end').value,
                 threads_account_id: document.getElementById('ucbThreadsAccount').value || null,
-                line_user_id: document.getElementById('ucbLineNotifyUserId').value || null
+                line_user_id: document.getElementById('ucbLineNotifyUserId').value || null,
+                active_days: Array.from(document.querySelectorAll('.active-day:checked')).map(cb => parseInt(cb.value))
             };
 
             try {
@@ -2983,16 +3116,16 @@
                 ` : ''}
                 <div class="schedule-list">
                     ${schedules.map(schedule => {
-                        const statusMap = {
-                            'PENDING': { label: '待執行', class: 'status-pending' },
-                            'GENERATED': { label: '已生成', class: 'status-generated' },
-                            'POSTED': { label: '已發布', class: 'status-posted' },
-                            'FAILED': { label: '失敗', class: 'status-failed' },
-                            'CANCELLED': { label: '已取消', class: 'status-cancelled' }
-                        };
-                        const status = statusMap[schedule.status] || { label: schedule.status, class: '' };
+                const statusMap = {
+                    'PENDING': { label: '待執行', class: 'status-pending' },
+                    'GENERATED': { label: '已生成', class: 'status-generated' },
+                    'POSTED': { label: '已發布', class: 'status-posted' },
+                    'FAILED': { label: '失敗', class: 'status-failed' },
+                    'CANCELLED': { label: '已取消', class: 'status-cancelled' }
+                };
+                const status = statusMap[schedule.status] || { label: schedule.status, class: '' };
 
-                        return `
+                return `
                         <div class="schedule-item">
                             <div class="schedule-header">
                                 <div class="schedule-date">📅 ${formatDate(schedule.schedule_date)}</div>
@@ -3537,7 +3670,7 @@
         }
 
         // Initialize statistics on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             if (token) {
                 loadStatsSummary();
             }
@@ -3545,4 +3678,5 @@
 
     </script>
 </body>
+
 </html>
