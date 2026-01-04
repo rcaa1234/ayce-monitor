@@ -38,7 +38,8 @@
     "check:all-structures": "node scripts/check-all-table-structures.js",
     "list:tables": "node scripts/list-all-tables.js",
     "check:timeslots": "node scripts/check-timeslots.js",
-    "enable:timeslots": "node scripts/enable-timeslots.js"
+    "enable:timeslots": "node scripts/enable-timeslots.js",
+    "fix:add-active-days": "node scripts/add-active-days-column.js"
   },
   "keywords": [
     "threads",
