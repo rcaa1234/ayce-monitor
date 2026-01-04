@@ -36,7 +36,9 @@
     "cleanup:statistics": "node scripts/cleanup-statistics-tables.js",
     "check:posts-structure": "node scripts/check-posts-table-structure.js",
     "check:all-structures": "node scripts/check-all-table-structures.js",
-    "list:tables": "node scripts/list-all-tables.js"
+    "list:tables": "node scripts/list-all-tables.js",
+    "check:timeslots": "node scripts/check-timeslots.js",
+    "enable:timeslots": "node scripts/enable-timeslots.js"
   },
   "keywords": [
     "threads",
