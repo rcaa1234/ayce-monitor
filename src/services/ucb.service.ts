@@ -310,6 +310,11 @@ class UCBService {
     const scheduledTime = new Date(targetDate);
     scheduledTime.setHours(hour, minute, 0, 0);
 
+    // Debug logging
+    logger.info(`[UCB Time Debug] generateRandomTime: timeSlot=${timeSlot.start_hour}:${timeSlot.start_minute} - ${timeSlot.end_hour}:${timeSlot.end_minute}`);
+    logger.info(`[UCB Time Debug] generateRandomTime: startMinutes=${startMinutes}, endMinutes=${endMinutes}, randomMinutes=${randomMinutes}`);
+    logger.info(`[UCB Time Debug] generateRandomTime: result=${hour}:${minute}, scheduledTime=${scheduledTime.toISOString()}`);
+
     return scheduledTime;
   }
 
@@ -324,8 +329,18 @@ class UCBService {
       const timeRangeStart = config.time_range_start || '09:00:00';
       const timeRangeEnd = config.time_range_end || '21:00:00';
 
-      const [startHour, startMinute] = timeRangeStart.split(':').map(Number);
-      const [endHour, endMinute] = timeRangeEnd.split(':').map(Number);
+      // 解析時間（支援 HH:MM 和 HH:MM:SS 格式）
+      const startParts = timeRangeStart.split(':').map(Number);
+      const endParts = timeRangeEnd.split(':').map(Number);
+      const startHour = startParts[0] || 0;
+      const startMinute = startParts[1] || 0;
+      const endHour = endParts[0] || 0;
+      const endMinute = endParts[1] || 0;
+
+      // Debug logging
+      logger.info(`[UCB Time Debug] Raw config: time_range_start='${config.time_range_start}', time_range_end='${config.time_range_end}'`);
+      logger.info(`[UCB Time Debug] Parsed: start=${startHour}:${startMinute}, end=${endHour}:${endMinute}`);
+      logger.info(`[UCB Time Debug] Target date: ${targetDate.toISOString()}`);
 
       // 先取得所有啟用的模板 ID，用於建立虛擬時段
       const allTemplates = await this.getEnabledTemplates();
