@@ -2549,6 +2549,55 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 });
 
 /**
+ * DELETE /api/auto-schedules/:id
+ * 用途：刪除 UCB 自動排程（僅限 PENDING 狀態）
+ */
+router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    // 檢查排程是否存在及其狀態
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      'SELECT id, status FROM daily_auto_schedule WHERE id = ?',
+      [id]
+    );
+
+    if (schedules.length === 0) {
+      res.status(404).json({ error: '找不到此排程' });
+      return;
+    }
+
+    const schedule = schedules[0];
+
+    // 只允許刪除 PENDING 狀態的排程
+    if (schedule.status !== 'PENDING') {
+      res.status(400).json({
+        error: `無法刪除狀態為「${schedule.status}」的排程，僅能刪除「待執行 (PENDING)」的排程`
+      });
+      return;
+    }
+
+    // 刪除排程
+    await pool.execute(
+      'DELETE FROM daily_auto_schedule WHERE id = ?',
+      [id]
+    );
+
+    logger.info(`Deleted auto schedule: ${id}`);
+
+    res.json({
+      success: true,
+      message: '排程已刪除'
+    });
+  } catch (error: any) {
+    logger.error('Failed to delete auto schedule:', error);
+    res.status(500).json({ error: '刪除排程失敗', message: error.message });
+  }
+});
+
+/**
  * POST /api/trigger-daily-schedule
  * 用途：快速測試內容生成和 LINE 通知流程（測試用）
  * 說明：此功能完全獨立於 UCB 排程系統，用於測試整個審核發布流程

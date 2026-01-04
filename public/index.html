@@ -3153,10 +3153,40 @@
                                     ${escapeHtml(schedule.selection_reason)}
                                 </div>
                             ` : ''}
+
+                            ${schedule.status === 'PENDING' ? `
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                                    <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
+                                        🗑️ 刪除此排程
+                                    </button>
+                                </div>
+                            ` : ''}
                         </div>
                     `}).join('')}
                 </div>
             `;
+        }
+
+        // Delete auto schedule function
+        async function deleteAutoSchedule(scheduleId) {
+            if (!confirm('確定要刪除此排程嗎？\n\n此操作無法復原。')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/auto-schedules/${scheduleId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '刪除失敗');
+                }
+
+                showSmartMessage('ucb-message', '✅ 排程已刪除', 'success');
+                loadScheduleHistory(); // 重新載入列表
+            } catch (error) {
+                alert('❌ 刪除失敗: ' + error.message);
+            }
         }
 
         // Template Testing functions
