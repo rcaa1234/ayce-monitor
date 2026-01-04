@@ -7,7 +7,7 @@
     "dev": "concurrently -n \"API,Worker\" -c \"cyan,magenta\" \"ts-node-dev --respawn --transpile-only src/index.ts\" \"ts-node-dev --respawn --transpile-only src/worker.ts\"",
     "dev:api": "ts-node-dev --respawn --transpile-only src/index.ts",
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-public.js",
     "start": "node dist/database/migrate.js && node dist/database/seed.js && concurrently -n \"API,Worker\" -c \"cyan,magenta\" \"node dist/index.js\" \"node dist/worker.js\"",
     "start:api": "node dist/index.js",
     "start:worker": "node dist/worker.js",

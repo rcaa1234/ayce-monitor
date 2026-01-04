@@ -24,7 +24,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 // Serve static files (frontend)
-app.use(express.static(path.join(__dirname, '../public')));
+// Files are copied to dist/public during build
+app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
 app.use('/api', routes);
@@ -32,7 +33,7 @@ app.use('/api', routes);
 // Serve frontend for all non-API routes
 app.get('*', (_req, res) => {
   if (!_req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
   }
 });
 
