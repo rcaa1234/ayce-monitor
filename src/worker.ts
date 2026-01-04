@@ -11,13 +11,19 @@ async function startWorkers() {
     logger.info('Starting workers...');
 
     // Validate config
+    logger.info('Validating configuration...');
     validateConfig();
+    logger.info('✓ Configuration validated');
 
     // Connect to database
+    logger.info('Connecting to database...');
     await createDatabasePool();
+    logger.info('✓ Database connected');
 
     // Start cron schedulers (including UCB auto-scheduling)
-    startSchedulers();
+    logger.info('Starting cron schedulers...');
+    await startSchedulers();
+    logger.info('✓ All cron schedulers started successfully');
 
     logger.info('✓ Generate worker started');
     logger.info('✓ Publish worker started');
@@ -25,6 +31,7 @@ async function startWorkers() {
     logger.info('Workers are running and waiting for jobs...');
   } catch (error) {
     logger.error('Failed to start workers:', error);
+    logger.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     process.exit(1);
   }
 }

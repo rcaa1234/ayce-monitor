@@ -594,19 +594,43 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
  * Start all schedulers
  */
 export async function startSchedulers() {
-  // Start fixed schedulers
-  checkExpiredReviews.start();
-  tokenRefreshCheck.start();
-  dailyReviewReminder.start();
-  syncInsightsData.start();
-  cleanupOldInsights.start();
-  executeScheduledPosts.start();
+  try {
+    logger.info('[Scheduler] Starting all cron jobs...');
 
-  // Start UCB auto-scheduling
-  dailyAutoScheduler.start();
-  executeAutoScheduledPosts.start();
+    // Start fixed schedulers
+    logger.info('[Scheduler] Starting checkExpiredReviews (every 30 minutes)...');
+    checkExpiredReviews.start();
 
-  logger.info('✓ All schedulers started (UCB auto-scheduling enabled)');
+    logger.info('[Scheduler] Starting tokenRefreshCheck (every 6 hours)...');
+    tokenRefreshCheck.start();
+
+    logger.info('[Scheduler] Starting dailyReviewReminder (daily at 09:00)...');
+    dailyReviewReminder.start();
+
+    logger.info('[Scheduler] Starting syncInsightsData (every 4 hours)...');
+    syncInsightsData.start();
+
+    logger.info('[Scheduler] Starting cleanupOldInsights (daily at 02:00)...');
+    cleanupOldInsights.start();
+
+    logger.info('[Scheduler] Starting executeScheduledPosts (every minute)...');
+    executeScheduledPosts.start();
+
+    // Start UCB auto-scheduling
+    logger.info('[UCB Scheduler] Starting dailyAutoScheduler (every 10 minutes)...');
+    dailyAutoScheduler.start();
+
+    logger.info('[UCB Scheduler] Starting executeAutoScheduledPosts (every minute)...');
+    executeAutoScheduledPosts.start();
+
+    logger.info('✓ All schedulers started successfully');
+    logger.info('  - Fixed schedulers: 6 jobs');
+    logger.info('  - UCB schedulers: 2 jobs');
+    logger.info('  - Total: 8 cron jobs running');
+  } catch (error) {
+    logger.error('[Scheduler] Failed to start schedulers:', error);
+    throw error;
+  }
 }
 
 /**
