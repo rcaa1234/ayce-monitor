@@ -125,7 +125,9 @@ export class PostModel {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT p.id, pr.content
        FROM posts p
-       INNER JOIN post_revisions pr ON p.id = pr.post_id
+       INNER JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
+         SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
+       )
        WHERE p.status = 'POSTED'
        ORDER BY p.posted_at DESC
        LIMIT ?`,
