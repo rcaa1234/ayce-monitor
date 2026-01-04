@@ -22,7 +22,7 @@ async function checkTimeSlots() {
 
     const [rows] = await connection.execute(`
       SELECT id, start_time, end_time, enabled
-      FROM time_slots
+      FROM schedule_time_slots
       ORDER BY start_time
     `);
 
@@ -35,7 +35,7 @@ async function checkTimeSlots() {
     console.log(`❌ 停用: ${disabled.length} 個\\n`);
 
     if (rows.length === 0) {
-      console.log('❌ time_slots 表是空的！');
+      console.log('❌ schedule_time_slots 表是空的！');
       console.log('\\n需要執行: node scripts/setup-time-slots.js');
     } else {
       console.log('Time Slots 列表:');
@@ -49,7 +49,7 @@ async function checkTimeSlots() {
         console.log('\\n解決方法：');
         console.log('1. 在前端「UCB 設定」頁面啟用 time slots');
         console.log('2. 或執行 SQL:');
-        console.log(`   UPDATE time_slots SET enabled = true WHERE start_time BETWEEN '01:00:00' AND '23:00:00';`);
+        console.log(`   UPDATE schedule_time_slots SET enabled = true WHERE start_time BETWEEN '01:00:00' AND '23:00:00';`);
       }
     }
 

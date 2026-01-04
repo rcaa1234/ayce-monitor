@@ -23,7 +23,7 @@ async function enableTimeSlots() {
     // 檢查當前狀態
     const [before] = await connection.execute(`
       SELECT COUNT(*) as total, SUM(enabled) as enabled_count
-      FROM time_slots
+      FROM schedule_time_slots
     `);
 
     console.log('當前狀態:');
@@ -31,14 +31,14 @@ async function enableTimeSlots() {
     console.log(`  啟用: ${before[0].enabled_count || 0} 個\\n`);
 
     if (before[0].total === 0) {
-      console.log('❌ time_slots 表是空的！');
+      console.log('❌ schedule_time_slots 表是空的！');
       console.log('\\n需要先執行: node scripts/setup-time-slots.js');
       return;
     }
 
     // 啟用所有在 UCB 時段範圍內的 time slots (01:02 - 22:30)
     const [result] = await connection.execute(`
-      UPDATE time_slots
+      UPDATE schedule_time_slots
       SET enabled = true
       WHERE start_time >= '01:00:00' AND end_time <= '23:00:00'
     `);
@@ -48,7 +48,7 @@ async function enableTimeSlots() {
     // 顯示更新後的狀態
     const [after] = await connection.execute(`
       SELECT start_time, end_time, enabled
-      FROM time_slots
+      FROM schedule_time_slots
       ORDER BY start_time
       LIMIT 20
     `);
