@@ -3727,24 +3727,32 @@
                     <table style="width: 100%; font-size: 12px; background: white; border-radius: 8px; overflow: hidden;">
                         <thead>
                             <tr style="background: #f8f9fa;">
+                                <th style="padding: 10px; text-align: left;">發布時間</th>
                                 <th style="padding: 10px; text-align: left;">內容</th>
-                                <th style="padding: 10px; text-align: center;">按讚</th>
-                                <th style="padding: 10px; text-align: center;">觀看</th>
-                                <th style="padding: 10px; text-align: center;">參與率</th>
+                                <th style="padding: 10px; text-align: center;">👁️ 觀看</th>
+                                <th style="padding: 10px; text-align: center;">❤️ 按讚</th>
+                                <th style="padding: 10px; text-align: center;">📊 參與率</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
 
                 posts.forEach(post => {
-                    const content = post.content || '';
-                    const truncated = content.length > 30 ? content.substring(0, 30) + '...' : content;
+                    const content = post.content_preview || post.content || '(無內容)';
+                    const truncated = content.length > 25 ? content.substring(0, 25) + '...' : content;
+                    const postedAt = post.posted_at ? new Date(post.posted_at).toLocaleDateString('zh-TW', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : '-';
                     html += `
                         <tr style="border-top: 1px solid #e5e7eb;">
+                            <td style="padding: 10px; white-space: nowrap;">${postedAt}</td>
                             <td style="padding: 10px;">${truncated}</td>
+                            <td style="padding: 10px; text-align: center;">${(post.views || 0).toLocaleString()}</td>
                             <td style="padding: 10px; text-align: center;">${post.likes || 0}</td>
-                            <td style="padding: 10px; text-align: center;">${post.views || 0}</td>
-                            <td style="padding: 10px; text-align: center;">${(post.engagement_rate || 0).toFixed(1)}%</td>
+                            <td style="padding: 10px; text-align: center;">${(parseFloat(post.engagement_rate) || 0).toFixed(1)}%</td>
                         </tr>
                     `;
                 });
