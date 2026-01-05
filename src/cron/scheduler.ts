@@ -402,16 +402,7 @@ export async function createDailyAutoSchedule() {
       created_by: creatorId,
     });
 
-    // 如果有設定 Threads 帳號，更新到資料庫
-    if (ucbConfig.threads_account_id) {
-      await pool.execute(
-        `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
-        [ucbConfig.threads_account_id, post.id]
-      );
-      logger.info(`Created post ${post.id} for auto-schedule ${scheduleId} with Threads account ${ucbConfig.threads_account_id}`);
-    } else {
-      logger.info(`Created post ${post.id} for auto-schedule ${scheduleId} without specific Threads account`);
-    }
+    logger.info(`Created post ${post.id} for auto-schedule ${scheduleId}`);
 
     // 加入生成佇列（包含排程時間，讓 LINE 通知可以顯示）
     await queueService.addGenerateJob({
