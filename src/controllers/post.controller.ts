@@ -96,11 +96,9 @@ export class PostController {
       } else {
         // Get all posts when status is not specified or is 'ALL'
         const pool = (await import('../database/connection')).getPool();
-        const query = limit
-          ? 'SELECT * FROM posts ORDER BY created_at DESC LIMIT ?'
-          : 'SELECT * FROM posts ORDER BY created_at DESC';
-        const params = limit ? [parseInt(limit as string)] : [];
-        const [rows] = await pool.execute(query, params);
+        const limitVal = limit ? parseInt(limit as string) : 100;
+        const query = `SELECT * FROM posts ORDER BY created_at DESC LIMIT ${limitVal}`;
+        const [rows] = await pool.execute(query);
         posts = rows;
       }
 
