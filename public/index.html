@@ -3154,7 +3154,7 @@
                                 </div>
                             ` : ''}
 
-                            ${schedule.status === 'PENDING' ? `
+                            ${(schedule.status === 'PENDING' || schedule.status === 'FAILED') ? `
                                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
                                     <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
                                         🗑️ 刪除此排程
