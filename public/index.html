@@ -1589,8 +1589,12 @@
             }
         }
 
-        // Load posts
+        // Load posts (legacy function - kept for compatibility)
         async function loadPosts() {
+            // Skip if postsGrid element doesn't exist
+            const container = document.getElementById('postsGrid');
+            if (!container) return;
+
             const status = document.getElementById('filterStatus')?.value || '';
             const url = status ? `${API_BASE}/posts?status=${status}` : `${API_BASE}/posts`;
 
@@ -1612,6 +1616,7 @@
         // Render posts
         function renderPosts(posts, containerId) {
             const container = document.getElementById(containerId);
+            if (!container) return; // Skip if container doesn't exist
 
             if (!posts || posts.length === 0) {
                 container.innerHTML = `
