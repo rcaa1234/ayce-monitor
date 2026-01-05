@@ -964,9 +964,19 @@
                             </div>
                         </div>
 
-                        <!-- 7-Day Trend Chart -->
+                        <!-- Trend Chart -->
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                            <h4 style="font-size: 14px; margin-bottom: 10px; color: #333;">最近 7 天趨勢</h4>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="font-size: 14px; color: #333; margin: 0;">趨勢圖</h4>
+                                <select id="trendDaysSelect" onchange="loadStatsSummary()"
+                                    style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; cursor: pointer;">
+                                    <option value="7">最近 7 天</option>
+                                    <option value="30">最近 30 天</option>
+                                    <option value="90">最近 90 天</option>
+                                    <option value="180">最近 180 天</option>
+                                </select>
+                            </div>
                             <div style="position: relative; height: 200px; width: 100%;">
                                 <canvas id="stats7DayChart"></canvas>
                             </div>
@@ -3407,9 +3417,13 @@
         // Load statistics summary
         async function loadStatsSummary() {
             try {
+                // Get selected days from dropdown
+                const daysSelect = document.getElementById('trendDaysSelect');
+                const days = daysSelect ? daysSelect.value : '7';
+
                 // Fetch overview statistics from API
                 const [overviewRes, syncStatusRes] = await Promise.all([
-                    fetch(`${API_BASE}/statistics/overview?days=7`, {
+                    fetch(`${API_BASE}/statistics/overview?days=${days}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     }),
                     fetch(`${API_BASE}/statistics/sync-status`, {
