@@ -262,6 +262,9 @@ export class StatisticsController {
         return;
       }
 
+      // 確保「圖片式文字」和「人工發文」模板存在
+      const templateIds = await this.ensureImportTemplates(pool);
+
       // 從 Threads API 獲取貼文列表
       const threadsPosts = await threadsService.getAccountPosts(
         defaultAccount.account.account_id,
@@ -294,6 +297,11 @@ export class StatisticsController {
 
       for (const post of threadsPosts) {
         try {
+          // 根據 media_type 判斷模板分類
+          // IMAGE, VIDEO, CAROUSEL_ALBUM = 圖片式文字
+          // TEXT = 人工發文
+          const templateId = this.classifyPostTemplate(post.media_type, templateIds);
+
           // 檢查是否已存在（通過 threads_media_id 或 post_url）
           const [existing] = await pool.execute(
             `SELECT id FROM posts WHERE threads_media_id = ? OR post_url LIKE ? LIMIT 1`,
@@ -301,8 +309,15 @@ export class StatisticsController {
           );
 
           if ((existing as any[]).length > 0) {
-            // 已存在，更新 insights
+            // 已存在，更新 insights 和模板分類
             const existingPostId = (existing as any)[0].id;
+
+            // 更新模板分類（如果之前沒有分類）
+            await pool.execute(
+              `UPDATE posts SET template_id = COALESCE(template_id, ?) WHERE id = ?`,
+              [templateId, existingPostId]
+            );
+
             const insights = await threadsService.getPostInsights(post.id, defaultAccount.token);
 
             if (insights) {
@@ -329,15 +344,15 @@ export class StatisticsController {
             continue;
           }
 
-          // 建立新貼文記錄
+          // 建立新貼文記錄（包含模板分類）
           const { generateUUID } = await import('../utils/uuid');
           const postId = generateUUID();
           const postedAt = new Date(post.timestamp);
 
           await pool.execute(
-            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, created_at)
-             VALUES (?, 'POSTED', ?, ?, ?, ?, NOW())`,
-            [postId, post.id, post.permalink, postedAt, adminUserId]
+            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, template_id, created_at)
+             VALUES (?, 'POSTED', ?, ?, ?, ?, ?, NOW())`,
+            [postId, post.id, post.permalink, postedAt, adminUserId, templateId]
           );
 
           // 建立 revision（如果有文字內容）
@@ -362,7 +377,7 @@ export class StatisticsController {
           }
 
           imported++;
-          logger.info(`Imported Threads post: ${post.id}`);
+          logger.info(`Imported Threads post: ${post.id} (template: ${templateId})`);
 
           // 稍微延遲以避免 API rate limit
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -387,6 +402,65 @@ export class StatisticsController {
         message: error.message,
       });
     }
+  }
+
+  /**
+   * 確保「圖片式文字」和「人工發文」模板存在
+   */
+  private async ensureImportTemplates(pool: any): Promise<{ imageText: string; manual: string }> {
+    const { generateUUID } = await import('../utils/uuid');
+
+    // 檢查「圖片式文字」模板
+    const [imageTextRows] = await pool.execute(
+      `SELECT id FROM content_templates WHERE name = '圖片式文字' LIMIT 1`
+    );
+    let imageTextId: string;
+    if ((imageTextRows as any[]).length === 0) {
+      imageTextId = generateUUID();
+      await pool.execute(
+        `INSERT INTO content_templates (id, name, prompt, description, preferred_engine, enabled)
+         VALUES (?, '圖片式文字', '圖片式文字貼文模板', '包含圖片或影片的貼文', 'GEMINI', true)`,
+        [imageTextId]
+      );
+      logger.info('Created template: 圖片式文字');
+    } else {
+      imageTextId = (imageTextRows as any)[0].id;
+    }
+
+    // 檢查「人工發文」模板
+    const [manualRows] = await pool.execute(
+      `SELECT id FROM content_templates WHERE name = '人工發文' LIMIT 1`
+    );
+    let manualId: string;
+    if ((manualRows as any[]).length === 0) {
+      manualId = generateUUID();
+      await pool.execute(
+        `INSERT INTO content_templates (id, name, prompt, description, preferred_engine, enabled)
+         VALUES (?, '人工發文', '人工發文模板', '手動發布的純文字貼文', 'GEMINI', true)`,
+        [manualId]
+      );
+      logger.info('Created template: 人工發文');
+    } else {
+      manualId = (manualRows as any)[0].id;
+    }
+
+    return { imageText: imageTextId, manual: manualId };
+  }
+
+  /**
+   * 根據貼文類型分類模板
+   */
+  private classifyPostTemplate(
+    mediaType: string,
+    templateIds: { imageText: string; manual: string }
+  ): string {
+    // IMAGE, VIDEO, CAROUSEL_ALBUM = 圖片式文字
+    // TEXT 或其他 = 人工發文
+    const imageTypes = ['IMAGE', 'VIDEO', 'CAROUSEL_ALBUM', 'REELS_VIDEO'];
+    if (imageTypes.includes(mediaType?.toUpperCase())) {
+      return templateIds.imageText;
+    }
+    return templateIds.manual;
   }
 }
 
