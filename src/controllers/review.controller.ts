@@ -41,11 +41,46 @@ export class ReviewController {
         approved_at: new Date(),
       });
 
-      // Add to publish queue
-      await queueService.addPublishJob({
-        postId: reviewRequest.post_id,
-        revisionId: reviewRequest.revision_id,
-      });
+      // 檢查是否為自動排程的貼文
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+      const [schedules] = await pool.execute<any[]>(
+        `SELECT id, scheduled_time FROM daily_auto_schedule WHERE post_id = ? AND status = 'GENERATED'`,
+        [reviewRequest.post_id]
+      );
+
+      let responseMessage = '';
+      let notificationMessage = '';
+
+      if (schedules.length > 0) {
+        // 這是自動排程的貼文，更新排程狀態為 APPROVED，等待排程時間到達後發布
+        await pool.execute(
+          `UPDATE daily_auto_schedule SET status = 'APPROVED', updated_at = NOW() WHERE post_id = ?`,
+          [reviewRequest.post_id]
+        );
+
+        const scheduledTime = new Date(schedules[0].scheduled_time);
+        const formattedTime = scheduledTime.toLocaleString('zh-TW', {
+          timeZone: 'Asia/Taipei',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        responseMessage = `✓ 已審核通過！將於 ${formattedTime} 自動發布。`;
+        notificationMessage = `✓ 文章已審核通過！\n📅 將於 ${formattedTime} 自動發布到 Threads`;
+      } else {
+        // 非自動排程的貼文，立即發布
+        await queueService.addPublishJob({
+          postId: reviewRequest.post_id,
+          revisionId: reviewRequest.revision_id,
+        });
+
+        responseMessage = '✓ 已審核通過！正在發布中...';
+        notificationMessage = '✓ Post approved and publishing now!';
+      }
 
       // Log audit
       await AuditModel.log({
@@ -59,14 +94,13 @@ export class ReviewController {
       // Send confirmation
       await lineService.sendNotification(
         lineUserId as string,
-        '✓ Post approved and scheduled for publishing!'
+        notificationMessage
       );
 
       res.send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>✓ Approved!</h1>
-            <p>Post has been approved and will be published shortly.</p>
+            <h1>${responseMessage}</h1>
             <p>You can close this page now.</p>
           </body>
         </html>
