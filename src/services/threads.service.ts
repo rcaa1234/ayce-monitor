@@ -325,6 +325,87 @@ class ThreadsService {
 
     logger.warn(`Marked token status as ${status} for account ${accountId}`);
   }
+
+  /**
+   * 從 Threads API 獲取帳號的貼文列表
+   * 用於同步歷史貼文到本地資料庫進行統計分析
+   */
+  async getAccountPosts(
+    userId: string,
+    accessToken: string,
+    limit: number = 50
+  ): Promise<Array<{
+    id: string;
+    media_type: string;
+    text?: string;
+    timestamp: string;
+    permalink: string;
+  }>> {
+    try {
+      logger.info(`Fetching posts from Threads for user ${userId}...`);
+
+      const response = await this.client.get(`/${userId}/threads`, {
+        params: {
+          fields: 'id,media_type,text,timestamp,permalink',
+          limit: limit,
+          access_token: accessToken,
+        },
+      });
+
+      const posts = response.data.data || [];
+      logger.info(`✓ Fetched ${posts.length} posts from Threads`);
+
+      return posts;
+    } catch (error: any) {
+      logger.error('Failed to fetch Threads posts:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 從 Threads API 獲取單一貼文的 Insights
+   */
+  async getPostInsights(
+    mediaId: string,
+    accessToken: string
+  ): Promise<{
+    views: number;
+    likes: number;
+    replies: number;
+    reposts: number;
+    quotes: number;
+  } | null> {
+    try {
+      const response = await this.client.get(`/${mediaId}/insights`, {
+        params: {
+          metric: 'views,likes,replies,reposts,quotes',
+          access_token: accessToken,
+        },
+      });
+
+      const metrics = response.data.data || [];
+      const result = {
+        views: 0,
+        likes: 0,
+        replies: 0,
+        reposts: 0,
+        quotes: 0,
+      };
+
+      metrics.forEach((metric: any) => {
+        const name = metric.name as keyof typeof result;
+        const value = metric.values?.[0]?.value || 0;
+        if (name in result) {
+          result[name] = value;
+        }
+      });
+
+      return result;
+    } catch (error: any) {
+      logger.warn(`Failed to fetch insights for ${mediaId}:`, error.response?.data?.error?.message || error.message);
+      return null;
+    }
+  }
 }
 
 export default new ThreadsService();

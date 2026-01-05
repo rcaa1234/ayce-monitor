@@ -33,4 +33,7 @@ router.post('/sync', statisticsController.syncInsights.bind(statisticsController
 // GET /api/statistics/sync-status - 同步狀態
 router.get('/sync-status', statisticsController.getSyncStatus.bind(statisticsController));
 
+// POST /api/statistics/sync-threads-posts - 從 Threads 同步歷史貼文
+router.post('/sync-threads-posts', statisticsController.syncThreadsPosts.bind(statisticsController));
+
 export default router;

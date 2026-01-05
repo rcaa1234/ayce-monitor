@@ -215,12 +215,19 @@ export class StatisticsController {
 
       const pendingCount = (pendingRows as any)[0]?.pending_count || 0;
 
+      // 獲取已同步的貼文總數
+      const [syncedRows] = await pool.execute(
+        `SELECT COUNT(*) as synced_count FROM posts WHERE status = 'POSTED'`
+      );
+      const syncedCount = (syncedRows as any)[0]?.synced_count || 0;
+
       res.json({
         success: true,
         data: {
           last_synced_at: lastSyncedAt,
           pending_count: pendingCount,
-          is_syncing: false, // 目前沒有追蹤同步狀態，可以後續改進
+          synced_count: syncedCount,
+          is_syncing: false,
         },
       });
     } catch (error: any) {
@@ -228,6 +235,155 @@ export class StatisticsController {
       res.status(500).json({
         success: false,
         error: '獲取同步狀態失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/statistics/sync-threads-posts
+   * 從 Threads 帳號同步歷史貼文到本地資料庫
+   */
+  async syncThreadsPosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { limit = 50 } = req.body;
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 獲取預設 Threads 帳號
+      const threadsService = (await import('../services/threads.service')).default;
+      const defaultAccount = await threadsService.getDefaultAccount();
+
+      if (!defaultAccount) {
+        res.status(400).json({
+          success: false,
+          error: '尚未連結 Threads 帳號，請先在「Threads 帳號」頁面連結帳號。',
+        });
+        return;
+      }
+
+      // 從 Threads API 獲取貼文列表
+      const threadsPosts = await threadsService.getAccountPosts(
+        defaultAccount.account.account_id,
+        defaultAccount.token,
+        Math.min(limit, 100)
+      );
+
+      if (threadsPosts.length === 0) {
+        res.json({
+          success: true,
+          message: '沒有找到任何貼文',
+          data: { imported: 0, updated: 0, skipped: 0 },
+        });
+        return;
+      }
+
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      // 取得系統管理員用戶 ID（用於 created_by）
+      const [adminUsers] = await pool.execute(
+        `SELECT u.id FROM users u
+         INNER JOIN user_roles ur ON u.id = ur.user_id
+         INNER JOIN roles r ON ur.role_id = r.id
+         WHERE r.name = 'admin' AND u.status = 'ACTIVE'
+         LIMIT 1`
+      );
+      const adminUserId = (adminUsers as any)[0]?.id || null;
+
+      for (const post of threadsPosts) {
+        try {
+          // 檢查是否已存在（通過 threads_media_id 或 post_url）
+          const [existing] = await pool.execute(
+            `SELECT id FROM posts WHERE threads_media_id = ? OR post_url LIKE ? LIMIT 1`,
+            [post.id, `%${post.id}%`]
+          );
+
+          if ((existing as any[]).length > 0) {
+            // 已存在，更新 insights
+            const existingPostId = (existing as any)[0].id;
+            const insights = await threadsService.getPostInsights(post.id, defaultAccount.token);
+
+            if (insights) {
+              // 檢查 post_insights 是否存在
+              const [insightExists] = await pool.execute(
+                `SELECT id FROM post_insights WHERE post_id = ? LIMIT 1`,
+                [existingPostId]
+              );
+
+              if ((insightExists as any[]).length > 0) {
+                await pool.execute(
+                  `UPDATE post_insights SET views = ?, likes = ?, replies = ?, reposts = ?, last_synced_at = NOW() WHERE post_id = ?`,
+                  [insights.views, insights.likes, insights.replies, insights.reposts, existingPostId]
+                );
+              } else {
+                const { generateUUID } = await import('../utils/uuid');
+                await pool.execute(
+                  `INSERT INTO post_insights (id, post_id, views, likes, replies, reposts, last_synced_at) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+                  [generateUUID(), existingPostId, insights.views, insights.likes, insights.replies, insights.reposts]
+                );
+              }
+              updated++;
+            }
+            continue;
+          }
+
+          // 建立新貼文記錄
+          const { generateUUID } = await import('../utils/uuid');
+          const postId = generateUUID();
+          const postedAt = new Date(post.timestamp);
+
+          await pool.execute(
+            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, created_at)
+             VALUES (?, 'POSTED', ?, ?, ?, ?, NOW())`,
+            [postId, post.id, post.permalink, postedAt, adminUserId]
+          );
+
+          // 建立 revision（如果有文字內容）
+          if (post.text) {
+            const revisionId = generateUUID();
+            await pool.execute(
+              `INSERT INTO post_revisions (id, post_id, content, revision_no, engine_used, created_at)
+               VALUES (?, ?, ?, 1, 'IMPORTED', NOW())`,
+              [revisionId, postId, post.text]
+            );
+          }
+
+          // 獲取並儲存 insights
+          const insights = await threadsService.getPostInsights(post.id, defaultAccount.token);
+          if (insights) {
+            const insightId = generateUUID();
+            await pool.execute(
+              `INSERT INTO post_insights (id, post_id, views, likes, replies, reposts, last_synced_at)
+               VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+              [insightId, postId, insights.views, insights.likes, insights.replies, insights.reposts]
+            );
+          }
+
+          imported++;
+          logger.info(`Imported Threads post: ${post.id}`);
+
+          // 稍微延遲以避免 API rate limit
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (postError: any) {
+          logger.warn(`Failed to import post ${post.id}:`, postError.message);
+          skipped++;
+        }
+      }
+
+      logger.info(`✓ Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped`);
+
+      res.json({
+        success: true,
+        message: `同步完成！匯入 ${imported} 篇、更新 ${updated} 篇、跳過 ${skipped} 篇`,
+        data: { imported, updated, skipped },
+      });
+    } catch (error: any) {
+      logger.error('Failed to sync Threads posts:', error);
+      res.status(500).json({
+        success: false,
+        error: '同步 Threads 貼文失敗',
         message: error.message,
       });
     }

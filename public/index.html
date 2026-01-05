@@ -973,13 +973,26 @@
                         <!-- Sync Status -->
                         <div id="statsSyncStatus"
                             style="background: white; padding: 15px; border-radius: 8px; font-size: 13px; color: #666;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span>上次同步: <span id="statsLastSync">-</span></span>
-                                <button onclick="triggerManualSync()"
-                                    style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                    🔄 手動同步
-                                </button>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <div>上次同步: <span id="statsLastSync">-</span></div>
+                                    <div style="margin-top: 5px;">已同步貼文: <span id="statsSyncedCount">-</span> 篇</div>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button onclick="syncThreadsPosts()"
+                                        style="padding: 5px 12px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        📥 匯入歷史貼文
+                                    </button>
+                                    <button onclick="triggerManualSync()"
+                                        style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🔄 同步互動數據
+                                    </button>
+                                </div>
                             </div>
+                            <p style="margin-top: 10px; font-size: 11px; color: #999;">
+                                💡 提示：「匯入歷史貼文」會從您的 Threads 帳號抓取最近 50 篇貼文及其互動數據。
+                            </p>
                         </div>
                     </div>
 
@@ -3436,6 +3449,12 @@
                 document.getElementById('statsAvgEngagement').textContent = data.avg_engagement_rate + '%';
                 document.getElementById('statsLastSync').textContent = data.last_sync;
 
+                // Update synced count
+                const syncedCountEl = document.getElementById('statsSyncedCount');
+                if (syncedCountEl && syncData.success) {
+                    syncedCountEl.textContent = syncData.data?.synced_count || 0;
+                }
+
                 // Update 7-day trend chart
                 const ctx = document.getElementById('stats7DayChart');
                 if (ctx) {
@@ -3504,6 +3523,66 @@
             } catch (error) {
                 console.error('Failed to load statistics summary:', error);
                 showAlert('dashboardAlert', '統計數據載入失敗', 'danger');
+            }
+        }
+
+        // Sync Threads posts from account
+        async function syncThreadsPosts() {
+            if (!confirm('此操作將從您的 Threads 帳號匯入最近 50 篇貼文及其互動數據。\n\n繼續嗎？')) {
+                return;
+            }
+
+            try {
+                showAlert('dashboardAlert', '正在從 Threads 匯入歷史貼文，請稍候...', 'info');
+
+                const response = await fetch(`${API_BASE}/statistics/sync-threads-posts`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ limit: 50 })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '同步失敗');
+                }
+
+                showAlert('dashboardAlert', result.message, 'success');
+                loadStatsSummary(); // 重新載入統計數據
+            } catch (error) {
+                console.error('Failed to sync Threads posts:', error);
+                showAlert('dashboardAlert', '匯入失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Trigger manual insights sync
+        async function triggerManualSync() {
+            try {
+                showAlert('dashboardAlert', '正在同步互動數據，請稍候...', 'info');
+
+                const response = await fetch(`${API_BASE}/statistics/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days: 7, limit: 50 })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '同步失敗');
+                }
+
+                showAlert('dashboardAlert', result.message || '已開始同步互動數據', 'success');
+                setTimeout(() => loadStatsSummary(), 3000); // 3秒後重新載入
+            } catch (error) {
+                console.error('Failed to trigger manual sync:', error);
+                showAlert('dashboardAlert', '同步失敗: ' + error.message, 'danger');
             }
         }
 
