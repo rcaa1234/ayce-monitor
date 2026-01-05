@@ -1,4 +1,0 @@
-@echo off
-set OPENAI_API_KEY=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
-set GEMINI_API_KEY=AIzaSyCmhWHgQwih_ujeUp0n0OaV41Tg83hNhfU
-npm run dev
