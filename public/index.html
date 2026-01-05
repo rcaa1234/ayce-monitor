@@ -3409,18 +3409,23 @@
                     throw new Error(overviewData.error || 'Failed to load overview');
                 }
 
+                const overview = overviewData.data?.overview || {};
+                const trend = overviewData.data?.trend || { dates: [], views: [], engagement: [] };
+
+                const avgEngagement = parseFloat(overview.avg_engagement_rate) || 0;
+
                 const data = {
-                    total_posts: overviewData.data.overview.total_posts,
-                    total_views: overviewData.data.overview.total_views,
-                    total_likes: overviewData.data.overview.total_likes,
-                    avg_engagement_rate: overviewData.data.overview.avg_engagement_rate.toFixed(1),
-                    last_sync: syncData.success && syncData.data.last_synced_at
+                    total_posts: overview.total_posts || 0,
+                    total_views: overview.total_views || 0,
+                    total_likes: overview.total_likes || 0,
+                    avg_engagement_rate: avgEngagement.toFixed(1),
+                    last_sync: syncData.success && syncData.data?.last_synced_at
                         ? new Date(syncData.data.last_synced_at).toLocaleString('zh-TW')
                         : '尚未同步',
                     trend_data: {
-                        dates: overviewData.data.trend.dates.map(d => d.substring(5).replace('-', '/')),
-                        views: overviewData.data.trend.views,
-                        engagement: overviewData.data.trend.engagement.map(e => parseFloat(e.toFixed(1)))
+                        dates: (trend.dates || []).map(d => d ? d.substring(5).replace('-', '/') : ''),
+                        views: trend.views || [],
+                        engagement: (trend.engagement || []).map(e => parseFloat((parseFloat(e) || 0).toFixed(1)))
                     }
                 };
 

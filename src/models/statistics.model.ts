@@ -362,8 +362,8 @@ export class StatisticsModel {
         LEFT JOIN schedule_time_slots ts ON p.time_slot_id = ts.id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
-        LIMIT ? OFFSET ?`,
-        [...queryParams, limit, offset]
+        LIMIT ${limit} OFFSET ${offset}`,
+        [...queryParams]
       );
 
       return {
