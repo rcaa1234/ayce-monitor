@@ -387,12 +387,42 @@ export class StatisticsController {
         }
       }
 
-      logger.info(`✓ Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped`);
+      // 同步刪除：檢查資料庫中有但 Threads 上已刪除的貼文
+      let deleted = 0;
+      try {
+        // 獲取所有從 Threads 匯入的貼文（有 threads_media_id 的）
+        const [dbPosts] = await pool.execute(
+          `SELECT id, threads_media_id FROM posts WHERE threads_media_id IS NOT NULL AND status = 'POSTED'`
+        );
+
+        // 建立 Threads 貼文 ID 集合
+        const threadsPostIds = new Set(threadsPosts.map((p: any) => p.id));
+
+        // 找出資料庫中有但 Threads 上沒有的貼文（已被刪除）
+        for (const dbPost of (dbPosts as any[])) {
+          if (!threadsPostIds.has(dbPost.threads_media_id)) {
+            // 這篇貼文在 Threads 上已被刪除，同步刪除資料庫記錄
+            await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [dbPost.id]);
+            await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [dbPost.id]);
+            await pool.execute('DELETE FROM posts WHERE id = ?', [dbPost.id]);
+            deleted++;
+            logger.info(`Deleted orphan post: ${dbPost.threads_media_id}`);
+          }
+        }
+
+        if (deleted > 0) {
+          logger.info(`✓ Cleaned up ${deleted} deleted posts from database`);
+        }
+      } catch (deleteError: any) {
+        logger.warn('Failed to clean up deleted posts:', deleteError.message);
+      }
+
+      logger.info(`✓ Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped, ${deleted} deleted`);
 
       res.json({
         success: true,
-        message: `同步完成！匯入 ${imported} 篇、更新 ${updated} 篇、跳過 ${skipped} 篇`,
-        data: { imported, updated, skipped },
+        message: `同步完成！匯入 ${imported} 篇、更新 ${updated} 篇、跳過 ${skipped} 篇${deleted > 0 ? `、刪除 ${deleted} 篇` : ''}`,
+        data: { imported, updated, skipped, deleted },
       });
     } catch (error: any) {
       logger.error('Failed to sync Threads posts:', error);
