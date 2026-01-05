@@ -109,6 +109,8 @@ export interface GenerateJobData {
   keywords?: string[];
   createdBy: string;
   engine?: string;
+  scheduledTime?: string;  // ISO 8601 格式，自動排程的發文時間
+  autoScheduleId?: string; // 關聯的自動排程 ID
 }
 
 export interface PublishJobData {

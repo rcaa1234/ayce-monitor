@@ -74,7 +74,14 @@
       "Bash(git checkout:*)",
       "Bash(npm run migrate:statistics:*)",
       "Bash(grep:*)",
-      "Bash(npm run check:all-structures:*)"
+      "Bash(npm run check:all-structures:*)",
+      "Bash(if [ -f \"dist/public/ucb-smart-scheduling.html\" ])",
+      "Bash(then echo \"✅ File exists in dist/public\")",
+      "Bash(else echo \"❌ File NOT in dist/public\")",
+      "Bash(if [ -f \"dist/index.js\" ])",
+      "Bash(then echo \"✅ dist/index.js exists\")",
+      "Bash(else echo \"❌ dist/index.js not found\")",
+      "Bash(then powershell -Command \"Get-Content .env | Select-String ''MYSQL''\")"
     ]
   }
 }

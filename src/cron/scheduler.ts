@@ -296,6 +296,8 @@ export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
  * 用途：每天自動建立排程,使用 UCB 策略選擇最佳時段和模板
  * 執行時間：每天 00:00
  * 影響：新增功能,不影響現有排程
+ * 
+ * 修改說明：現在會在建立排程時就立即產生內容並發送 LINE 預審通知
  */
 export async function createDailyAutoSchedule() {
   logger.info('Creating daily auto schedule using UCB strategy...');
@@ -304,6 +306,7 @@ export async function createDailyAutoSchedule() {
     const pool = getPool();
     const { ucbService } = await import('../services/ucb.service');
     const { generateUUID } = await import('../utils/uuid');
+    const { PostModel } = await import('../models/post.model');
 
     // 檢查今天是否已有排程
     const today = new Date();
@@ -327,6 +330,54 @@ export async function createDailyAutoSchedule() {
       return;
     }
 
+    // 取得 UCB 配置（含 Threads 帳號和 LINE User ID）
+    const ucbConfig = await ucbService.getConfig();
+
+    // 取得建立者: 優先使用 UCB config 的 LINE User ID，否則使用 content_creator 角色
+    let creatorId: string;
+
+    if (ucbConfig.line_user_id) {
+      // 使用 LINE User ID 查找用戶
+      const [lineUsers] = await pool.execute<RowDataPacket[]>(
+        `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+        [ucbConfig.line_user_id]
+      );
+
+      if (lineUsers.length > 0) {
+        creatorId = lineUsers[0].id;
+        logger.info(`Using UCB LINE User ID (${ucbConfig.line_user_id}) as creator`);
+      } else {
+        logger.warn(`UCB LINE User ID ${ucbConfig.line_user_id} not found, using content_creator fallback`);
+        // Fallback to content_creator
+        const [users] = await pool.execute<RowDataPacket[]>(
+          `SELECT u.id FROM users u
+           INNER JOIN user_roles ur ON u.id = ur.user_id
+           INNER JOIN roles r ON ur.role_id = r.id
+           WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
+           LIMIT 1`
+        );
+
+        if (users.length === 0) {
+          throw new Error('No active content creator found and LINE user not found');
+        }
+        creatorId = users[0].id;
+      }
+    } else {
+      // No LINE User ID set, use content_creator
+      const [users] = await pool.execute<RowDataPacket[]>(
+        `SELECT u.id FROM users u
+         INNER JOIN user_roles ur ON u.id = ur.user_id
+         INNER JOIN roles r ON ur.role_id = r.id
+         WHERE r.name = 'content_creator' AND u.status = 'ACTIVE'
+         LIMIT 1`
+      );
+
+      if (users.length === 0) {
+        throw new Error('No active content creator found');
+      }
+      creatorId = users[0].id;
+    }
+
     // 建立自動排程記錄
     const scheduleId = generateUUID();
     await pool.execute(
@@ -345,8 +396,43 @@ export async function createDailyAutoSchedule() {
       ]
     );
 
+    // 建立 Post (DRAFT)
+    const post = await PostModel.create({
+      status: PostStatus.DRAFT,
+      created_by: creatorId,
+    });
+
+    // 如果有設定 Threads 帳號，更新到資料庫
+    if (ucbConfig.threads_account_id) {
+      await pool.execute(
+        `UPDATE posts SET threads_account_id = ? WHERE id = ?`,
+        [ucbConfig.threads_account_id, post.id]
+      );
+      logger.info(`Created post ${post.id} for auto-schedule ${scheduleId} with Threads account ${ucbConfig.threads_account_id}`);
+    } else {
+      logger.info(`Created post ${post.id} for auto-schedule ${scheduleId} without specific Threads account`);
+    }
+
+    // 加入生成佇列（包含排程時間，讓 LINE 通知可以顯示）
+    await queueService.addGenerateJob({
+      postId: post.id,
+      createdBy: creatorId,
+      stylePreset: selection.template.prompt,
+      scheduledTime: selection.scheduledTime.toISOString(),
+      autoScheduleId: scheduleId,
+    });
+
+    // 更新排程狀態為 GENERATED，並記錄 post_id
+    await pool.execute(
+      `UPDATE daily_auto_schedule
+       SET status = 'GENERATED', post_id = ?, updated_at = NOW()
+       WHERE id = ?`,
+      [post.id, scheduleId]
+    );
+
     logger.info(`✓ Daily auto schedule created: ${selection.template.name} at ${selection.scheduledTime.toLocaleTimeString('zh-TW')}`);
     logger.info(`  Reason: ${selection.reason}`);
+    logger.info(`  Post ${post.id} created and queued for content generation`);
   } catch (error) {
     logger.error('Failed to create daily auto schedule:', error);
   }

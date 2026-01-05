@@ -17,7 +17,7 @@ const connection = new Redis(config.redis.url, {
 export const generateWorker = new Worker(
   QUEUE_NAMES.GENERATE,
   async (job: Job<GenerateJobData>) => {
-    const { postId, stylePreset, topic, keywords, createdBy, engine } = job.data;
+    const { postId, stylePreset, topic, keywords, createdBy, engine, scheduledTime, autoScheduleId } = job.data;
 
     logger.info(`Processing generate job ${job.id} for post ${postId}`);
 
@@ -70,6 +70,8 @@ export const generateWorker = new Worker(
         lineUserId: creator.line_user_id,
         createdBy,
         content: result.content,
+        scheduledTime,
+        autoScheduleId,
       };
     } catch (error: any) {
       console.error(`❌ [GENERATE WORKER] Job ${job.id} failed with error:`);
@@ -110,6 +112,7 @@ generateWorker.on('completed', async (job) => {
         revisionId: job.returnvalue.revisionId,
         content: job.returnvalue.content,
         reviewerUserId: job.returnvalue.createdBy,
+        scheduledTime: job.returnvalue.scheduledTime,
       });
       logger.info(`Sent review request for job ${job.id} to LINE user ${job.returnvalue.lineUserId}`);
     } catch (error) {

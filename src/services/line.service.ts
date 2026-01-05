@@ -32,6 +32,7 @@ class LineService {
     revisionId: string;
     content: string;
     reviewerUserId: string;
+    scheduledTime?: string;  // ISO 8601 格式的排程時間（可選）
   }): Promise<string> {
     if (!this.client) {
       throw new Error('LINE Bot is not configured');
@@ -56,7 +57,8 @@ class LineService {
       token,
       data.postId,
       data.revisionId,
-      data.reviewerLineUserId
+      data.reviewerLineUserId,
+      data.scheduledTime
     );
 
     // Send to LINE user
@@ -78,12 +80,91 @@ class LineService {
     token: string,
     postId: string,
     revisionId: string,
-    lineUserId: string
+    lineUserId: string,
+    scheduledTime?: string
   ): FlexMessage {
     const baseUrl = config.app.baseUrl;
     const approveUrl = `${baseUrl}/api/review/approve?token=${token}&lineUserId=${lineUserId}`;
     const regenerateUrl = `${baseUrl}/api/review/regenerate?token=${token}&lineUserId=${lineUserId}`;
     const skipUrl = `${baseUrl}/api/review/skip?token=${token}&lineUserId=${lineUserId}`;
+
+    // 格式化排程時間顯示
+    let scheduledTimeText = '';
+    if (scheduledTime) {
+      const scheduleDate = new Date(scheduledTime);
+      scheduledTimeText = scheduleDate.toLocaleString('zh-TW', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    // 建立 body 內容
+    const bodyContents: any[] = [];
+
+    // 如果有排程時間，顯示在最上方
+    if (scheduledTime) {
+      bodyContents.push(
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'text',
+              text: '⏰ 預計發文時間',
+              weight: 'bold',
+              size: 'sm',
+              color: '#0084ff',
+              flex: 0,
+            },
+          ],
+          margin: 'md',
+        },
+        {
+          type: 'text',
+          text: scheduledTimeText,
+          size: 'lg',
+          weight: 'bold',
+          color: '#111111',
+          margin: 'sm',
+        },
+        {
+          type: 'separator',
+          margin: 'lg',
+        }
+      );
+    }
+
+    // 內容預覽
+    bodyContents.push(
+      {
+        type: 'text',
+        text: '📝 內容預覽',
+        weight: 'bold',
+        size: 'md',
+        margin: 'md',
+      },
+      {
+        type: 'text',
+        text: content.substring(0, 300) + (content.length > 300 ? '...' : ''),
+        wrap: true,
+        size: 'sm',
+        margin: 'md',
+      },
+      {
+        type: 'separator',
+        margin: 'xl',
+      },
+      {
+        type: 'text',
+        text: '請選擇動作：',
+        size: 'sm',
+        margin: 'md',
+      }
+    );
 
     const bubble: FlexBubble = {
       type: 'bubble',
@@ -93,7 +174,7 @@ class LineService {
         contents: [
           {
             type: 'text',
-            text: 'Threads 文章審核',
+            text: scheduledTime ? '📅 Threads 排程預審' : 'Threads 文章審核',
             weight: 'bold',
             size: 'xl',
             color: '#ffffff',
@@ -104,32 +185,7 @@ class LineService {
       body: {
         type: 'box',
         layout: 'vertical',
-        contents: [
-          {
-            type: 'text',
-            text: '📝 內容預覽',
-            weight: 'bold',
-            size: 'md',
-            margin: 'md',
-          },
-          {
-            type: 'text',
-            text: content.substring(0, 300) + (content.length > 300 ? '...' : ''),
-            wrap: true,
-            size: 'sm',
-            margin: 'md',
-          },
-          {
-            type: 'separator',
-            margin: 'xl',
-          },
-          {
-            type: 'text',
-            text: '請選擇動作：',
-            size: 'sm',
-            margin: 'md',
-          },
-        ],
+        contents: bodyContents,
       },
       footer: {
         type: 'box',
