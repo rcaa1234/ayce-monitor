@@ -2571,10 +2571,10 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
 
     const schedule = schedules[0];
 
-    // 只允許刪除 PENDING 或 FAILED 狀態的排程
-    if (schedule.status !== 'PENDING' && schedule.status !== 'FAILED') {
+    // 只禁止刪除已發布 (POSTED) 的排程，其他狀態都可以刪除
+    if (schedule.status === 'POSTED') {
       res.status(400).json({
-        error: `無法刪除狀態為「${schedule.status}」的排程，僅能刪除「待執行 (PENDING)」或「失敗 (FAILED)」的排程`
+        error: `無法刪除已發布的排程`
       });
       return;
     }
