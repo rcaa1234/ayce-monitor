@@ -2609,15 +2609,9 @@ router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Reque
 
     // 查詢排程資訊
     const [schedules] = await pool.execute<RowDataPacket[]>(
-      `SELECT das.*, p.id as post_id, pr.id as revision_id, pr.content,
-              u.id as user_id, u.line_user_id
+      `SELECT das.id, das.post_id, das.scheduled_time, das.status
        FROM daily_auto_schedule das
-       LEFT JOIN posts p ON das.post_id = p.id
-       LEFT JOIN post_revisions pr ON p.id = pr.post_id
-       LEFT JOIN users u ON das.created_by = u.id
-       WHERE das.id = ?
-       ORDER BY pr.revision_no DESC
-       LIMIT 1`,
+       WHERE das.id = ?`,
       [id]
     );
 
@@ -2628,15 +2622,48 @@ router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Reque
 
     const schedule = schedules[0];
 
-    if (!schedule.line_user_id) {
-      res.status(400).json({ error: '找不到 LINE User ID，請確認使用者設定' });
+    if (!schedule.post_id) {
+      res.status(400).json({ error: '此排程尚未生成貼文' });
       return;
     }
 
-    if (!schedule.content) {
+    // 取得貼文內容
+    const [revisions] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, content FROM post_revisions WHERE post_id = ? ORDER BY revision_no DESC LIMIT 1`,
+      [schedule.post_id]
+    );
+
+    if (revisions.length === 0 || !revisions[0].content) {
       res.status(400).json({ error: '尚未生成內容，無法發送審核通知' });
       return;
     }
+
+    const revision = revisions[0];
+
+    // 從 smart_schedule_config 取得 LINE User ID
+    const [configs] = await pool.execute<RowDataPacket[]>(
+      `SELECT line_user_id FROM smart_schedule_config WHERE enabled = true LIMIT 1`
+    );
+
+    if (configs.length === 0 || !configs[0].line_user_id) {
+      res.status(400).json({ error: '請先在 UCB 設定中設定 LINE User ID' });
+      return;
+    }
+
+    const lineUserId = configs[0].line_user_id;
+
+    // 取得對應的使用者 ID
+    const [users] = await pool.execute<RowDataPacket[]>(
+      `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+      [lineUserId]
+    );
+
+    if (users.length === 0) {
+      res.status(400).json({ error: '找不到對應的使用者，請確認 LINE User ID 設定' });
+      return;
+    }
+
+    const userId = users[0].id;
 
     // 取消舊的 review request
     await pool.execute(
@@ -2650,10 +2677,10 @@ router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Reque
 
     await lineService.sendReviewRequest({
       postId: schedule.post_id,
-      revisionId: schedule.revision_id,
-      content: schedule.content,
-      reviewerUserId: schedule.user_id,
-      reviewerLineUserId: schedule.line_user_id,
+      revisionId: revision.id,
+      content: revision.content,
+      reviewerUserId: userId,
+      reviewerLineUserId: lineUserId,
       scheduledTime: scheduledTimeISO,
     });
 
