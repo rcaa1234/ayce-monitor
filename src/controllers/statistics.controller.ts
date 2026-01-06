@@ -455,34 +455,48 @@ export class StatisticsController {
         }
       }
 
-      // 同步刪除：檢查資料庫中有但 Threads 上已刪除的貼文
+      // 同步刪除：檢查資料庫中有但 Threads 上已刪除的貼文（僅在完整匯入時執行）
       let deleted = 0;
-      try {
-        // 獲取所有從 Threads 匯入的貼文（有 threads_media_id 的）
-        const [dbPosts] = await pool.execute(
-          `SELECT id, threads_media_id FROM posts WHERE threads_media_id IS NOT NULL AND status = 'POSTED'`
-        );
+      if (fetchAll) {
+        try {
+          // 獲取所有從 Threads 匯入的貼文
+          const [dbPosts] = await pool.execute(
+            `SELECT id, threads_media_id, post_url FROM posts WHERE status = 'POSTED' AND post_url IS NOT NULL`
+          );
 
-        // 建立 Threads 貼文 ID 集合
-        const threadsPostIds = new Set(threadsPosts.map((p: any) => p.id));
+          // 建立 Threads 貼文的比對集合（使用 permalink 和 id）
+          const threadsPostIds = new Set(threadsPosts.map((p: any) => p.id));
+          const threadsPermalinks = new Set(threadsPosts.map((p: any) => p.permalink));
 
-        // 找出資料庫中有但 Threads 上沒有的貼文（已被刪除）
-        for (const dbPost of (dbPosts as any[])) {
-          if (!threadsPostIds.has(dbPost.threads_media_id)) {
-            // 這篇貼文在 Threads 上已被刪除，同步刪除資料庫記錄
-            await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [dbPost.id]);
-            await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [dbPost.id]);
-            await pool.execute('DELETE FROM posts WHERE id = ?', [dbPost.id]);
-            deleted++;
-            logger.info(`Deleted orphan post: ${dbPost.threads_media_id}`);
+          // 找出資料庫中有但 Threads 上沒有的貼文（已被刪除）
+          for (const dbPost of (dbPosts as any[])) {
+            let shouldDelete = false;
+
+            // 優先使用 threads_media_id 比對
+            if (dbPost.threads_media_id) {
+              shouldDelete = !threadsPostIds.has(dbPost.threads_media_id);
+            } else if (dbPost.post_url) {
+              // 如果沒有 media_id，使用 post_url 比對
+              shouldDelete = !threadsPermalinks.has(dbPost.post_url);
+            }
+
+            if (shouldDelete) {
+              // 這篇貼文在 Threads 上已被刪除，硬刪除資料庫記錄
+              await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [dbPost.id]);
+              await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [dbPost.id]);
+              await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [dbPost.id]);
+              await pool.execute('DELETE FROM posts WHERE id = ?', [dbPost.id]);
+              deleted++;
+              logger.info(`Hard deleted post: ${dbPost.threads_media_id || dbPost.post_url}`);
+            }
           }
-        }
 
-        if (deleted > 0) {
-          logger.info(`✓ Cleaned up ${deleted} deleted posts from database`);
+          if (deleted > 0) {
+            logger.info(`✓ Hard deleted ${deleted} posts that no longer exist on Threads`);
+          }
+        } catch (deleteError: any) {
+          logger.warn('Failed to clean up deleted posts:', deleteError.message);
         }
-      } catch (deleteError: any) {
-        logger.warn('Failed to clean up deleted posts:', deleteError.message);
       }
 
       logger.info(`✓ Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped, ${deleted} deleted`);
