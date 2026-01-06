@@ -243,10 +243,11 @@ export class StatisticsController {
   /**
    * POST /api/statistics/sync-threads-posts
    * 從 Threads 帳號同步歷史貼文到本地資料庫
+   * @param fetchAll 如果為 true，會獲取所有歷史貼文（可能需要較長時間）
    */
   async syncThreadsPosts(req: Request, res: Response): Promise<void> {
     try {
-      const { limit = 50 } = req.body;
+      const { limit = 50, fetchAll = false } = req.body;
       const { getPool } = await import('../database/connection');
       const pool = getPool();
 
@@ -266,10 +267,12 @@ export class StatisticsController {
       const templateIds = await this.ensureImportTemplates(pool);
 
       // 從 Threads API 獲取貼文列表
+      // 如果 fetchAll 為 true，會自動分頁獲取所有歷史貼文
       const threadsPosts = await threadsService.getAccountPosts(
         defaultAccount.account.account_id,
         defaultAccount.token,
-        Math.min(limit, 100)
+        Math.min(limit, 50),
+        fetchAll
       );
 
       if (threadsPosts.length === 0) {

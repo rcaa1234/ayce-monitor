@@ -329,11 +329,13 @@ class ThreadsService {
   /**
    * 從 Threads API 獲取帳號的貼文列表
    * 用於同步歷史貼文到本地資料庫進行統計分析
+   * @param fetchAll 如果為 true，會自動分頁獲取所有貼文
    */
   async getAccountPosts(
     userId: string,
     accessToken: string,
-    limit: number = 50
+    limit: number = 50,
+    fetchAll: boolean = false
   ): Promise<Array<{
     id: string;
     media_type: string;
@@ -342,20 +344,64 @@ class ThreadsService {
     permalink: string;
   }>> {
     try {
-      logger.info(`Fetching posts from Threads for user ${userId}...`);
+      logger.info(`Fetching posts from Threads for user ${userId}... (fetchAll: ${fetchAll})`);
 
-      const response = await this.client.get(`/${userId}/threads`, {
-        params: {
+      const allPosts: Array<{
+        id: string;
+        media_type: string;
+        text?: string;
+        timestamp: string;
+        permalink: string;
+      }> = [];
+
+      let nextCursor: string | null = null;
+      let pageCount = 0;
+      const maxPages = fetchAll ? 100 : 1; // 如果 fetchAll，最多獲取 100 頁（約 5000 篇貼文）
+
+      do {
+        const params: any = {
           fields: 'id,media_type,text,timestamp,permalink',
-          limit: limit,
+          limit: Math.min(limit, 50), // Threads API 每頁最多 50 筆
           access_token: accessToken,
-        },
-      });
+        };
 
-      const posts = response.data.data || [];
-      logger.info(`✓ Fetched ${posts.length} posts from Threads`);
+        if (nextCursor) {
+          params.after = nextCursor;
+        }
 
-      return posts;
+        const response = await this.client.get(`/${userId}/threads`, { params });
+
+        const posts = response.data.data || [];
+        allPosts.push(...posts);
+
+        // 檢查是否有下一頁
+        nextCursor = response.data.paging?.cursors?.after || null;
+        pageCount++;
+
+        if (posts.length > 0) {
+          logger.info(`✓ Fetched page ${pageCount}: ${posts.length} posts (total: ${allPosts.length})`);
+        }
+
+        // 如果不是 fetchAll 模式，只獲取一頁
+        if (!fetchAll) break;
+
+        // 如果沒有更多貼文，停止
+        if (posts.length === 0 || !nextCursor) break;
+
+        // 防止過多請求
+        if (pageCount >= maxPages) {
+          logger.warn(`Reached max pages limit (${maxPages}), stopping pagination`);
+          break;
+        }
+
+        // 加入小延遲避免 rate limiting
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+      } while (nextCursor);
+
+      logger.info(`✓ Total fetched: ${allPosts.length} posts from ${pageCount} page(s)`);
+
+      return allPosts;
     } catch (error: any) {
       logger.error('Failed to fetch Threads posts:', error.response?.data || error.message);
       throw error;

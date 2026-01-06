@@ -937,7 +937,19 @@
                     <!-- Statistics Summary Sub-tab -->
                     <div id="statsSummaryTab" class="stats-sub-content active"
                         style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px;">
-                        <h3 style="margin-bottom: 15px; font-size: 16px;">整體表現</h3>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="font-size: 16px; margin: 0;">整體表現</h3>
+                            <select id="summaryDaysSelect" onchange="loadStatsSummary()"
+                                style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; cursor: pointer;">
+                                <option value="7">最近 7 天</option>
+                                <option value="30">最近 30 天</option>
+                                <option value="90">最近 90 天</option>
+                                <option value="180">最近 180 天</option>
+                                <option value="360">最近 360 天</option>
+                                <option value="all">全部歷史</option>
+                            </select>
+                        </div>
 
                         <!-- Key Metrics -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
@@ -974,6 +986,7 @@
                                     <option value="30">最近 30 天</option>
                                     <option value="90">最近 90 天</option>
                                     <option value="180">最近 180 天</option>
+                                    <option value="360">最近 360 天</option>
                                 </select>
                             </div>
                             <div style="position: relative; height: 200px; width: 100%;">
@@ -991,9 +1004,13 @@
                                     <div style="margin-top: 5px;">已同步貼文: <span id="statsSyncedCount">-</span> 篇</div>
                                 </div>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button onclick="syncThreadsPosts()"
+                                    <button onclick="syncThreadsPosts(false)"
                                         style="padding: 5px 12px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        📥 匯入歷史貼文
+                                        📥 匯入最近 50 篇
+                                    </button>
+                                    <button onclick="syncThreadsPosts(true)"
+                                        style="padding: 5px 12px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        📦 完整匯入全部
                                     </button>
                                     <button onclick="triggerManualSync()"
                                         style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
@@ -1002,7 +1019,7 @@
                                 </div>
                             </div>
                             <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                                💡 提示：「匯入歷史貼文」會從您的 Threads 帳號抓取最近 50 篇貼文及其互動數據。
+                                💡 提示：「完整匯入全部」會從您的 Threads 帳號抓取所有歷史貼文（可能需要較長時間）。
                             </p>
                         </div>
                     </div>
@@ -3486,29 +3503,42 @@
         // Load statistics summary
         async function loadStatsSummary() {
             try {
-                // Get selected days from dropdown
-                const daysSelect = document.getElementById('trendDaysSelect');
-                const days = daysSelect ? daysSelect.value : '7';
+                // Get selected days from both dropdowns
+                const trendDaysSelect = document.getElementById('trendDaysSelect');
+                const summaryDaysSelect = document.getElementById('summaryDaysSelect');
+
+                // 趨勢圖使用 trendDaysSelect，整體表現使用 summaryDaysSelect
+                const trendDays = trendDaysSelect ? trendDaysSelect.value : '7';
+                const summaryDays = summaryDaysSelect ? summaryDaysSelect.value : '7';
+
+                // 如果選擇「全部歷史」，使用 3650 天（約 10 年）
+                const summaryDaysNum = summaryDays === 'all' ? 3650 : summaryDays;
 
                 // Fetch overview statistics from API
-                const [overviewRes, syncStatusRes] = await Promise.all([
-                    fetch(`${API_BASE}/statistics/overview?days=${days}`, {
+                const [overviewRes, syncStatusRes, trendRes] = await Promise.all([
+                    fetch(`${API_BASE}/statistics/overview?days=${summaryDaysNum}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     }),
                     fetch(`${API_BASE}/statistics/sync-status`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    // 趨勢圖使用獨立的天數
+                    fetch(`${API_BASE}/statistics/overview?days=${trendDays}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     })
                 ]);
 
                 const overviewData = await overviewRes.json();
                 const syncData = await syncStatusRes.json();
+                const trendData = await trendRes.json();
 
                 if (!overviewData.success) {
                     throw new Error(overviewData.error || 'Failed to load overview');
                 }
 
                 const overview = overviewData.data?.overview || {};
-                const trend = overviewData.data?.trend || { dates: [], views: [], engagement: [] };
+                // 趨勢圖資料從獨立的 API 回應取得
+                const trend = trendData.data?.trend || { dates: [], views: [], engagement: [] };
 
                 const avgEngagement = parseFloat(overview.avg_engagement_rate) || 0;
 
@@ -3612,13 +3642,20 @@
         }
 
         // Sync Threads posts from account
-        async function syncThreadsPosts() {
-            if (!confirm('此操作將從您的 Threads 帳號匯入最近 50 篇貼文及其互動數據。\n\n繼續嗎？')) {
+        async function syncThreadsPosts(fetchAll = false) {
+            const message = fetchAll
+                ? '此操作將從您的 Threads 帳號匯入所有歷史貼文。\n\n這可能需要較長時間，繼續嗎？'
+                : '此操作將從您的 Threads 帳號匯入最近 50 篇貼文及其互動數據。\n\n繼續嗎？';
+
+            if (!confirm(message)) {
                 return;
             }
 
             try {
-                showAlert('dashboardAlert', '正在從 Threads 匯入歷史貼文，請稍候...', 'info');
+                const loadingMessage = fetchAll
+                    ? '正在完整匯入所有歷史貼文，這可能需要數分鐘，請稍候...'
+                    : '正在從 Threads 匯入歷史貼文，請稍候...';
+                showAlert('dashboardAlert', loadingMessage, 'info');
 
                 const response = await fetch(`${API_BASE}/statistics/sync-threads-posts`, {
                     method: 'POST',
@@ -3626,7 +3663,7 @@
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ limit: 50 })
+                    body: JSON.stringify({ limit: 50, fetchAll: fetchAll })
                 });
 
                 const result = await response.json();
