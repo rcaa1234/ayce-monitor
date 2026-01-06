@@ -2598,6 +2598,156 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
 });
 
 /**
+ * POST /api/auto-schedules/:id/resend-review
+ * 用途：重新發送 LINE 審核通知（當 token 過期時使用）
+ */
+router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    // 查詢排程資訊
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      `SELECT das.*, p.id as post_id, pr.id as revision_id, pr.content,
+              u.id as user_id, u.line_user_id
+       FROM daily_auto_schedule das
+       LEFT JOIN posts p ON das.post_id = p.id
+       LEFT JOIN post_revisions pr ON p.id = pr.post_id
+       LEFT JOIN users u ON das.created_by = u.id
+       WHERE das.id = ?
+       ORDER BY pr.revision_no DESC
+       LIMIT 1`,
+      [id]
+    );
+
+    if (schedules.length === 0) {
+      res.status(404).json({ error: '找不到此排程' });
+      return;
+    }
+
+    const schedule = schedules[0];
+
+    if (!schedule.line_user_id) {
+      res.status(400).json({ error: '找不到 LINE User ID，請確認使用者設定' });
+      return;
+    }
+
+    if (!schedule.content) {
+      res.status(400).json({ error: '尚未生成內容，無法發送審核通知' });
+      return;
+    }
+
+    // 取消舊的 review request
+    await pool.execute(
+      `UPDATE review_requests SET status = 'CANCELLED' WHERE post_id = ? AND status = 'PENDING'`,
+      [schedule.post_id]
+    );
+
+    // 發送新的 LINE 審核通知
+    const lineService = (await import('../services/line.service')).default;
+    const scheduledTimeISO = new Date(schedule.scheduled_time).toISOString();
+
+    await lineService.sendReviewRequest({
+      postId: schedule.post_id,
+      revisionId: schedule.revision_id,
+      content: schedule.content,
+      reviewerUserId: schedule.user_id,
+      reviewerLineUserId: schedule.line_user_id,
+      scheduledTime: scheduledTimeISO,
+    });
+
+    logger.info(`Resent review notification for schedule ${id}`);
+
+    res.json({
+      success: true,
+      message: '✅ 已重新發送 LINE 審核通知，請在 24 小時內審核'
+    });
+  } catch (error: any) {
+    logger.error('Failed to resend review:', error);
+    res.status(500).json({ error: '重新發送失敗', message: error.message });
+  }
+});
+
+/**
+ * POST /api/auto-schedules/:id/manual-approve
+ * 用途：手動核准排程（繞過 LINE 審核）
+ */
+router.post('/auto-schedules/:id/manual-approve', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+    const { PostStatus } = await import('../types');
+
+    // 查詢排程資訊
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      `SELECT das.*, p.id as post_id
+       FROM daily_auto_schedule das
+       LEFT JOIN posts p ON das.post_id = p.id
+       WHERE das.id = ?`,
+      [id]
+    );
+
+    if (schedules.length === 0) {
+      res.status(404).json({ error: '找不到此排程' });
+      return;
+    }
+
+    const schedule = schedules[0];
+
+    if (schedule.status === 'POSTED') {
+      res.status(400).json({ error: '此排程已發布' });
+      return;
+    }
+
+    if (schedule.status === 'APPROVED') {
+      res.status(400).json({ error: '此排程已核准，等待發布時間' });
+      return;
+    }
+
+    // 更新排程狀態為 APPROVED
+    await pool.execute(
+      `UPDATE daily_auto_schedule SET status = 'APPROVED', updated_at = NOW() WHERE id = ?`,
+      [id]
+    );
+
+    // 更新貼文狀態為 APPROVED
+    if (schedule.post_id) {
+      const { PostModel } = await import('../models/post.model');
+      await PostModel.updateStatus(schedule.post_id, PostStatus.APPROVED, {
+        approved_at: new Date(),
+      });
+    }
+
+    // 取消所有待審核的 review request
+    await pool.execute(
+      `UPDATE review_requests SET status = 'CANCELLED' WHERE post_id = ? AND status = 'PENDING'`,
+      [schedule.post_id]
+    );
+
+    const scheduledTime = new Date(schedule.scheduled_time).toLocaleString('zh-TW', {
+      timeZone: 'Asia/Taipei',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    logger.info(`Manually approved schedule ${id}`);
+
+    res.json({
+      success: true,
+      message: `✅ 已手動核准！將於 ${scheduledTime} 自動發布`
+    });
+  } catch (error: any) {
+    logger.error('Failed to manually approve:', error);
+    res.status(500).json({ error: '手動核准失敗', message: error.message });
+  }
+});
+
+/**
  * POST /api/trigger-daily-schedule
  * 用途：快速測試內容生成和 LINE 通知流程（測試用）
  * 說明：此功能完全獨立於 UCB 排程系統，用於測試整個審核發布流程

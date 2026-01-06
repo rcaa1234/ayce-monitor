@@ -3142,7 +3142,8 @@
                     ${schedules.map(schedule => {
                 const statusMap = {
                     'PENDING': { label: '待執行', class: 'status-pending' },
-                    'GENERATED': { label: '已生成', class: 'status-generated' },
+                    'GENERATED': { label: '待審核', class: 'status-generated' },
+                    'APPROVED': { label: '已核准', class: 'status-approved' },
                     'POSTED': { label: '已發布', class: 'status-posted' },
                     'FAILED': { label: '失敗', class: 'status-failed' },
                     'CANCELLED': { label: '已取消', class: 'status-cancelled' }
@@ -3178,6 +3179,26 @@
                                 </div>
                             ` : ''}
 
+                            ${schedule.status === 'GENERATED' ? `
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button onclick="resendReviewNotification('${schedule.id}')" class="btn btn-secondary btn-small" style="font-size: 12px; padding: 6px 12px;">
+                                        📱 重新發送審核
+                                    </button>
+                                    <button onclick="manualApproveSchedule('${schedule.id}')" class="btn btn-success btn-small" style="font-size: 12px; padding: 6px 12px;">
+                                        ✅ 手動核准
+                                    </button>
+                                    <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
+                                        🗑️ 刪除排程
+                                    </button>
+                                </div>
+                            ` : ''}
+
+                            ${schedule.status === 'APPROVED' ? `
+                                <div style="margin-top: 12px; padding: 10px; background: #d1fae5; border-radius: 6px; font-size: 13px; color: #065f46;">
+                                    ✅ 已核准，將於排程時間自動發布
+                                </div>
+                            ` : ''}
+
                             ${(schedule.status === 'PENDING' || schedule.status === 'FAILED') ? `
                                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
                                     <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
@@ -3210,6 +3231,55 @@
                 loadScheduleHistory(); // 重新載入列表
             } catch (error) {
                 alert('❌ 刪除失敗: ' + error.message);
+            }
+        }
+
+        // Resend review notification function
+        async function resendReviewNotification(scheduleId) {
+            if (!confirm('確定要重新發送 LINE 審核通知嗎？\n\n現有的審核連結將失效。')) return;
+
+            try {
+                showSmartMessage('ucb-message', '📱 正在重新發送審核通知...', 'info');
+
+                const response = await fetch(`${API_BASE}/auto-schedules/${scheduleId}/resend-review`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '發送失敗');
+                }
+
+                showSmartMessage('ucb-message', data.message || '✅ 已重新發送審核通知', 'success');
+            } catch (error) {
+                showSmartMessage('ucb-message', '❌ 發送失敗: ' + error.message, 'error');
+            }
+        }
+
+        // Manual approve schedule function
+        async function manualApproveSchedule(scheduleId) {
+            if (!confirm('確定要手動核准此排程嗎？\n\n核准後將於排程時間自動發布到 Threads。')) return;
+
+            try {
+                showSmartMessage('ucb-message', '⏳ 正在核准...', 'info');
+
+                const response = await fetch(`${API_BASE}/auto-schedules/${scheduleId}/manual-approve`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '核准失敗');
+                }
+
+                showSmartMessage('ucb-message', data.message || '✅ 已手動核准', 'success');
+                loadScheduleHistory(); // 重新載入列表
+            } catch (error) {
+                showSmartMessage('ucb-message', '❌ 核准失敗: ' + error.message, 'error');
             }
         }
 
