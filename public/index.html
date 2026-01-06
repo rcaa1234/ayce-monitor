@@ -1643,29 +1643,28 @@
         // Load overview
         async function loadOverview() {
             try {
-                const response = await fetch(`${API_BASE}/posts`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                // 取得各狀態的數量（使用 API 的 total 而非計算回傳的陣列）
+                const [allRes, draftRes, pendingRes, postedRes] = await Promise.all([
+                    fetch(`${API_BASE}/posts`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/posts?status=DRAFT`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/posts?status=PENDING_REVIEW`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_BASE}/posts?status=POSTED`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
 
-                if (!response.ok) throw new Error('載入失敗');
+                const [allData, draftData, pendingData, postedData] = await Promise.all([
+                    allRes.json(),
+                    draftRes.json(),
+                    pendingRes.json(),
+                    postedRes.json()
+                ]);
 
-                const data = await response.json();
-
-                // Update stats
-                document.getElementById('totalPosts').textContent = data.total || 0;
-
-                // Safely handle data array
-                const posts = data.data || data.posts || [];
-
-                const statuses = posts.reduce((acc, post) => {
-                    acc[post.status] = (acc[post.status] || 0) + 1;
-                    return acc;
-                }, {});
-
-                document.getElementById('draftPosts').textContent = statuses.DRAFT || 0;
-                document.getElementById('pendingPosts').textContent = statuses.PENDING_REVIEW || 0;
-                document.getElementById('postedPosts').textContent = statuses.POSTED || 0;
+                // 使用 API 回傳的 total（準確的資料庫數量）
+                document.getElementById('totalPosts').textContent = allData.total || 0;
+                document.getElementById('draftPosts').textContent = draftData.total || 0;
+                document.getElementById('pendingPosts').textContent = pendingData.total || 0;
+                document.getElementById('postedPosts').textContent = postedData.total || 0;
             } catch (error) {
+                console.error('Failed to load overview:', error);
                 showAlert('dashboardAlert', '載入總覽失敗: ' + error.message, 'error');
             }
         }
@@ -3691,18 +3690,31 @@
 
         // Load and render analytics data
         async function loadAnalyticsData(days) {
+            const containers = ['bestHoursChart', 'bestDaysChart', 'topPostsList', 'contentLengthAnalysis'];
+
             try {
                 const response = await fetch(`${API_BASE}/statistics/analytics?days=${days}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to load analytics');
+                    const errorText = await response.text();
+                    console.error('Analytics API error:', response.status, errorText);
+                    containers.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 20px 0; font-size: 11px;">載入失敗 (${response.status})</p>`;
+                    });
+                    return;
                 }
 
                 const result = await response.json();
                 if (!result.success) {
-                    throw new Error(result.error);
+                    console.error('Analytics API returned error:', result.error);
+                    containers.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 20px 0; font-size: 11px;">${result.error || '載入失敗'}</p>`;
+                    });
+                    return;
                 }
 
                 const { hourlyAnalysis, dayAnalysis, topPosts, contentAnalysis } = result.data;
@@ -3721,6 +3733,10 @@
 
             } catch (error) {
                 console.error('Failed to load analytics:', error);
+                containers.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 20px 0; font-size: 11px;">載入失敗: ${error.message}</p>`;
+                });
             }
         }
 
