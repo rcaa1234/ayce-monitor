@@ -549,6 +549,15 @@ const migrations = [
   ALTER TABLE daily_auto_schedule
   MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'POSTED', 'FAILED', 'CANCELLED') DEFAULT 'PENDING';
   `,
+
+  // Migration 28: Add template_id to posts table
+  // 用途：為 posts 表新增 template_id 欄位，用於關聯模板進行統計分析
+  // 影響：讓匯入的歷史貼文可以被分類到對應的模板
+  `
+  ALTER TABLE posts
+  ADD COLUMN template_id CHAR(36) NULL COMMENT '關聯的模板 ID' AFTER last_error_message,
+  ADD INDEX idx_template_id (template_id);
+  `,
 ];
 
 async function runMigrations() {

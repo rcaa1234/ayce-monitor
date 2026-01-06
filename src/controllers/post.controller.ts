@@ -85,18 +85,31 @@ export class PostController {
   async getByStatus(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { status, limit } = req.query;
+      const pool = (await import('../database/connection')).getPool();
 
       // If no status provided, get all posts
       let posts;
+      let total = 0;
+
       if (status && status !== 'ALL') {
         posts = await PostModel.findByStatus(
           status as PostStatus,
           limit ? parseInt(limit as string) : undefined
         );
+        // Get total count for this status
+        const [countRows] = await pool.execute(
+          'SELECT COUNT(*) as count FROM posts WHERE status = ?',
+          [status]
+        );
+        total = (countRows as any)[0]?.count || 0;
       } else {
         // Get all posts when status is not specified or is 'ALL'
-        const pool = (await import('../database/connection')).getPool();
         const limitVal = limit ? parseInt(limit as string) : 100;
+
+        // Get total count of all posts
+        const [countRows] = await pool.execute('SELECT COUNT(*) as count FROM posts');
+        total = (countRows as any)[0]?.count || 0;
+
         const query = `SELECT * FROM posts ORDER BY created_at DESC LIMIT ${limitVal}`;
         const [rows] = await pool.execute(query);
         posts = rows;
@@ -105,7 +118,7 @@ export class PostController {
       res.json({
         success: true,
         data: posts,
-        total: Array.isArray(posts) ? posts.length : 0,
+        total: total,
       });
     } catch (error: any) {
       logger.error('Failed to get posts:', error);

@@ -1012,13 +1012,13 @@
                                     <div style="margin-top: 5px;">已同步貼文: <span id="statsSyncedCount">-</span> 篇</div>
                                 </div>
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button onclick="syncThreadsPosts(false)"
-                                        style="padding: 5px 12px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        📥 匯入最近 50 篇
-                                    </button>
                                     <button onclick="syncThreadsPosts(true)"
                                         style="padding: 5px 12px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         📦 完整匯入全部
+                                    </button>
+                                    <button onclick="reclassifyTemplates()"
+                                        style="padding: 5px 12px; background: #8b5cf6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🏷️ 重新分類模板
                                     </button>
                                     <button onclick="triggerManualSync()"
                                         style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
@@ -1027,7 +1027,7 @@
                                 </div>
                             </div>
                             <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                                💡 提示：「完整匯入全部」會從您的 Threads 帳號抓取所有歷史貼文（可能需要較長時間）。
+                                💡 提示：「完整匯入全部」匯入所有歷史貼文，「重新分類模板」會為沒有模板的貼文自動分類。
                             </p>
                         </div>
 
@@ -3923,6 +3923,56 @@
             }
         }
 
+        // Reclassify templates for posts without template
+        async function reclassifyTemplates() {
+            if (!confirm('此操作將為所有沒有模板分類的貼文自動分類。\n\n繼續嗎？')) {
+                return;
+            }
+
+            try {
+                showAlert('dashboardAlert', '正在重新分類貼文模板...', 'info');
+
+                const response = await fetch(`${API_BASE}/statistics/reclassify-templates`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '分類失敗');
+                }
+
+                showAlert('dashboardAlert', result.message, 'success');
+                loadStatsSummary(); // 重新載入統計數據
+                loadStatsTemplates(); // 重新載入模板統計
+            } catch (error) {
+                console.error('Failed to reclassify templates:', error);
+                showAlert('dashboardAlert', '重新分類失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Auto sync on page load (silent, no alert)
+        async function autoSyncOnLoad() {
+            try {
+                // 靜默同步互動數據，不顯示提示
+                await fetch(`${API_BASE}/statistics/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ days: 7, limit: 100 })
+                });
+                console.log('Auto sync triggered on page load');
+            } catch (error) {
+                console.warn('Auto sync failed:', error);
+            }
+        }
+
         // Load template statistics
         async function loadStatsTemplates() {
             const container = document.getElementById('statsTemplatesList');
@@ -4131,6 +4181,9 @@
         // Initialize statistics on page load
         document.addEventListener('DOMContentLoaded', function () {
             if (token) {
+                // 自動同步互動數據（靜默執行）
+                autoSyncOnLoad();
+                // 載入統計摘要
                 loadStatsSummary();
             }
         });
