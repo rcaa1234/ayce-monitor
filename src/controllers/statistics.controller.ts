@@ -253,9 +253,9 @@ export class StatisticsController {
       const { getPool } = await import('../database/connection');
       const pool = getPool();
 
-      // 獲取最近一次同步時間
+      // 獲取最近一次同步時間（使用 fetched_at 欄位）
       const [rows] = await pool.execute(
-        `SELECT MAX(last_synced_at) as last_synced_at
+        `SELECT MAX(fetched_at) as last_synced_at
          FROM post_insights`
       );
 

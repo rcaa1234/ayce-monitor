@@ -3854,15 +3854,19 @@
                 { name: '長文', label: '> 300 字', ...data.long, color: '#ec4899' },
             ];
 
-            const maxEngagement = Math.max(...categories.map(c => c.avgEngagement));
+            const totalPosts = categories.reduce((sum, c) => sum + c.count, 0);
 
             container.innerHTML = `
+                <div style="font-size: 10px; color: #666; margin-bottom: 8px; text-align: center;">
+                    📊 分析 ${totalPosts} 篇貼文的<strong>平均參與率</strong>（非分佈比例）
+                </div>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
                     ${categories.map(c => `
                         <div style="text-align: center; padding: 10px; background: #f9fafb; border-radius: 6px;">
                             <div style="font-size: 11px; color: #666; margin-bottom: 4px;">${c.name} ${c.label}</div>
                             <div style="font-size: 16px; font-weight: bold; color: ${c.color};">${c.avgEngagement.toFixed(1)}%</div>
-                            <div style="font-size: 10px; color: #999;">${c.count} 篇</div>
+                            <div style="font-size: 9px; color: #999;">平均參與率</div>
+                            <div style="font-size: 10px; color: #666; margin-top: 2px;">${c.count} 篇</div>
                         </div>
                     `).join('')}
                 </div>
