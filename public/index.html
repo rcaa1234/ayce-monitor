@@ -1037,7 +1037,22 @@
                         </div>
 
                         <!-- Data Analytics Section -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="font-size: 15px; color: #333; margin: 0;">📈 數據分析</h4>
+                                <select id="analyticsDaysSelect" onchange="onAnalyticsDaysChange()"
+                                    style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px;">
+                                    <option value="7">最近 7 天</option>
+                                    <option value="30" selected>最近 30 天</option>
+                                    <option value="90">最近 90 天</option>
+                                    <option value="180">最近 180 天</option>
+                                    <option value="365">最近 365 天</option>
+                                    <option value="9999">全部歷史</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
                             <!-- Best Posting Hours -->
                             <div style="background: white; padding: 15px; border-radius: 8px;">
                                 <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">🕐 最佳發文時段</h4>
@@ -3686,13 +3701,20 @@
                     });
                 }
 
-                // Load analytics data
-                await loadAnalyticsData(summaryDaysNum);
+                // Load analytics data (使用分析區塊的時間選擇器)
+                const analyticsDays = parseInt(document.getElementById('analyticsDaysSelect')?.value || '30');
+                await loadAnalyticsData(analyticsDays);
 
             } catch (error) {
                 console.error('Failed to load statistics summary:', error);
                 showAlert('dashboardAlert', '統計數據載入失敗', 'danger');
             }
+        }
+
+        // Handle analytics time range change
+        function onAnalyticsDaysChange() {
+            const days = parseInt(document.getElementById('analyticsDaysSelect').value);
+            loadAnalyticsData(days);
         }
 
         // Load and render analytics data
