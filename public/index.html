@@ -1043,318 +1043,337 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Scheduling Tab (NEW - with sub-tabs) -->
-                <div id="schedulingTab" class="tab-content">
-                    <h2 style="margin-bottom: 20px;">發文排程管理</h2>
+            <!-- Posts Tab -->
+            <div id="postsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">貼文管理</h2>
 
-                    <!-- Internal Sub-tabs -->
-                    <div class="sub-tabs"
-                        style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
-                        <button class="sub-tab active" onclick="switchSchedulingSubTab('ucb')">🤖 UCB智能排程</button>
-                        <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">🖊️ 手動建立</button>
-                    </div>
-
-                    <!-- UCB Smart Schedule Sub-tab -->
-                    <div id="ucbSubTab" class="sub-tab-content active">
-                        <h3 style="margin-bottom: 20px;">UCB 智能排程配置</h3>
-                        <p style="color: #666; margin-bottom: 20px;">使用 UCB (Upper Confidence Bound) 演算法自動優化模板選擇與發文時間
-                        </p>
-
-                        <!-- Threads Account Selection (Shared) -->
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                            <h3 style="margin-bottom: 15px;">發布帳號</h3>
-                            <div class="form-group">
-                                <label>選擇 Threads 帳號</label>
-                                <select id="ucbThreadsAccount" class="form-control"
-                                    style="padding: 12px; font-size: 16px;">
-                                    <option value="">請選擇帳號</option>
-                                </select>
-                                <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                    UCB 智能排程將發布到此帳號。未設定帳號? 請到「Threads 帳號」分頁新增
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- LINE Notification Settings (Shared) -->
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                            <h3 style="margin-bottom: 15px;">LINE 通知設定</h3>
-                            <div class="form-group">
-                                <label>LINE User ID (接收審核通知)</label>
-                                <input type="text" id="ucbLineNotifyUserId" class="form-control"
-                                    placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
-                                <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                    UCB 生成文章後，系統會發送 LINE 訊息到此帳號進行審核。<br>
-                                    如何取得 LINE User ID: 請加入 LINE Bot 為好友，發送「/myid」或「我的ID」或「查詢ID」即可取得
-                                </p>
-                            </div>
-                            <button class="btn btn-secondary" onclick="testUCBLineNotification()"
-                                style="margin-top: 10px;">測試 LINE 通知</button>
-                        </div>
-
-                        <div class="config-grid">
-                            <!-- Left: Configuration Form -->
-                            <div class="config-card">
-                                <h3>UCB 參數設定</h3>
-                                <form id="ucb-config-form" onsubmit="saveUCBConfig(event)">
-                                    <div class="form-group">
-                                        <label>參與 UCB 的模板</label>
-                                        <div id="ucb-templates-selector"
-                                            style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fafafa;">
-                                            <p style="color: #999; text-align: center;">載入中...</p>
-                                        </div>
-                                        <small style="color: #0066cc; margin-top: 5px; display: block;">
-                                            ⚠️ 只有「啟用」且「被勾選」的模板才會參與 UCB 演算法。建議至少選擇 3 個模板以獲得更好的優化效果
-                                        </small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="exploration-factor">探索係數 (1.0-2.0)</label>
-                                        <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1"
-                                            value="1.5" required>
-                                        <small>數值越高，系統越願意嘗試新模板（探索性強）</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="min-trials">最少試驗次數</label>
-                                        <input type="number" id="min-trials" min="1" max="20" value="5" required>
-                                        <small>每個模板至少嘗試幾次後才開始優化選擇</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="posts-per-day">每天發文次數</label>
-                                        <input type="number" id="posts-per-day" min="1" max="10" value="1" required>
-                                        <small>系統每天自動建立幾個排程</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="time-range-start">發文時段 - 開始時間</label>
-                                        <input type="time" id="time-range-start" value="09:00" class="form-control"
-                                            style="padding: 12px; font-size: 16px;">
-                                        <small>UCB 將在此時間之後選擇最佳時段發文</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="time-range-end">發文時段 - 結束時間</label>
-                                        <input type="time" id="time-range-end" value="21:00" class="form-control"
-                                            style="padding: 12px; font-size: 16px;">
-                                        <small>UCB 將在此時間之前選擇最佳時段發文</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label>啟用星期</label>
-                                        <div
-                                            style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px;">
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="1" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週一</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="2" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週二</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="3" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週三</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="4" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週四</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="5" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週五</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="6" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週六</span>
-                                            </label>
-                                            <label
-                                                style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
-                                                <input type="checkbox" class="active-day" value="7" checked
-                                                    style="margin-bottom: 4px;">
-                                                <span style="font-size: 12px;">週日</span>
-                                            </label>
-                                        </div>
-                                        <small style="margin-top: 8px; display: block;">選擇 UCB
-                                            自動建立排程的星期，未選擇的星期不會建立排程</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <div class="checkbox-group">
-                                            <input type="checkbox" id="auto-schedule-enabled" checked>
-                                            <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動排程</label>
-                                        </div>
-                                        <small>每天 00:00 自動使用 UCB 建立排程並發送到 LINE 審核</small>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-success" style="width: 100%;">儲存配置</button>
-                                </form>
-                            </div>
-
-                            <!-- Right: Quick Actions & Info -->
-                            <div class="config-card">
-                                <h3>快速操作</h3>
-
-                                <div
-                                    style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
-                                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📌 使用說明</h4>
-                                    <ul
-                                        style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
-                                        <li><strong>啟用自動排程</strong>：每天 00:00 自動建立排程</li>
-                                        <li><strong>立即觸發</strong>：測試用，立即建立今天的排程</li>
-                                        <li><strong>排程歷史</strong>：下方顯示所有 UCB 建立的排程</li>
-                                        <li><strong>執行流程</strong>：建立排程 → 到達時間 → 生成文章 → LINE 通知審核</li>
-                                    </ul>
-                                </div>
-
-                                <div
-                                    style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-                                    <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ 重要提醒</h4>
-                                    <ul
-                                        style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
-                                        <li>每天只能建立一個排程（避免重複）</li>
-                                        <li>必須選擇 Threads 帳號和 LINE User ID</li>
-                                        <li>至少選擇一個啟用的模板</li>
-                                        <li>UCB 會根據歷史數據自動優化選擇</li>
-                                    </ul>
-                                </div>
-
-                                <button class="btn btn-primary" onclick="triggerDailySchedule()"
-                                    style="width: 100%; padding: 15px; font-size: 16px;">
-                                    🧪 測試生成發送
-                                </button>
-                                <small
-                                    style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
-                                    系統會立即生成文章並發送 LINE 通知
-                                </small>
-                            </div>
-                        </div>
-
-                        <div id="ucb-message"></div>
-
-                        <div style="margin-top: 40px;">
-                            <div class="action-bar">
-                                <h3>自動排程歷史</h3>
-                                <button class="btn btn-secondary" onclick="loadScheduleHistory()">重新整理</button>
-                            </div>
-                            <div id="schedule-history-container"></div>
-                        </div>
-                    </div>
+                <div class="filter-bar">
+                    <select id="filterStatus" onchange="loadPosts()">
+                        <option value="">全部狀態</option>
+                        <option value="DRAFT">草稿</option>
+                        <option value="GENERATING">產生中</option>
+                        <option value="PENDING_REVIEW">待審核</option>
+                        <option value="APPROVED">已核准</option>
+                        <option value="POSTED">已發布</option>
+                        <option value="FAILED">失敗</option>
+                    </select>
+                    <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
+                    <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
+                    <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn"
+                        style="display: none;">🗑️ 批次刪除</button>
                 </div>
 
-                <!-- Threads Accounts Tab -->
-                <div id="accountsTab" class="tab-content">
-                    <h2 style="margin-bottom: 20px;">Threads 帳號管理</h2>
+                <div id="postsGrid" class="posts-grid"></div>
+            </div>
 
+            <!-- Scheduling Tab (NEW - with sub-tabs) -->
+            <div id="schedulingTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">發文排程管理</h2>
+
+                <!-- Internal Sub-tabs -->
+                <div class="sub-tabs"
+                    style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+                    <button class="sub-tab active" onclick="switchSchedulingSubTab('ucb')">🤖 UCB智能排程</button>
+                    <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">🖊️ 手動建立</button>
+                </div>
+
+                <!-- UCB Smart Schedule Sub-tab -->
+                <div id="ucbSubTab" class="sub-tab-content active">
+                    <h3 style="margin-bottom: 20px;">UCB 智能排程配置</h3>
+                    <p style="color: #666; margin-bottom: 20px;">使用 UCB (Upper Confidence Bound) 演算法自動優化模板選擇與發文時間</p>
+
+                    <!-- Threads Account Selection (Shared) -->
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <h3 style="margin-bottom: 15px;">📱 新增 Threads 帳號</h3>
-                        <p style="color: #666; margin-bottom: 15px;">
-                            由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
-                        </p>
-                        <ol style="color: #666; line-height: 1.8;">
-                            <li>前往 <a href="https://developers.facebook.com/" target="_blank"
-                                    style="color: #667eea;">Meta
-                                    Developers</a> 建立應用程式</li>
-                            <li>取得 Client ID 和 Client Secret</li>
-                            <li>設定 Redirect URI 為: <code
-                                    style="background: #e1e8ed; padding: 2px 6px; border-radius: 3px;">http://localhost:3000/api/threads/oauth/callback</code>
-                            </li>
-                            <li>點擊下方按鈕開始授權</li>
-                        </ol>
-                        <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads
-                            授權</button>
-                    </div>
-
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0;">已連結的 Threads 帳號</h3>
-                        <button class="btn" onclick="runDiagnostics()"
-                            style="background: #17a2b8; padding: 8px 16px;">🔍
-                            診斷發布問題</button>
-                    </div>
-                    <div id="threadsAccountsList" class="posts-grid"></div>
-
-                    <!-- Diagnostics Result -->
-                    <div id="diagnosticsResult"
-                        style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
-                        <h3 style="margin-bottom: 15px;">🔍 診斷結果</h3>
-                        <div id="diagnosticsContent"></div>
-                    </div>
-                </div>
-
-                <!-- Manual Post Sub-tab -->
-                <div id="manualSubTab" class="sub-tab-content">
-                    <h3 style="margin-bottom: 20px;">手動建立貼文</h3>
-                    <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
-
-                    <form onsubmit="createManualPost(event)">
+                        <h3 style="margin-bottom: 15px;">發布帳號</h3>
                         <div class="form-group">
-                            <label>貼文內容 *</label>
-                            <textarea id="manualPostContent" rows="10" placeholder="直接輸入您想發布的內容..." required
-                                style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; line-height: 1.6;"></textarea>
-                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                字數: <span id="contentCharCount">0</span> / 500 (Threads 建議)
-                            </p>
-                        </div>
-
-                        <div class="form-group">
-                            <label>發布到 Threads 帳號 *</label>
-                            <select id="manualPostThreadsAccount" required style="padding: 12px; font-size: 15px;">
+                            <label>選擇 Threads 帳號</label>
+                            <select id="ucbThreadsAccount" class="form-control" style="padding: 12px; font-size: 16px;">
                                 <option value="">請選擇帳號</option>
                             </select>
                             <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                未設定帳號? 請到「Threads 帳號」分頁新增
+                                UCB 智能排程將發布到此帳號。未設定帳號? 請到「Threads 帳號」分頁新增
                             </p>
                         </div>
+                    </div>
 
+                    <!-- LINE Notification Settings (Shared) -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 15px;">LINE 通知設定</h3>
                         <div class="form-group">
-                            <label>發布時間</label>
-                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" name="publishTime" value="now" checked
-                                        onchange="toggleScheduleInput()">
-                                    立即發布
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="radio" name="publishTime" value="scheduled"
-                                        onchange="toggleScheduleInput()">
-                                    排程發布
-                                </label>
-                            </div>
-                            <input type="datetime-local" id="manualPostSchedule"
-                                style="padding: 12px; font-size: 15px; display: none;">
+                            <label>LINE User ID (接收審核通知)</label>
+                            <input type="text" id="ucbLineNotifyUserId" class="form-control"
+                                placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
+                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                                UCB 生成文章後，系統會發送 LINE 訊息到此帳號進行審核。<br>
+                                如何取得 LINE User ID: 請加入 LINE Bot 為好友，發送「/myid」或「我的ID」或「查詢ID」即可取得
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="testUCBLineNotification()"
+                            style="margin-top: 10px;">測試 LINE 通知</button>
+                    </div>
+
+                    <div class="config-grid">
+                        <!-- Left: Configuration Form -->
+                        <div class="config-card">
+                            <h3>UCB 參數設定</h3>
+                            <form id="ucb-config-form" onsubmit="saveUCBConfig(event)">
+                                <div class="form-group">
+                                    <label>參與 UCB 的模板</label>
+                                    <div id="ucb-templates-selector"
+                                        style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fafafa;">
+                                        <p style="color: #999; text-align: center;">載入中...</p>
+                                    </div>
+                                    <small style="color: #0066cc; margin-top: 5px; display: block;">
+                                        ⚠️ 只有「啟用」且「被勾選」的模板才會參與 UCB 演算法。建議至少選擇 3 個模板以獲得更好的優化效果
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="exploration-factor">探索係數 (1.0-2.0)</label>
+                                    <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1"
+                                        value="1.5" required>
+                                    <small>數值越高，系統越願意嘗試新模板（探索性強）</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="min-trials">最少試驗次數</label>
+                                    <input type="number" id="min-trials" min="1" max="20" value="5" required>
+                                    <small>每個模板至少嘗試幾次後才開始優化選擇</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="posts-per-day">每天發文次數</label>
+                                    <input type="number" id="posts-per-day" min="1" max="10" value="1" required>
+                                    <small>系統每天自動建立幾個排程</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="time-range-start">發文時段 - 開始時間</label>
+                                    <input type="time" id="time-range-start" value="09:00" class="form-control"
+                                        style="padding: 12px; font-size: 16px;">
+                                    <small>UCB 將在此時間之後選擇最佳時段發文</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="time-range-end">發文時段 - 結束時間</label>
+                                    <input type="time" id="time-range-end" value="21:00" class="form-control"
+                                        style="padding: 12px; font-size: 16px;">
+                                    <small>UCB 將在此時間之前選擇最佳時段發文</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>啟用星期</label>
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px;">
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="1" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週一</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="2" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週二</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="3" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週三</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="4" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週四</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="5" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週五</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="6" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週六</span>
+                                        </label>
+                                        <label
+                                            style="display: flex; flex-direction: column; align-items: center; cursor: pointer; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; transition: all 0.2s;">
+                                            <input type="checkbox" class="active-day" value="7" checked
+                                                style="margin-bottom: 4px;">
+                                            <span style="font-size: 12px;">週日</span>
+                                        </label>
+                                    </div>
+                                    <small style="margin-top: 8px; display: block;">選擇 UCB
+                                        自動建立排程的星期，未選擇的星期不會建立排程</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <div class="checkbox-group">
+                                        <input type="checkbox" id="auto-schedule-enabled" checked>
+                                        <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動排程</label>
+                                    </div>
+                                    <small>每天 00:00 自動使用 UCB 建立排程並發送到 LINE 審核</small>
+                                </div>
+
+                                <button type="submit" class="btn btn-success" style="width: 100%;">儲存配置</button>
+                            </form>
                         </div>
 
-                        <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">發布貼文</button>
-                    </form>
+                        <!-- Right: Quick Actions & Info -->
+                        <div class="config-card">
+                            <h3>快速操作</h3>
+
+                            <div
+                                style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
+                                <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📌 使用說明</h4>
+                                <ul
+                                    style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
+                                    <li><strong>啟用自動排程</strong>：每天 00:00 自動建立排程</li>
+                                    <li><strong>立即觸發</strong>：測試用，立即建立今天的排程</li>
+                                    <li><strong>排程歷史</strong>：下方顯示所有 UCB 建立的排程</li>
+                                    <li><strong>執行流程</strong>：建立排程 → 到達時間 → 生成文章 → LINE 通知審核</li>
+                                </ul>
+                            </div>
+
+                            <div
+                                style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+                                <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ 重要提醒</h4>
+                                <ul
+                                    style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
+                                    <li>每天只能建立一個排程（避免重複）</li>
+                                    <li>必須選擇 Threads 帳號和 LINE User ID</li>
+                                    <li>至少選擇一個啟用的模板</li>
+                                    <li>UCB 會根據歷史數據自動優化選擇</li>
+                                </ul>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="triggerDailySchedule()"
+                                style="width: 100%; padding: 15px; font-size: 16px;">
+                                🧪 測試生成發送
+                            </button>
+                            <small
+                                style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
+                                系統會立即生成文章並發送 LINE 通知
+                            </small>
+                        </div>
+                    </div>
+
+                    <div id="ucb-message"></div>
+
+                    <div style="margin-top: 40px;">
+                        <div class="action-bar">
+                            <h3>自動排程歷史</h3>
+                            <button class="btn btn-secondary" onclick="loadScheduleHistory()">重新整理</button>
+                        </div>
+                        <div id="schedule-history-container"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
-            <div id="templatesTab" class="tab-content">
-                <h2 style="margin-bottom: 20px;">模板設定</h2>
-                <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
+            <!-- Threads Accounts Tab -->
+            <div id="accountsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">Threads 帳號管理</h2>
 
-                <div class="action-bar">
-                    <h3>我的模板</h3>
-                    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">📱 新增 Threads 帳號</h3>
+                    <p style="color: #666; margin-bottom: 15px;">
+                        由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
+                    </p>
+                    <ol style="color: #666; line-height: 1.8;">
+                        <li>前往 <a href="https://developers.facebook.com/" target="_blank" style="color: #667eea;">Meta
+                                Developers</a> 建立應用程式</li>
+                        <li>取得 Client ID 和 Client Secret</li>
+                        <li>設定 Redirect URI 為: <code
+                                style="background: #e1e8ed; padding: 2px 6px; border-radius: 3px;">http://localhost:3000/api/threads/oauth/callback</code>
+                        </li>
+                        <li>點擊下方按鈕開始授權</li>
+                    </ol>
+                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads
+                        授權</button>
                 </div>
-                <div id="templates-container"></div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">已連結的 Threads 帳號</h3>
+                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;">🔍
+                        診斷發布問題</button>
+                </div>
+                <div id="threadsAccountsList" class="posts-grid"></div>
+
+                <!-- Diagnostics Result -->
+                <div id="diagnosticsResult"
+                    style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
+                    <h3 style="margin-bottom: 15px;">🔍 診斷結果</h3>
+                    <div id="diagnosticsContent"></div>
+                </div>
+            </div>
+
+            <!-- Manual Post Sub-tab -->
+            <div id="manualSubTab" class="sub-tab-content">
+                <h3 style="margin-bottom: 20px;">手動建立貼文</h3>
+                <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
+
+                <form onsubmit="createManualPost(event)">
+                    <div class="form-group">
+                        <label>貼文內容 *</label>
+                        <textarea id="manualPostContent" rows="10" placeholder="直接輸入您想發布的內容..." required
+                            style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; line-height: 1.6;"></textarea>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            字數: <span id="contentCharCount">0</span> / 500 (Threads 建議)
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布到 Threads 帳號 *</label>
+                        <select id="manualPostThreadsAccount" required style="padding: 12px; font-size: 15px;">
+                            <option value="">請選擇帳號</option>
+                        </select>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            未設定帳號? 請到「Threads 帳號」分頁新增
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label>發布時間</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="now" checked
+                                    onchange="toggleScheduleInput()">
+                                立即發布
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="radio" name="publishTime" value="scheduled"
+                                    onchange="toggleScheduleInput()">
+                                排程發布
+                            </label>
+                        </div>
+                        <input type="datetime-local" id="manualPostSchedule"
+                            style="padding: 12px; font-size: 15px; display: none;">
+                    </div>
+
+                    <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">發布貼文</button>
+                </form>
             </div>
         </div>
+
+        <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
+        <div id="templatesTab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">模板設定</h2>
+            <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
+
+            <div class="action-bar">
+                <h3>我的模板</h3>
+                <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+            </div>
+            <div id="templates-container"></div>
+        </div>
+    </div>
     </div>
 
     <!-- Post Detail Modal -->
@@ -1589,12 +1608,8 @@
             }
         }
 
-        // Load posts (legacy function - kept for compatibility)
+        // Load posts
         async function loadPosts() {
-            // Skip if postsGrid element doesn't exist
-            const container = document.getElementById('postsGrid');
-            if (!container) return;
-
             const status = document.getElementById('filterStatus')?.value || '';
             const url = status ? `${API_BASE}/posts?status=${status}` : `${API_BASE}/posts`;
 
@@ -1616,7 +1631,6 @@
         // Render posts
         function renderPosts(posts, containerId) {
             const container = document.getElementById(containerId);
-            if (!container) return; // Skip if container doesn't exist
 
             if (!posts || posts.length === 0) {
                 container.innerHTML = `
