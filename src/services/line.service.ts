@@ -244,6 +244,32 @@ class LineService {
   } | null> {
     const pool = getPool();
 
+    // Debug: 先查詢 token 是否存在（不考慮其他條件）
+    const [debugRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT rr.id, rr.status, rr.expires_at, u.line_user_id as db_line_user_id
+       FROM review_requests rr
+       LEFT JOIN users u ON rr.reviewer_user_id = u.id
+       WHERE rr.token = ?`,
+      [token]
+    );
+
+    if (debugRows.length === 0) {
+      logger.warn(`[validateReviewToken] Token not found in database: ${token.substring(0, 20)}...`);
+    } else {
+      const debug = debugRows[0];
+      logger.info(`[validateReviewToken] Token found. Status: ${debug.status}, Expires: ${debug.expires_at}, DB Line ID: ${debug.db_line_user_id}, Request Line ID: ${lineUserId}`);
+
+      if (debug.status !== 'PENDING') {
+        logger.warn(`[validateReviewToken] Token already used or cancelled. Status: ${debug.status}`);
+      }
+      if (debug.db_line_user_id !== lineUserId) {
+        logger.warn(`[validateReviewToken] LINE User ID mismatch. DB: ${debug.db_line_user_id}, Request: ${lineUserId}`);
+      }
+      if (new Date(debug.expires_at) <= new Date()) {
+        logger.warn(`[validateReviewToken] Token expired. Expires: ${debug.expires_at}, Now: ${new Date().toISOString()}`);
+      }
+    }
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT rr.* FROM review_requests rr
        INNER JOIN users u ON rr.reviewer_user_id = u.id
