@@ -1426,14 +1426,16 @@
 
         <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
         <div id="templatesTab" class="tab-content">
-            <h2 style="margin-bottom: 20px;">模板設定</h2>
-            <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
+            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2 style="margin-bottom: 10px; color: #1f2937;">模板設定</h2>
+                <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
 
-            <div class="action-bar">
-                <h3>我的模板</h3>
-                <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+                <div class="action-bar" style="margin-bottom: 20px;">
+                    <h3 style="color: #374151;">我的模板</h3>
+                    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+                </div>
+                <div id="templates-container"></div>
             </div>
-            <div id="templates-container"></div>
         </div>
     </div>
     </div>
@@ -3909,6 +3911,7 @@
 
                 showAlert('dashboardAlert', result.message, 'success');
                 loadStatsSummary(); // 重新載入統計數據
+                loadOverview(); // 重新載入總覽數量
             } catch (error) {
                 console.error('Failed to sync Threads posts:', error);
                 showAlert('dashboardAlert', '匯入失敗: ' + error.message, 'danger');
@@ -3918,7 +3921,7 @@
         // Trigger manual insights sync
         async function triggerManualSync() {
             try {
-                showAlert('dashboardAlert', '正在同步互動數據，請稍候...', 'info');
+                showAlert('dashboardAlert', '正在同步互動數據，請稍候（約需 5-10 秒）...', 'info');
 
                 const response = await fetch(`${API_BASE}/statistics/sync`, {
                     method: 'POST',
@@ -3926,7 +3929,7 @@
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ days: 7, limit: 50 })
+                    body: JSON.stringify({ days: 30, limit: 100 })
                 });
 
                 const result = await response.json();
@@ -3935,8 +3938,11 @@
                     throw new Error(result.error || '同步失敗');
                 }
 
-                showAlert('dashboardAlert', result.message || '已開始同步互動數據', 'success');
-                setTimeout(() => loadStatsSummary(), 3000); // 3秒後重新載入
+                showAlert('dashboardAlert', '同步已開始，請等待數秒後時間會更新...', 'success');
+                // 多次重載以確保看到更新
+                setTimeout(() => loadStatsSummary(), 5000);  // 5秒後
+                setTimeout(() => loadStatsSummary(), 10000); // 10秒後
+                setTimeout(() => loadStatsSummary(), 15000); // 15秒後
             } catch (error) {
                 console.error('Failed to trigger manual sync:', error);
                 showAlert('dashboardAlert', '同步失敗: ' + error.message, 'danger');
