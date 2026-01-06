@@ -39,4 +39,10 @@ router.get('/sync-status', statisticsController.getSyncStatus.bind(statisticsCon
 // POST /api/statistics/sync-threads-posts - 從 Threads 同步歷史貼文
 router.post('/sync-threads-posts', statisticsController.syncThreadsPosts.bind(statisticsController));
 
+// POST /api/statistics/reclassify-templates - 重新分類所有貼文的模板
+router.post('/reclassify-templates', statisticsController.reclassifyTemplates.bind(statisticsController));
+
+// GET /api/statistics/best-time-post - 查詢最佳時段的貼文
+router.get('/best-time-post', statisticsController.getBestTimePost.bind(statisticsController));
+
 export default router;

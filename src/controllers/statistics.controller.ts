@@ -249,9 +249,11 @@ export class StatisticsController {
 
       const pendingCount = (pendingRows as any)[0]?.pending_count || 0;
 
-      // 獲取已同步的貼文總數
+      // 獲取已同步的貼文總數（實際有 insights 數據的）
       const [syncedRows] = await pool.execute(
-        `SELECT COUNT(*) as synced_count FROM posts WHERE status = 'POSTED'`
+        `SELECT COUNT(DISTINCT pi.post_id) as synced_count FROM post_insights pi
+         INNER JOIN posts p ON pi.post_id = p.id
+         WHERE p.status = 'POSTED'`
       );
       const syncedCount = (syncedRows as any)[0]?.synced_count || 0;
 
@@ -466,6 +468,160 @@ export class StatisticsController {
       res.status(500).json({
         success: false,
         error: '同步 Threads 貼文失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/statistics/reclassify-templates
+   * 重新分類所有沒有模板的貼文
+   */
+  async reclassifyTemplates(req: Request, res: Response): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 確保模板存在
+      const templateIds = await this.ensureImportTemplates(pool);
+
+      // 找出所有沒有模板的已發布貼文
+      const [postsWithoutTemplate] = await pool.execute(
+        `SELECT p.id, p.threads_media_id, p.post_url
+         FROM posts p
+         WHERE p.status = 'POSTED' AND p.template_id IS NULL`
+      );
+
+      let classified = 0;
+      let skipped = 0;
+
+      for (const post of postsWithoutTemplate as any[]) {
+        try {
+          // 根據是否有 threads_media_id 或 post_url 包含特定關鍵字來判斷類型
+          // 預設為「人工發文」，如果有媒體相關標記則為「圖片式文字」
+          let templateId = templateIds.manual;
+
+          // 如果 post_url 包含圖片/影片相關的標記，分類為圖片式文字
+          if (post.post_url && (
+            post.post_url.includes('/p/') || // 一般貼文
+            post.post_url.includes('/reel/') // Reels
+          )) {
+            // 無法確定，預設為人工發文
+            templateId = templateIds.manual;
+          }
+
+          await pool.execute(
+            `UPDATE posts SET template_id = ? WHERE id = ?`,
+            [templateId, post.id]
+          );
+          classified++;
+        } catch (error) {
+          skipped++;
+        }
+      }
+
+      logger.info(`Reclassified ${classified} posts, skipped ${skipped}`);
+
+      res.json({
+        success: true,
+        message: `已重新分類 ${classified} 篇貼文`,
+        data: { classified, skipped, total: (postsWithoutTemplate as any[]).length },
+      });
+    } catch (error: any) {
+      logger.error('Failed to reclassify templates:', error);
+      res.status(500).json({
+        success: false,
+        error: '重新分類失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * GET /api/statistics/best-time-post
+   * 取得特定模板在最佳時段的貼文
+   */
+  async getBestTimePost(req: Request, res: Response): Promise<void> {
+    try {
+      const templateName = req.query.template as string;
+      const bestTime = req.query.time as string; // 格式: "Monday 08:04"
+
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 解析星期和時間
+      const dayMap: { [key: string]: number } = {
+        'Sunday': 1, 'Monday': 2, 'Tuesday': 3, 'Wednesday': 4,
+        'Thursday': 5, 'Friday': 6, 'Saturday': 7
+      };
+
+      let dayOfWeek: number | null = null;
+      let hour: number | null = null;
+
+      if (bestTime) {
+        const parts = bestTime.split(' ');
+        if (parts.length >= 2) {
+          dayOfWeek = dayMap[parts[0]] || null;
+          const timeParts = parts[1].split(':');
+          hour = parseInt(timeParts[0]) || null;
+        }
+      }
+
+      // 查詢該模板在該時段表現最好的貼文
+      let query = `
+        SELECT p.id, p.post_url, p.posted_at, pr.content,
+               pi.views, pi.likes, pi.replies,
+               CASE WHEN pi.views > 0 
+                    THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100) 
+                    ELSE 0 END as engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        LEFT JOIN post_revisions pr ON p.id = pr.post_id
+        LEFT JOIN content_templates ct ON p.template_id = ct.id
+        WHERE p.status = 'POSTED'
+      `;
+
+      const params: any[] = [];
+
+      if (templateName) {
+        query += ` AND ct.name = ?`;
+        params.push(templateName);
+      }
+
+      if (dayOfWeek !== null) {
+        query += ` AND DAYOFWEEK(p.posted_at) = ?`;
+        params.push(dayOfWeek);
+      }
+
+      if (hour !== null) {
+        query += ` AND HOUR(p.posted_at) = ?`;
+        params.push(hour);
+      }
+
+      query += ` ORDER BY engagement_rate DESC, pi.views DESC LIMIT 5`;
+
+      const [rows] = await pool.execute(query, params);
+
+      res.json({
+        success: true,
+        data: {
+          posts: (rows as any[]).map(row => ({
+            id: row.id,
+            postUrl: row.post_url,
+            postedAt: row.posted_at,
+            content: row.content ? row.content.substring(0, 100) + '...' : null,
+            views: row.views,
+            likes: row.likes,
+            replies: row.replies,
+            engagementRate: parseFloat(row.engagement_rate).toFixed(2),
+          })),
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get best time post:', error);
+      res.status(500).json({
+        success: false,
+        error: '查詢失敗',
         message: error.message,
       });
     }
