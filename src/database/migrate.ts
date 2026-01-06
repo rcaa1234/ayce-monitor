@@ -541,6 +541,14 @@ const migrations = [
   ADD COLUMN time_range_end TIME DEFAULT '21:00:00' COMMENT 'UCB 發文時段結束時間' AFTER time_range_start,
   ADD COLUMN active_days JSON NULL COMMENT 'UCB 啟用星期，例如：[1,2,3,4,5,6,7] (1=週一, 7=週日)' AFTER time_range_end;
   `,
+
+  // Migration 27: Add APPROVED status to daily_auto_schedule
+  // 用途：為 daily_auto_schedule 的 status 新增 APPROVED 狀態
+  // 影響：讓排程可以有「已核准，等待發布」的狀態
+  `
+  ALTER TABLE daily_auto_schedule
+  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'POSTED', 'FAILED', 'CANCELLED') DEFAULT 'PENDING';
+  `,
 ];
 
 async function runMigrations() {
