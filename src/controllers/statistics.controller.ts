@@ -89,12 +89,35 @@ export class StatisticsController {
     try {
       const days = parseInt(req.query.days as string) || 90;
 
-      const [hourlyAnalysis, dayAnalysis, topPosts, contentAnalysis] = await Promise.all([
-        StatisticsModel.getHourlyAnalysis(days),
-        StatisticsModel.getDayOfWeekAnalysis(days),
-        StatisticsModel.getTopPerformingPosts(5, days),
-        StatisticsModel.getContentLengthAnalysis(days),
-      ]);
+      // 使用個別 try-catch 避免一個失敗導致全部失敗
+      let hourlyAnalysis: any = { hours: [], bestHour: 0 };
+      let dayAnalysis: any = { days: [], bestDay: 0 };
+      let topPosts: any[] = [];
+      let contentAnalysis: any = { short: { count: 0, avgEngagement: 0 }, medium: { count: 0, avgEngagement: 0 }, long: { count: 0, avgEngagement: 0 }, recommendation: '尚無足夠數據' };
+
+      try {
+        hourlyAnalysis = await StatisticsModel.getHourlyAnalysis(days);
+      } catch (e: any) {
+        logger.warn('Failed to get hourly analysis:', e.message);
+      }
+
+      try {
+        dayAnalysis = await StatisticsModel.getDayOfWeekAnalysis(days);
+      } catch (e: any) {
+        logger.warn('Failed to get day analysis:', e.message);
+      }
+
+      try {
+        topPosts = await StatisticsModel.getTopPerformingPosts(5, days);
+      } catch (e: any) {
+        logger.warn('Failed to get top posts:', e.message);
+      }
+
+      try {
+        contentAnalysis = await StatisticsModel.getContentLengthAnalysis(days);
+      } catch (e: any) {
+        logger.warn('Failed to get content analysis:', e.message);
+      }
 
       res.json({
         success: true,

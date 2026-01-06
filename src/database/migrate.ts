@@ -552,11 +552,9 @@ const migrations = [
 
   // Migration 28: Add template_id to posts table
   // 用途：為 posts 表新增 template_id 欄位，用於關聯模板進行統計分析
-  // 影響：讓匯入的歷史貼文可以被分類到對應的模板
+  // 注意：如果欄位已存在會報錯，但 migration 系統會跳過已執行的 migration
   `
-  ALTER TABLE posts
-  ADD COLUMN template_id CHAR(36) NULL COMMENT '關聯的模板 ID' AFTER last_error_message,
-  ADD INDEX idx_template_id (template_id);
+  ALTER TABLE posts ADD COLUMN template_id CHAR(36) NULL;
   `,
 ];
 
