@@ -459,43 +459,61 @@ export class StatisticsController {
       let deleted = 0;
       if (fetchAll) {
         try {
-          // 獲取所有從 Threads 匯入的貼文
-          const [dbPosts] = await pool.execute(
-            `SELECT id, threads_media_id, post_url FROM posts WHERE status = 'POSTED' AND post_url IS NOT NULL`
-          );
+          logger.info(`Starting deletion sync check...`);
+          logger.info(`Threads API returned ${threadsPosts.length} posts`);
 
-          // 建立 Threads 貼文的比對集合（使用 permalink 和 id）
-          const threadsPostIds = new Set(threadsPosts.map((p: any) => p.id));
-          const threadsPermalinks = new Set(threadsPosts.map((p: any) => p.permalink));
+          // 獲取所有已發布的貼文
+          const [dbPosts] = await pool.execute(
+            `SELECT id, threads_media_id, post_url FROM posts WHERE status = 'POSTED'`
+          );
+          logger.info(`Database has ${(dbPosts as any[]).length} POSTED posts`);
+
+          // 建立 Threads 貼文的比對集合
+          // 1. 使用 media_id (數字格式)
+          const threadsMediaIds = new Set(threadsPosts.map((p: any) => String(p.id)));
+          // 2. 從 permalink 提取 shortcode（例如從 /post/ABC123 提取 ABC123）
+          const threadsShortcodes = new Set<string>();
+          for (const p of threadsPosts) {
+            if (p.permalink) {
+              const match = p.permalink.match(/\/post\/([^/?]+)/);
+              if (match) {
+                threadsShortcodes.add(match[1]);
+              }
+            }
+          }
+          logger.info(`Threads shortcodes: ${threadsShortcodes.size}`);
 
           // 找出資料庫中有但 Threads 上沒有的貼文（已被刪除）
           for (const dbPost of (dbPosts as any[])) {
-            let shouldDelete = false;
+            let foundOnThreads = false;
 
-            // 優先使用 threads_media_id 比對
+            // 方法1: 使用 threads_media_id 比對
             if (dbPost.threads_media_id) {
-              shouldDelete = !threadsPostIds.has(dbPost.threads_media_id);
-            } else if (dbPost.post_url) {
-              // 如果沒有 media_id，使用 post_url 比對
-              shouldDelete = !threadsPermalinks.has(dbPost.post_url);
+              foundOnThreads = threadsMediaIds.has(String(dbPost.threads_media_id));
             }
 
-            if (shouldDelete) {
+            // 方法2: 從 post_url 提取 shortcode 比對
+            if (!foundOnThreads && dbPost.post_url) {
+              const match = dbPost.post_url.match(/\/post\/([^/?]+)/);
+              if (match) {
+                foundOnThreads = threadsShortcodes.has(match[1]);
+              }
+            }
+
+            if (!foundOnThreads) {
               // 這篇貼文在 Threads 上已被刪除，硬刪除資料庫記錄
+              logger.info(`Deleting post not found on Threads: ${dbPost.id} (media_id: ${dbPost.threads_media_id}, url: ${dbPost.post_url})`);
               await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [dbPost.id]);
               await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [dbPost.id]);
               await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [dbPost.id]);
               await pool.execute('DELETE FROM posts WHERE id = ?', [dbPost.id]);
               deleted++;
-              logger.info(`Hard deleted post: ${dbPost.threads_media_id || dbPost.post_url}`);
             }
           }
 
-          if (deleted > 0) {
-            logger.info(`✓ Hard deleted ${deleted} posts that no longer exist on Threads`);
-          }
+          logger.info(`✓ Deletion sync completed: ${deleted} posts deleted`);
         } catch (deleteError: any) {
-          logger.warn('Failed to clean up deleted posts:', deleteError.message);
+          logger.error('Failed to clean up deleted posts:', deleteError);
         }
       }
 
