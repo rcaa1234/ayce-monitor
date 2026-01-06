@@ -82,6 +82,40 @@ export class StatisticsController {
   }
 
   /**
+   * GET /api/statistics/analytics
+   * 獲取數據分析（時段、星期、Top 貼文、內容長度）
+   */
+  async getAnalytics(req: Request, res: Response): Promise<void> {
+    try {
+      const days = parseInt(req.query.days as string) || 90;
+
+      const [hourlyAnalysis, dayAnalysis, topPosts, contentAnalysis] = await Promise.all([
+        StatisticsModel.getHourlyAnalysis(days),
+        StatisticsModel.getDayOfWeekAnalysis(days),
+        StatisticsModel.getTopPerformingPosts(5, days),
+        StatisticsModel.getContentLengthAnalysis(days),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          hourlyAnalysis,
+          dayAnalysis,
+          topPosts,
+          contentAnalysis,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get analytics:', error);
+      res.status(500).json({
+        success: false,
+        error: '獲取數據分析失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /api/statistics/heatmap
    * 獲取熱力圖數據
    */

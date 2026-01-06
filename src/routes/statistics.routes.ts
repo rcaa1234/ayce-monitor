@@ -21,6 +21,9 @@ router.get('/templates', statisticsController.getTemplates.bind(statisticsContro
 // GET /api/statistics/timeslots - 時段統計
 router.get('/timeslots', statisticsController.getTimeslots.bind(statisticsController));
 
+// GET /api/statistics/analytics - 數據分析（時段、星期、Top 貼文、內容長度）
+router.get('/analytics', statisticsController.getAnalytics.bind(statisticsController));
+
 // GET /api/statistics/heatmap - 熱力圖數據
 router.get('/heatmap', statisticsController.getHeatmap.bind(statisticsController));
 

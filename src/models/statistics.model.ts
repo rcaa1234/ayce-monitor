@@ -420,4 +420,257 @@ export class StatisticsModel {
       throw error;
     }
   }
+
+  /**
+   * 獲取最佳發文時段分析（按小時）
+   */
+  static async getHourlyAnalysis(days: number = 90): Promise<{
+    hours: { hour: number; posts: number; avgEngagement: number; avgViews: number }[];
+    bestHour: number;
+  }> {
+    const pool = getPool();
+
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+          HOUR(p.posted_at) as hour,
+          COUNT(*) as posts,
+          COALESCE(AVG(pi.views), 0) as avg_views,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+        GROUP BY hour
+        ORDER BY hour`,
+        [startDate]
+      );
+
+      const hours = rows.map((row: any) => ({
+        hour: Number(row.hour),
+        posts: Number(row.posts),
+        avgEngagement: Number(row.avg_engagement_rate),
+        avgViews: Number(row.avg_views),
+      }));
+
+      // 找出最佳時段
+      let bestHour = 0;
+      let maxEngagement = 0;
+      hours.forEach((h) => {
+        if (h.avgEngagement > maxEngagement && h.posts >= 2) {
+          maxEngagement = h.avgEngagement;
+          bestHour = h.hour;
+        }
+      });
+
+      return { hours, bestHour };
+    } catch (error) {
+      logger.error('Failed to get hourly analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 獲取星期表現分析
+   */
+  static async getDayOfWeekAnalysis(days: number = 90): Promise<{
+    days: { day: number; dayName: string; posts: number; avgEngagement: number; avgViews: number }[];
+    bestDay: number;
+  }> {
+    const pool = getPool();
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+          DAYOFWEEK(p.posted_at) - 1 as day_of_week,
+          COUNT(*) as posts,
+          COALESCE(AVG(pi.views), 0) as avg_views,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+        GROUP BY day_of_week
+        ORDER BY day_of_week`,
+        [startDate]
+      );
+
+      const daysData = rows.map((row: any) => ({
+        day: Number(row.day_of_week),
+        dayName: dayNames[row.day_of_week] || '?',
+        posts: Number(row.posts),
+        avgEngagement: Number(row.avg_engagement_rate),
+        avgViews: Number(row.avg_views),
+      }));
+
+      // 找出最佳星期
+      let bestDay = 0;
+      let maxEngagement = 0;
+      daysData.forEach((d) => {
+        if (d.avgEngagement > maxEngagement && d.posts >= 2) {
+          maxEngagement = d.avgEngagement;
+          bestDay = d.day;
+        }
+      });
+
+      return { days: daysData, bestDay };
+    } catch (error) {
+      logger.error('Failed to get day of week analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 獲取 Top N 表現最佳的貼文
+   */
+  static async getTopPerformingPosts(limit: number = 5, days: number = 90): Promise<{
+    id: string;
+    content: string;
+    postedAt: string;
+    views: number;
+    likes: number;
+    replies: number;
+    engagementRate: number;
+    postUrl?: string;
+  }[]> {
+    const pool = getPool();
+
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+          p.id,
+          pr.content,
+          p.posted_at,
+          p.post_url,
+          COALESCE(pi.views, 0) as views,
+          COALESCE(pi.likes, 0) as likes,
+          COALESCE(pi.replies, 0) as replies,
+          COALESCE(pi.reposts, 0) as reposts,
+          CASE
+            WHEN COALESCE(pi.views, 0) > 0 THEN ((COALESCE(pi.likes, 0) + COALESCE(pi.replies, 0) + COALESCE(pi.reposts, 0)) / pi.views * 100)
+            ELSE 0
+          END as engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        LEFT JOIN post_revisions pr ON p.id = pr.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+          AND COALESCE(pi.views, 0) > 0
+        GROUP BY p.id
+        ORDER BY engagement_rate DESC, pi.views DESC
+        LIMIT ?`,
+        [startDate, limit]
+      );
+
+      return rows.map((row: any) => ({
+        id: row.id,
+        content: row.content ? row.content.substring(0, 100) + (row.content.length > 100 ? '...' : '') : '',
+        postedAt: row.posted_at,
+        views: Number(row.views),
+        likes: Number(row.likes),
+        replies: Number(row.replies),
+        engagementRate: Number(row.engagement_rate),
+        postUrl: row.post_url,
+      }));
+    } catch (error) {
+      logger.error('Failed to get top performing posts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 獲取內容長度分析
+   */
+  static async getContentLengthAnalysis(days: number = 90): Promise<{
+    short: { count: number; avgEngagement: number };
+    medium: { count: number; avgEngagement: number };
+    long: { count: number; avgEngagement: number };
+    recommendation: string;
+  }> {
+    const pool = getPool();
+
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // 短文 < 100 字，中等 100-300 字，長文 > 300 字
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT
+          CASE
+            WHEN CHAR_LENGTH(pr.content) < 100 THEN 'short'
+            WHEN CHAR_LENGTH(pr.content) <= 300 THEN 'medium'
+            ELSE 'long'
+          END as length_category,
+          COUNT(*) as posts,
+          COALESCE(AVG(
+            CASE
+              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
+              ELSE 0
+            END
+          ), 0) as avg_engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        LEFT JOIN post_revisions pr ON p.id = pr.post_id
+        WHERE p.status = 'POSTED'
+          AND p.posted_at >= ?
+          AND pr.content IS NOT NULL
+        GROUP BY length_category`,
+        [startDate]
+      );
+
+      const result = {
+        short: { count: 0, avgEngagement: 0 },
+        medium: { count: 0, avgEngagement: 0 },
+        long: { count: 0, avgEngagement: 0 },
+        recommendation: '',
+      };
+
+      rows.forEach((row: any) => {
+        const category = row.length_category as 'short' | 'medium' | 'long';
+        if (result[category]) {
+          result[category].count = Number(row.posts);
+          result[category].avgEngagement = Number(row.avg_engagement_rate);
+        }
+      });
+
+      // 產生建議
+      const categories = [
+        { name: '短文 (< 100 字)', ...result.short },
+        { name: '中等 (100-300 字)', ...result.medium },
+        { name: '長文 (> 300 字)', ...result.long },
+      ].filter(c => c.count > 0);
+
+      if (categories.length > 0) {
+        const best = categories.reduce((a, b) => a.avgEngagement > b.avgEngagement ? a : b);
+        result.recommendation = `${best.name} 的參與率最高 (${best.avgEngagement.toFixed(1)}%)`;
+      } else {
+        result.recommendation = '尚無足夠數據';
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Failed to get content length analysis:', error);
+      throw error;
+    }
+  }
 }
