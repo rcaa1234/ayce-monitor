@@ -214,31 +214,37 @@ export class StatisticsController {
 
   /**
    * POST /api/statistics/sync
-   * 手動觸發 Insights 同步
+   * 手動觸發 Insights 同步（同步執行，等待完成）
    */
   async syncInsights(req: Request, res: Response): Promise<void> {
     try {
       const { days, limit } = req.body;
 
-      // 在背景執行同步（不阻塞 API 回應）
-      threadsInsightsService
-        .syncRecentPostsInsights(days || 7, limit || 50)
-        .then(() => {
-          logger.info('Manual insights sync completed');
-        })
-        .catch((error) => {
-          logger.error('Manual insights sync failed:', error);
-        });
+      logger.info(`Starting manual insights sync: days=${days || 30}, limit=${limit || 100}`);
+
+      // 同步執行，等待完成
+      await threadsInsightsService.syncRecentPostsInsights(days || 30, limit || 100);
+
+      // 獲取同步後的統計
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+      const [countRows] = await pool.execute(
+        'SELECT COUNT(DISTINCT post_id) as count FROM post_insights'
+      );
+      const syncedCount = (countRows as any)[0]?.count || 0;
+
+      logger.info(`Manual insights sync completed: ${syncedCount} posts have insights`);
 
       res.json({
         success: true,
-        message: '已開始同步 Insights 數據，請稍後查看結果',
+        message: `同步完成！共 ${syncedCount} 篇貼文有互動數據`,
+        synced_count: syncedCount,
       });
     } catch (error: any) {
-      logger.error('Failed to trigger insights sync:', error);
+      logger.error('Failed to sync insights:', error);
       res.status(500).json({
         success: false,
-        error: '觸發同步失敗',
+        error: '同步失敗',
         message: error.message,
       });
     }

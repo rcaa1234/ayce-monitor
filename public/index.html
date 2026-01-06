@@ -3948,7 +3948,7 @@
         // Trigger manual insights sync
         async function triggerManualSync() {
             try {
-                showAlert('dashboardAlert', '正在同步互動數據，請稍候（約需 5-10 秒）...', 'info');
+                showAlert('dashboardAlert', '正在同步互動數據，請稍候（可能需要 30-60 秒）...', 'info');
 
                 const response = await fetch(`${API_BASE}/statistics/sync`, {
                     method: 'POST',
@@ -3956,20 +3956,18 @@
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ days: 30, limit: 100 })
+                    body: JSON.stringify({ days: 365, limit: 500 })
                 });
 
                 const result = await response.json();
 
                 if (!result.success) {
-                    throw new Error(result.error || '同步失敗');
+                    throw new Error(result.error || result.message || '同步失敗');
                 }
 
-                showAlert('dashboardAlert', '同步已開始，請等待數秒後時間會更新...', 'success');
-                // 多次重載以確保看到更新
-                setTimeout(() => loadStatsSummary(), 5000);  // 5秒後
-                setTimeout(() => loadStatsSummary(), 10000); // 10秒後
-                setTimeout(() => loadStatsSummary(), 15000); // 15秒後
+                showAlert('dashboardAlert', result.message || '同步完成！', 'success');
+                // 立即重載統計數據
+                loadStatsSummary();
             } catch (error) {
                 console.error('Failed to trigger manual sync:', error);
                 showAlert('dashboardAlert', '同步失敗: ' + error.message, 'danger');
