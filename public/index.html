@@ -877,7 +877,7 @@
                 <button class="tab active" onclick="switchTab('overview')">📊 總覽</button>
                 <button class="tab" onclick="switchTab('scheduling')">📅 發文排程</button>
                 <button class="tab" onclick="switchTab('templates')">📝 模板設定</button>
-                <button class="tab" onclick="switchTab('accounts')">👤 Threads 帳號</button>
+                <button class="tab" onclick="switchTab('accounts')">⚙️ 帳號管理</button>
             </div>
 
             <!-- Alert Area -->
@@ -1171,34 +1171,16 @@
                     <h3 style="margin-bottom: 20px;">UCB 智能排程配置</h3>
                     <p style="color: #666; margin-bottom: 20px;">使用 UCB (Upper Confidence Bound) 演算法自動優化模板選擇與發文時間</p>
 
-                    <!-- Threads Account Selection (Shared) -->
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <h3 style="margin-bottom: 15px;">發布帳號</h3>
-                        <div class="form-group">
-                            <label>選擇 Threads 帳號</label>
-                            <select id="ucbThreadsAccount" class="form-control" style="padding: 12px; font-size: 16px;">
-                                <option value="">請選擇帳號</option>
-                            </select>
-                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                UCB 智能排程將發布到此帳號。未設定帳號? 請到「Threads 帳號」分頁新增
-                            </p>
+                    <!-- UCB 模板表現排行 -->
+                    <div
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; color: white;">
+                        <h3 style="margin-bottom: 15px; color: white;">📊 模板表現排行</h3>
+                        <div id="ucbTemplateRanking" style="display: grid; gap: 10px;">
+                            <p style="text-align: center; opacity: 0.8;">載入中...</p>
                         </div>
-                    </div>
-
-                    <!-- LINE Notification Settings (Shared) -->
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <h3 style="margin-bottom: 15px;">LINE 通知設定</h3>
-                        <div class="form-group">
-                            <label>LINE User ID (接收審核通知)</label>
-                            <input type="text" id="ucbLineNotifyUserId" class="form-control"
-                                placeholder="請輸入 LINE User ID" style="padding: 12px; font-size: 16px;">
-                            <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                                UCB 生成文章後，系統會發送 LINE 訊息到此帳號進行審核。<br>
-                                如何取得 LINE User ID: 請加入 LINE Bot 為好友，發送「/myid」或「我的ID」或「查詢ID」即可取得
-                            </p>
-                        </div>
-                        <button class="btn btn-secondary" onclick="testUCBLineNotification()"
-                            style="margin-top: 10px;">測試 LINE 通知</button>
+                        <p style="font-size: 11px; opacity: 0.7; margin-top: 15px;">
+                            💡 UCB 會優先選擇互動率高的模板，但也會探索使用次數不足的模板以收集更多數據
+                        </p>
                     </div>
 
                     <div class="config-grid">
@@ -1366,10 +1348,48 @@
 
             <!-- Threads Accounts Tab -->
             <div id="accountsTab" class="tab-content">
-                <h2 style="margin-bottom: 20px;">Threads 帳號管理</h2>
+                <h2 style="margin-bottom: 20px;">帳號管理</h2>
 
+                <!-- UCB 發布設定 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <!-- 發布帳號設定 -->
+                    <div
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <h3 style="margin-bottom: 15px; color: white;">📱 UCB 發布帳號</h3>
+                        <div class="form-group">
+                            <label style="color: rgba(255,255,255,0.9);">選擇 Threads 帳號</label>
+                            <select id="ucbThreadsAccount" class="form-control"
+                                style="padding: 12px; font-size: 16px; background: rgba(255,255,255,0.95); border: none;">
+                                <option value="">請選擇帳號</option>
+                            </select>
+                            <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;">
+                                UCB 智能排程將使用此帳號發布貼文
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- LINE 通知設定 -->
+                    <div
+                        style="background: linear-gradient(135deg, #00c300 0%, #00a000 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <h3 style="margin-bottom: 15px; color: white;">💬 LINE 通知設定</h3>
+                        <div class="form-group">
+                            <label style="color: rgba(255,255,255,0.9);">LINE User ID</label>
+                            <input type="text" id="ucbLineNotifyUserId" class="form-control"
+                                placeholder="請輸入 LINE User ID"
+                                style="padding: 12px; font-size: 16px; background: rgba(255,255,255,0.95); border: none;">
+                            <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;">
+                                發送「/myid」給 LINE Bot 即可取得 ID
+                            </p>
+                        </div>
+                        <button class="btn" onclick="testUCBLineNotification()"
+                            style="margin-top: 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);">📨
+                            測試通知</button>
+                    </div>
+                </div>
+
+                <!-- 新增 Threads 帳號 -->
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 15px;">📱 新增 Threads 帳號</h3>
+                    <h3 style="margin-bottom: 15px;">🔗 新增 Threads 帳號</h3>
                     <p style="color: #666; margin-bottom: 15px;">
                         由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
                     </p>
@@ -1652,7 +1672,11 @@
             if (tabName === 'templates') {
                 loadTemplates();
             }
-            if (tabName === 'accounts') loadThreadsAccountsList();
+            if (tabName === 'accounts') {
+                loadThreadsAccountsList();
+                loadThreadsAccountsForDropdowns();
+                loadUCBConfig(); // 載入 UCB 配置以設定帳號和 LINE ID
+            }
         }
 
         // Sub-tab switching for scheduling tab
@@ -1670,7 +1694,9 @@
                 loadThreadsAccountsForDropdowns();
             } else if (subTabName === 'ucb') {
                 document.getElementById('ucbSubTab').classList.add('active');
-                // 先載入 Threads 帳號列表和模板選擇器，然後再載入 UCB 配置（這樣才能正確設定選中的帳號）
+                // 載入 UCB 模板排行
+                loadUCBTemplateRanking();
+                // 先載入 Threads 帳號列表和模板選擇器，然後再載入 UCB 配置
                 Promise.all([
                     loadThreadsAccountsForDropdowns(),
                     loadUCBTemplatesSelector()
@@ -4196,6 +4222,78 @@
             } catch (error) {
                 console.error('Failed to delete pending post:', error);
                 showAlert('dashboardAlert', '刪除失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Load UCB template ranking
+        async function loadUCBTemplateRanking() {
+            const container = document.getElementById('ucbTemplateRanking');
+            if (!container) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/statistics/debug-performance-log`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    container.innerHTML = '<p style="opacity: 0.8;">資料載入失敗</p>';
+                    return;
+                }
+
+                const data = await response.json();
+                const templates = data.data?.template_stats || [];
+
+                if (templates.length === 0) {
+                    container.innerHTML = '<p style="opacity: 0.8;">尚無模板數據</p>';
+                    return;
+                }
+
+                // 計算 UCB 分數並排序
+                const totalPosts = templates.reduce((sum, t) => sum + (t.total_uses || 0), 0);
+                const minTrials = 5; // 預設最少試驗次數
+                const explorationFactor = 1.5; // 預設探索係數
+
+                const rankedTemplates = templates
+                    .filter(t => t.enabled)
+                    .map(t => {
+                        const uses = t.total_uses || 0;
+                        const avgRate = (t.avg_engagement_rate || 0) / 100;
+
+                        let ucbScore, status, statusColor;
+                        if (uses < minTrials) {
+                            ucbScore = 999 + Math.random();
+                            status = `探索中 (${uses}/${minTrials})`;
+                            statusColor = '#ffd700';
+                        } else {
+                            const explorationBonus = explorationFactor * Math.sqrt(Math.log(Math.max(totalPosts, 1)) / Math.max(uses, 1));
+                            ucbScore = avgRate + explorationBonus;
+                            status = '優化中';
+                            statusColor = '#90EE90';
+                        }
+
+                        return { ...t, ucbScore, status, statusColor };
+                    })
+                    .sort((a, b) => b.ucbScore - a.ucbScore);
+
+                container.innerHTML = rankedTemplates.map((t, idx) => `
+                    <div style="display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.15); padding: 12px 15px; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: bold; width: 30px;">${idx + 1}</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600;">${t.name}</div>
+                            <div style="font-size: 12px; opacity: 0.8;">
+                                使用 ${t.total_uses || 0} 次 • 互動率 ${(t.avg_engagement_rate || 0).toFixed(1)}%
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 11px; color: ${t.statusColor}; font-weight: 600;">${t.status}</div>
+                            <div style="font-size: 10px; opacity: 0.7;">UCB: ${t.ucbScore < 100 ? t.ucbScore.toFixed(3) : '探索優先'}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Failed to load UCB template ranking:', error);
+                container.innerHTML = '<p style="opacity: 0.8;">載入失敗</p>';
             }
         }
 
