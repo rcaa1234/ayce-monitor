@@ -32,23 +32,39 @@ export const generateWorker = new Worker(
           const { getPool } = await import('../database/connection');
           const pool = getPool();
 
-          // 查詢貼文關聯的模板
-          const [templates] = await pool.execute(
-            `SELECT ct.prompt FROM posts p 
-             JOIN content_templates ct ON p.template_id = ct.id 
-             WHERE p.id = ?`,
+          // 先查詢貼文的 template_id
+          const [postInfo] = await pool.execute(
+            `SELECT template_id FROM posts WHERE id = ?`,
             [postId]
           );
+          const templateId = (postInfo as any[])[0]?.template_id;
+          logger.info(`[Regenerate] Post ${postId} has template_id: ${templateId}`);
 
-          if ((templates as any[]).length > 0) {
-            effectiveStylePreset = (templates as any[])[0].prompt;
-            if (effectiveStylePreset) {
-              logger.info(`Using template prompt for regeneration: ${effectiveStylePreset.substring(0, 50)}...`);
+          if (templateId) {
+            // 查詢模板的 prompt
+            const [templates] = await pool.execute(
+              `SELECT name, prompt FROM content_templates WHERE id = ?`,
+              [templateId]
+            );
+
+            if ((templates as any[]).length > 0) {
+              const template = (templates as any[])[0];
+              effectiveStylePreset = template.prompt;
+              logger.info(`[Regenerate] Found template "${template.name}", prompt length: ${effectiveStylePreset?.length || 0}`);
+              if (effectiveStylePreset) {
+                logger.info(`[Regenerate] Prompt preview: ${effectiveStylePreset.substring(0, 100)}...`);
+              }
+            } else {
+              logger.warn(`[Regenerate] Template ${templateId} not found in content_templates`);
             }
+          } else {
+            logger.warn(`[Regenerate] Post ${postId} has no template_id, using default prompt`);
           }
         } catch (e) {
-          logger.warn('Failed to fetch template prompt, using defaults', e);
+          logger.error('[Regenerate] Failed to fetch template prompt:', e);
         }
+      } else {
+        logger.info(`[Regenerate] Using provided stylePreset, length: ${effectiveStylePreset.length}`);
       }
 
       // Generate content
