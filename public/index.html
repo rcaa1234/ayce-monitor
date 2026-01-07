@@ -1163,6 +1163,7 @@
                     style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
                     <button class="sub-tab active" onclick="switchSchedulingSubTab('ucb')">🤖 UCB智能排程</button>
                     <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">🖊️ 手動建立</button>
+                    <button class="sub-tab" onclick="switchSchedulingSubTab('pending')">📋 排程中貼文</button>
                 </div>
 
                 <!-- UCB Smart Schedule Sub-tab -->
@@ -1446,6 +1447,20 @@
                     <button type="submit" class="btn" style="padding: 15px 30px; font-size: 16px;">發布貼文</button>
                 </form>
             </div>
+
+            <!-- Pending Posts Sub-tab -->
+            <div id="pendingSubTab" class="sub-tab-content">
+                <h3 style="margin-bottom: 20px;">排程中貼文</h3>
+                <p style="color: #666; margin-bottom: 20px;">顯示已審核通過、等待發布的貼文</p>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn btn-secondary" onclick="loadPendingPosts()">🔄 重新整理</button>
+                </div>
+
+                <div id="pendingPostsList" style="display: grid; gap: 15px;">
+                    <p style="text-align: center; color: #999;">載入中...</p>
+                </div>
+            </div>
         </div>
 
         <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
@@ -1663,6 +1678,9 @@
                     loadUCBConfig();
                 });
                 loadScheduleHistory();
+            } else if (subTabName === 'pending') {
+                document.getElementById('pendingSubTab').classList.add('active');
+                loadPendingPosts();
             }
         }
 
@@ -4043,6 +4061,141 @@
             } catch (error) {
                 console.error('Failed to reclassify templates:', error);
                 showAlert('dashboardAlert', '重新分類失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Load pending posts (排程中貼文)
+        async function loadPendingPosts() {
+            const container = document.getElementById('pendingPostsList');
+            if (!container) return;
+
+            try {
+                container.innerHTML = '<p style="text-align: center; color: #999;">載入中...</p>';
+
+                const response = await fetch(`${API_BASE}/posts?status=APPROVED`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '載入失敗');
+                }
+
+                const posts = data.posts || [];
+
+                if (posts.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #666;">
+                            <p style="font-size: 48px; margin-bottom: 10px;">📭</p>
+                            <p>目前沒有排程中的貼文</p>
+                        </div>`;
+                    return;
+                }
+
+                container.innerHTML = posts.map(post => {
+                    const content = post.content || post.generated_content || '(無內容)';
+                    const preview = content.length > 200 ? content.substring(0, 200) + '...' : content;
+                    const scheduledTime = post.scheduled_at ? new Date(post.scheduled_at).toLocaleString('zh-TW') : '未設定';
+
+                    return `
+                        <div style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #8b5cf6;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                                <div>
+                                    <span style="background: #8b5cf6; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">排程中</span>
+                                    <span style="margin-left: 10px; color: #666; font-size: 13px;">⏰ 預定發布：${scheduledTime}</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="editPendingPost('${post.id}')" 
+                                        style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        ✏️ 編輯
+                                    </button>
+                                    <button onclick="deletePendingPost('${post.id}')" 
+                                        style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🗑️ 刪除
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; font-size: 14px;">
+                                ${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                            <div style="margin-top: 10px; font-size: 12px; color: #999;">
+                                建立時間：${new Date(post.created_at).toLocaleString('zh-TW')}
+                            </div>
+                        </div>`;
+                }).join('');
+
+            } catch (error) {
+                console.error('Failed to load pending posts:', error);
+                container.innerHTML = `<p style="text-align: center; color: #ef4444;">載入失敗：${error.message}</p>`;
+            }
+        }
+
+        // Edit pending post
+        async function editPendingPost(postId) {
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '載入貼文失敗');
+                }
+
+                const post = data.post || data;
+                const content = post.content || post.generated_content || '';
+
+                const newContent = prompt('編輯貼文內容：', content);
+
+                if (newContent === null) return; // 取消
+                if (newContent === content) return; // 沒有變更
+
+                const updateResponse = await fetch(`${API_BASE}/posts/${postId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content: newContent })
+                });
+
+                if (!updateResponse.ok) {
+                    const updateData = await updateResponse.json();
+                    throw new Error(updateData.error || '更新失敗');
+                }
+
+                showAlert('dashboardAlert', '貼文已更新', 'success');
+                loadPendingPosts();
+            } catch (error) {
+                console.error('Failed to edit pending post:', error);
+                showAlert('dashboardAlert', '編輯失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Delete pending post
+        async function deletePendingPost(postId) {
+            if (!confirm('確定要刪除這篇排程中的貼文嗎？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || '刪除失敗');
+                }
+
+                showAlert('dashboardAlert', '貼文已刪除', 'success');
+                loadPendingPosts();
+                loadOverview(); // 更新總覽數字
+            } catch (error) {
+                console.error('Failed to delete pending post:', error);
+                showAlert('dashboardAlert', '刪除失敗: ' + error.message, 'danger');
             }
         }
 
