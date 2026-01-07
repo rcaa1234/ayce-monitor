@@ -202,9 +202,8 @@ export class StatisticsModel {
             LIMIT 1
           ) as best_performing_time
         FROM content_templates t
-        LEFT JOIN posts p ON t.id = p.template_id AND p.status = 'POSTED'
+        LEFT JOIN posts p ON t.id = p.template_id AND p.status = 'POSTED' AND p.posted_at >= ?
         LEFT JOIN post_insights pi ON p.id = pi.post_id
-        WHERE p.posted_at >= ? OR p.posted_at IS NULL
         GROUP BY t.id, t.name, t.preferred_engine
         HAVING total_uses > 0
         ORDER BY avg_engagement_rate DESC`,

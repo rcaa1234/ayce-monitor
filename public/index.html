@@ -3516,18 +3516,17 @@
             }, 3000);
         }
 
-        // Auto refresh
+        // Auto refresh (僅刷新貼文列表和帳號列表，統計圖表不自動刷新以節省資源)
         setInterval(() => {
             if (token && document.getElementById('dashboard').classList.contains('active')) {
                 const activeTab = document.querySelector('.tab-content.active');
                 if (activeTab.id === 'overviewTab') {
-                    loadOverview();
-                    loadStatsSummary(); // Also refresh stats
+                    loadOverview(); // 只刷新總覽數字，不刷新統計圖表
                 }
                 if (activeTab.id === 'postsTab') loadPosts();
                 if (activeTab.id === 'accountsTab') loadThreadsAccountsList();
             }
-        }, 30000); // Refresh every 30 seconds
+        }, 60000); // 改為每 60 秒刷新一次
 
         // ========== STATISTICS FUNCTIONS ==========
 
