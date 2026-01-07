@@ -667,6 +667,66 @@ export class StatisticsController {
   }
 
   /**
+   * POST /api/statistics/fix-all-posts
+   * 修復所有貼文的分類：清空所有 template_id，然後根據 media_type 重新分類
+   */
+  async fixAllPosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 確保「圖片式文字」和「人工發文」模板存在
+      const templateIds = await this.ensureImportTemplates(pool);
+      logger.info(`[FixAllPosts] Templates ready - imageText: ${templateIds.imageText}, manual: ${templateIds.manual}`);
+
+      // 步驟 1：清空所有已發布貼文的 template_id
+      await pool.execute(
+        `UPDATE posts SET template_id = NULL WHERE status = 'POSTED'`
+      );
+      logger.info(`[FixAllPosts] Cleared template_id for all POSTED posts`);
+
+      // 步驟 2：根據 media_type 重新分類
+      // 有圖片/影片 → 圖片式文字
+      const [imageResult] = await pool.execute(
+        `UPDATE posts SET template_id = ? 
+         WHERE status = 'POSTED' 
+         AND media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM')`,
+        [templateIds.imageText]
+      );
+      const classifiedImage = (imageResult as any).affectedRows || 0;
+
+      // 純文字或無 media_type → 人工發文
+      const [manualResult] = await pool.execute(
+        `UPDATE posts SET template_id = ? 
+         WHERE status = 'POSTED' 
+         AND template_id IS NULL`,
+        [templateIds.manual]
+      );
+      const classifiedManual = (manualResult as any).affectedRows || 0;
+
+      const total = classifiedImage + classifiedManual;
+      logger.info(`[FixAllPosts] Completed: ${classifiedImage} → 圖片式文字, ${classifiedManual} → 人工發文`);
+
+      res.json({
+        success: true,
+        message: `修復完成！已重新分類 ${total} 篇貼文（圖片式文字: ${classifiedImage}、人工發文: ${classifiedManual}）`,
+        data: {
+          total,
+          classifiedImage,
+          classifiedManual
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to fix all posts:', error);
+      res.status(500).json({
+        success: false,
+        error: '修復貼文失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /api/statistics/best-time-post
    * 取得特定模板在最佳時段的貼文
    */

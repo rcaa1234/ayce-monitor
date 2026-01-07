@@ -42,6 +42,9 @@ router.post('/sync-threads-posts', statisticsController.syncThreadsPosts.bind(st
 // POST /api/statistics/reclassify-templates - 重新分類所有貼文的模板
 router.post('/reclassify-templates', statisticsController.reclassifyTemplates.bind(statisticsController));
 
+// POST /api/statistics/fix-all-posts - 修復所有貼文的分類
+router.post('/fix-all-posts', statisticsController.fixAllPosts.bind(statisticsController));
+
 // GET /api/statistics/best-time-post - 查詢最佳時段的貼文
 router.get('/best-time-post', statisticsController.getBestTimePost.bind(statisticsController));
 
