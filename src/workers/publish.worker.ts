@@ -81,6 +81,19 @@ export const publishWorker = new Worker(
         threads_media_id: publishResult.id, // Store the Threads Media ID for insights
       });
 
+      // Update daily_auto_schedule status to COMPLETED (if this post was from UCB)
+      try {
+        const { getPool } = await import('../database/connection');
+        const pool = getPool();
+        await pool.execute(
+          `UPDATE daily_auto_schedule SET status = 'COMPLETED', updated_at = NOW() WHERE post_id = ?`,
+          [postId]
+        );
+      } catch (scheduleError) {
+        // Non-critical error, just log it
+        logger.warn(`Failed to update schedule status for post ${postId}:`, scheduleError);
+      }
+
       await job.updateProgress(90);
 
       // Log audit
