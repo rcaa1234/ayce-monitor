@@ -25,9 +25,35 @@ export const generateWorker = new Worker(
       // Update job progress
       await job.updateProgress(10);
 
+      // 如果沒有提供 stylePreset，嘗試從貼文關聯的模板獲取
+      let effectiveStylePreset = stylePreset;
+      if (!effectiveStylePreset) {
+        try {
+          const { getPool } = await import('../database/connection');
+          const pool = getPool();
+
+          // 查詢貼文關聯的模板
+          const [templates] = await pool.execute(
+            `SELECT ct.prompt FROM posts p 
+             JOIN content_templates ct ON p.template_id = ct.id 
+             WHERE p.id = ?`,
+            [postId]
+          );
+
+          if ((templates as any[]).length > 0) {
+            effectiveStylePreset = (templates as any[])[0].prompt;
+            if (effectiveStylePreset) {
+              logger.info(`Using template prompt for regeneration: ${effectiveStylePreset.substring(0, 50)}...`);
+            }
+          }
+        } catch (e) {
+          logger.warn('Failed to fetch template prompt, using defaults', e);
+        }
+      }
+
       // Generate content
       const result = await contentService.generateContent(postId, {
-        stylePreset,
+        stylePreset: effectiveStylePreset,
         topic,
         keywords,
         engine: engine as any,

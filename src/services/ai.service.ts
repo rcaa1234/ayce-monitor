@@ -108,7 +108,7 @@ class AIService {
     }
 
     const prompt = this.buildPrompt(options);
-    const systemPrompt = options.systemPrompt || 'You are a professional content creator for social media. Create engaging, authentic posts for Threads that match the brand voice and style.';
+    const systemPrompt = options.systemPrompt || '你是一位專業的社群媒體內容創作者，專門為 Threads 平台創作引人入勝的繁體中文貼文。請使用輕鬆、親切的口吻，適當加入表情符號，讓內容更有吸引力。';
 
     try {
       logger.info(`Generating content with ${modelName}`);
@@ -161,7 +161,7 @@ class AIService {
     }
 
     const prompt = this.buildPrompt(options);
-    const systemPrompt = options.systemPrompt || 'You are a professional content creator for social media. Create engaging, authentic posts for Threads that match the brand voice and style.';
+    const systemPrompt = options.systemPrompt || '你是一位專業的社群媒體內容創作者，專門為 Threads 平台創作引人入勝的繁體中文貼文。請使用輕鬆、親切的口吻，適當加入表情符號，讓內容更有吸引力。';
 
     try {
       logger.info(`Generating content with ${modelName}`);
@@ -220,17 +220,17 @@ class AIService {
     if (options.stylePreset) {
       prompt = options.stylePreset;
     } else {
-      prompt = 'Create an engaging Threads post';
+      prompt = '請創作一則吸引人的 Threads 貼文';
 
       if (options.topic) {
-        prompt += ` about ${options.topic}`;
+        prompt += `，主題是關於：${options.topic}`;
       }
 
       if (options.keywords && options.keywords.length > 0) {
-        prompt += `. Include these keywords naturally: ${options.keywords.join(', ')}`;
+        prompt += `。請自然地融入以下關鍵字：${options.keywords.join('、')}`;
       }
 
-      prompt += '. The post should be engaging, authentic, and suitable for social media. Keep it concise and impactful.';
+      prompt += '。貼文需要真誠、有吸引力，適合社群媒體發布。請保持簡潔有力。';
     }
 
     return prompt;
