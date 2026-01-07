@@ -434,12 +434,12 @@ export class StatisticsController {
           );
 
           if ((existing as any[]).length > 0) {
-            // 已存在，更新 media_type 和模板分類
+            // 已存在，更新 media_type（總是更新）和 template_id（僅當為 NULL 時）
             const existingPostId = (existing as any)[0].id;
 
-            // 強制更新 media_type 和 template_id（覆蓋之前的分類）
+            // 更新 media_type，但使用 COALESCE 保護 UCB 發文的 template_id
             await pool.execute(
-              `UPDATE posts SET media_type = ?, template_id = ? WHERE id = ?`,
+              `UPDATE posts SET media_type = ?, template_id = COALESCE(template_id, ?) WHERE id = ?`,
               [dbMediaType, templateId, existingPostId]
             );
 
@@ -593,24 +593,28 @@ export class StatisticsController {
 
   /**
    * POST /api/statistics/reclassify-templates
-   * 重新分類所有沒有模板的貼文
+   * 重新分類所有沒有模板的貼文（不影響 UCB 發文）
    */
   async reclassifyTemplates(req: Request, res: Response): Promise<void> {
     try {
       const { getPool } = await import('../database/connection');
       const pool = getPool();
 
-      // 確保模板存在
+      // 確保「圖片式文字」和「人工發文」模板存在
       const templateIds = await this.ensureImportTemplates(pool);
+      logger.info(`[Reclassify] Templates ready - imageText: ${templateIds.imageText}, manual: ${templateIds.manual}`);
 
-      // 找出所有沒有模板的貼文（包含 media_type）
+      // 找出所有沒有模板的已發布貼文（包含 media_type）
       const [postsWithoutTemplate] = await pool.execute(
-        `SELECT p.id, p.media_type
+        `SELECT p.id, p.media_type, p.status
          FROM posts p
-         WHERE p.template_id IS NULL`
+         WHERE p.template_id IS NULL AND p.status = 'POSTED'`
       );
 
-      let classified = 0;
+      logger.info(`[Reclassify] Found ${(postsWithoutTemplate as any[]).length} posts without template_id`);
+
+      let classifiedImage = 0;
+      let classifiedManual = 0;
       let skipped = 0;
 
       for (const post of postsWithoutTemplate as any[]) {
@@ -622,26 +626,35 @@ export class StatisticsController {
           const imageTypes = ['IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM'];
           if (post.media_type && imageTypes.includes(post.media_type.toUpperCase())) {
             templateId = templateIds.imageText;
+            classifiedImage++;
           } else {
             templateId = templateIds.manual;
+            classifiedManual++;
           }
 
           await pool.execute(
             `UPDATE posts SET template_id = ? WHERE id = ?`,
             [templateId, post.id]
           );
-          classified++;
         } catch (error) {
           skipped++;
+          logger.error(`[Reclassify] Failed to classify post ${post.id}:`, error);
         }
       }
 
-      logger.info(`Reclassified ${classified} posts, skipped ${skipped}`);
+      const total = classifiedImage + classifiedManual;
+      logger.info(`[Reclassify] Completed: ${classifiedImage} → 圖片式文字, ${classifiedManual} → 人工發文, ${skipped} skipped`);
 
       res.json({
         success: true,
-        message: `已重新分類 ${classified} 篇貼文`,
-        data: { classified, skipped, total: (postsWithoutTemplate as any[]).length },
+        message: `已重新分類 ${total} 篇貼文（圖片式文字: ${classifiedImage}、人工發文: ${classifiedManual}）`,
+        data: {
+          classified: total,
+          classifiedImage,
+          classifiedManual,
+          skipped,
+          total: (postsWithoutTemplate as any[]).length
+        },
       });
     } catch (error: any) {
       logger.error('Failed to reclassify templates:', error);
