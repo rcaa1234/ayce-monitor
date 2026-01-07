@@ -437,9 +437,9 @@ export class StatisticsController {
             // 已存在，更新 media_type 和模板分類
             const existingPostId = (existing as any)[0].id;
 
-            // 更新 media_type 和模板分類（如果之前沒有分類）
+            // 強制更新 media_type 和 template_id（覆蓋之前的分類）
             await pool.execute(
-              `UPDATE posts SET media_type = ?, template_id = COALESCE(template_id, ?) WHERE id = ?`,
+              `UPDATE posts SET media_type = ?, template_id = ? WHERE id = ?`,
               [dbMediaType, templateId, existingPostId]
             );
 

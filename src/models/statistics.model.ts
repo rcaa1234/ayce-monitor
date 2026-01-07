@@ -160,8 +160,9 @@ export class StatisticsModel {
 
   /**
    * 獲取樣板統計數據
+   * @param days 統計天數，預設 3650 天（約 10 年，即全部歷史）
    */
-  static async getTemplateStats(days: number = 30): Promise<TemplateStats[]> {
+  static async getTemplateStats(days: number = 3650): Promise<TemplateStats[]> {
     const pool = getPool();
 
     try {
