@@ -424,6 +424,9 @@ export class StatisticsController {
           // TEXT = 人工發文
           const templateId = this.classifyPostTemplate(post.media_type, templateIds);
 
+          // 將 Threads 的 media_type 轉換為資料庫 ENUM 值
+          const dbMediaType = this.convertMediaType(post.media_type);
+
           // 檢查是否已存在（通過 threads_media_id 或 post_url）
           const [existing] = await pool.execute(
             `SELECT id FROM posts WHERE threads_media_id = ? OR post_url LIKE ? LIMIT 1`,
@@ -431,13 +434,13 @@ export class StatisticsController {
           );
 
           if ((existing as any[]).length > 0) {
-            // 已存在，更新 insights 和模板分類
+            // 已存在，更新 media_type 和模板分類
             const existingPostId = (existing as any)[0].id;
 
-            // 更新模板分類（如果之前沒有分類）
+            // 更新 media_type 和模板分類（如果之前沒有分類）
             await pool.execute(
-              `UPDATE posts SET template_id = COALESCE(template_id, ?) WHERE id = ?`,
-              [templateId, existingPostId]
+              `UPDATE posts SET media_type = ?, template_id = COALESCE(template_id, ?) WHERE id = ?`,
+              [dbMediaType, templateId, existingPostId]
             );
 
             const insights = await threadsService.getPostInsights(post.id, defaultAccount.token);
@@ -466,15 +469,15 @@ export class StatisticsController {
             continue;
           }
 
-          // 建立新貼文記錄（包含模板分類）
+          // 建立新貼文記錄（包含模板分類和 media_type）
           const { generateUUID } = await import('../utils/uuid');
           const postId = generateUUID();
           const postedAt = new Date(post.timestamp);
 
           await pool.execute(
-            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, template_id, created_at)
-             VALUES (?, 'POSTED', ?, ?, ?, ?, ?, NOW())`,
-            [postId, post.id, post.permalink, postedAt, adminUserId, templateId]
+            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, template_id, media_type, created_at)
+             VALUES (?, 'POSTED', ?, ?, ?, ?, ?, ?, NOW())`,
+            [postId, post.id, post.permalink, postedAt, adminUserId, templateId, dbMediaType]
           );
 
           // 建立 revision（如果有文字內容）
@@ -600,9 +603,9 @@ export class StatisticsController {
       // 確保模板存在
       const templateIds = await this.ensureImportTemplates(pool);
 
-      // 找出所有沒有模板的貼文（不限狀態）
+      // 找出所有沒有模板的貼文（包含 media_type）
       const [postsWithoutTemplate] = await pool.execute(
-        `SELECT p.id, p.threads_media_id, p.post_url
+        `SELECT p.id, p.media_type
          FROM posts p
          WHERE p.template_id IS NULL`
       );
@@ -612,16 +615,14 @@ export class StatisticsController {
 
       for (const post of postsWithoutTemplate as any[]) {
         try {
-          // 根據是否有 threads_media_id 或 post_url 包含特定關鍵字來判斷類型
-          // 預設為「人工發文」，如果有媒體相關標記則為「圖片式文字」
-          let templateId = templateIds.manual;
+          // 根據 media_type 判斷模板分類
+          let templateId: string;
 
-          // 如果 post_url 包含圖片/影片相關的標記，分類為圖片式文字
-          if (post.post_url && (
-            post.post_url.includes('/p/') || // 一般貼文
-            post.post_url.includes('/reel/') // Reels
-          )) {
-            // 無法確定，預設為人工發文
+          // 有圖片/影片 → 圖片式文字，純文字或空 → 人工發文
+          const imageTypes = ['IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM'];
+          if (post.media_type && imageTypes.includes(post.media_type.toUpperCase())) {
+            templateId = templateIds.imageText;
+          } else {
             templateId = templateIds.manual;
           }
 
@@ -799,6 +800,24 @@ export class StatisticsController {
       return templateIds.imageText;
     }
     return templateIds.manual;
+  }
+
+  /**
+   * 將 Threads API 的 media_type 轉換為資料庫 ENUM 值
+   * 資料庫 ENUM: 'NONE', 'IMAGE', 'VIDEO', 'CAROUSEL'
+   */
+  private convertMediaType(threadsMediaType: string): string {
+    if (!threadsMediaType) return 'NONE';
+
+    const typeMap: { [key: string]: string } = {
+      'TEXT': 'NONE',
+      'IMAGE': 'IMAGE',
+      'VIDEO': 'VIDEO',
+      'REELS_VIDEO': 'VIDEO',
+      'CAROUSEL_ALBUM': 'CAROUSEL',
+    };
+
+    return typeMap[threadsMediaType.toUpperCase()] || 'NONE';
   }
 }
 
