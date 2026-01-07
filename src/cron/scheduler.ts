@@ -259,10 +259,11 @@ export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
       try {
         logger.info(`Executing schedule ${schedule.id} for template "${schedule.template_name}" at ${schedule.scheduled_time}`);
 
-        // 建立貼文
+        // 建立貼文 - 包含 template_id 以支援重新生成
         const post = await PostModel.create({
           created_by: creatorId,
           status: PostStatus.DRAFT,
+          template_id: schedule.template_id,
         });
 
         logger.info(`Created post ${post.id} for schedule ${schedule.id}`);
@@ -430,10 +431,11 @@ export async function createDailyAutoSchedule() {
       ]
     );
 
-    // 建立 Post (DRAFT)
+    // 建立 Post (DRAFT) - 包含 template_id 以支援重新生成
     const post = await PostModel.create({
       status: PostStatus.DRAFT,
       created_by: creatorId,
+      template_id: selection.template.id,
     });
 
     logger.info(`Created post ${post.id} for auto-schedule ${scheduleId}`);

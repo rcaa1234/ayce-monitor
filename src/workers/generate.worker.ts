@@ -32,16 +32,28 @@ export const generateWorker = new Worker(
           const { getPool } = await import('../database/connection');
           const pool = getPool();
 
-          // 先查詢貼文的 template_id
+          // 步驟 1: 查詢貼文的 template_id
           const [postInfo] = await pool.execute(
             `SELECT template_id FROM posts WHERE id = ?`,
             [postId]
           );
-          const templateId = (postInfo as any[])[0]?.template_id;
+          let templateId = (postInfo as any[])[0]?.template_id;
           logger.info(`[Regenerate] Post ${postId} has template_id: ${templateId}`);
 
+          // 步驟 2: 如果沒有 template_id，嘗試從 daily_auto_schedule 獲取
+          if (!templateId) {
+            const [scheduleInfo] = await pool.execute(
+              `SELECT selected_template_id FROM daily_auto_schedule WHERE post_id = ?`,
+              [postId]
+            );
+            if ((scheduleInfo as any[]).length > 0) {
+              templateId = (scheduleInfo as any[])[0].selected_template_id;
+              logger.info(`[Regenerate] Found template_id from schedule: ${templateId}`);
+            }
+          }
+
+          // 步驟 3: 用 template_id 查詢模板的 prompt
           if (templateId) {
-            // 查詢模板的 prompt
             const [templates] = await pool.execute(
               `SELECT name, prompt FROM content_templates WHERE id = ?`,
               [templateId]
@@ -58,7 +70,7 @@ export const generateWorker = new Worker(
               logger.warn(`[Regenerate] Template ${templateId} not found in content_templates`);
             }
           } else {
-            logger.warn(`[Regenerate] Post ${postId} has no template_id, using default prompt`);
+            logger.warn(`[Regenerate] Post ${postId} has no template_id and no schedule, using default prompt`);
           }
         } catch (e) {
           logger.error('[Regenerate] Failed to fetch template prompt:', e);

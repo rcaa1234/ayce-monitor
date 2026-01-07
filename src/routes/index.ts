@@ -2862,10 +2862,11 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
     const template = templates[0];
     logger.info(`📝 Using template: ${template.name}`);
 
-    // 建立 Post (DRAFT 狀態)
+    // 建立 Post (DRAFT 狀態) - 包含 template_id 以支援重新生成
     const post = await PostModel.create({
       status: PostStatus.DRAFT,
       created_by: creatorId,
+      template_id: template.id,
     });
 
     logger.info(`✓ Created post: ${post.id}`);

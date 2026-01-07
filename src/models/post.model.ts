@@ -10,16 +10,17 @@ export class PostModel {
   static async create(data: {
     created_by: string;
     status?: PostStatus;
+    template_id?: string; // 新增：模板 ID
     threads_account_id?: string; // 保留參數以維持向後相容,但不使用
     scheduled_for?: Date | null; // 保留參數以維持向後相容,但不使用
   }): Promise<Post> {
     const pool = getPool();
     const id = generateUUID();
 
-    // 只使用 posts 表中實際存在的基本欄位
+    // 包含 template_id 的 INSERT
     await pool.execute<ResultSetHeader>(
-      `INSERT INTO posts (id, status, created_by) VALUES (?, ?, ?)`,
-      [id, data.status || PostStatus.DRAFT, data.created_by]
+      `INSERT INTO posts (id, status, created_by, template_id) VALUES (?, ?, ?, ?)`,
+      [id, data.status || PostStatus.DRAFT, data.created_by, data.template_id || null]
     );
 
     return this.findById(id) as Promise<Post>;

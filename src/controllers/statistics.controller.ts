@@ -600,11 +600,11 @@ export class StatisticsController {
       // 確保模板存在
       const templateIds = await this.ensureImportTemplates(pool);
 
-      // 找出所有沒有模板的已發布貼文
+      // 找出所有沒有模板的貼文（不限狀態）
       const [postsWithoutTemplate] = await pool.execute(
         `SELECT p.id, p.threads_media_id, p.post_url
          FROM posts p
-         WHERE p.status = 'POSTED' AND p.template_id IS NULL`
+         WHERE p.template_id IS NULL`
       );
 
       let classified = 0;

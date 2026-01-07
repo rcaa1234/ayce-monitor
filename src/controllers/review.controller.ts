@@ -155,16 +155,16 @@ export class ReviewController {
       // Send confirmation
       await lineService.sendNotification(
         lineUserId as string,
-        '↻ Regenerating content... You will receive a new review request shortly.'
+        '↻ 正在重新生成內容... 稍後將收到新的審核請求。'
       );
 
       res.send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h1>↻ Regenerating...</h1>
-            <p>New content is being generated.</p>
-            <p>You will receive a new review request on LINE.</p>
-            <p>You can close this page now.</p>
+            <h1>↻ 重新生成中...</h1>
+            <p>正在生成新的內容。</p>
+            <p>稍後將在 LINE 收到新的審核請求。</p>
+            <p>您可以關閉此頁面。</p>
           </body>
         </html>
       `);
