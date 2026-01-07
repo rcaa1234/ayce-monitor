@@ -555,6 +555,7 @@ export class StatisticsModel {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
+      const startDateStr = startDate.toISOString().slice(0, 19).replace('T', ' ');
 
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
@@ -579,7 +580,7 @@ export class StatisticsModel {
         GROUP BY p.id, p.posted_at, p.post_url, pi.views, pi.likes, pi.replies, pi.reposts
         ORDER BY engagement_rate DESC, views DESC
         LIMIT ?`,
-        [startDate, limit]
+        [startDateStr, limit]
       );
 
       return rows.map((row: any) => ({

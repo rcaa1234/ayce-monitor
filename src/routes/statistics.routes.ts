@@ -45,4 +45,7 @@ router.post('/reclassify-templates', statisticsController.reclassifyTemplates.bi
 // GET /api/statistics/best-time-post - 查詢最佳時段的貼文
 router.get('/best-time-post', statisticsController.getBestTimePost.bind(statisticsController));
 
+// DELETE /api/statistics/clear-pending - 清除所有待審核的貼文
+router.delete('/clear-pending', statisticsController.clearPendingPosts.bind(statisticsController));
+
 export default router;

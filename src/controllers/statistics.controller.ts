@@ -306,6 +306,60 @@ export class StatisticsController {
   }
 
   /**
+   * DELETE /api/statistics/clear-pending
+   * 清除所有待審核的貼文（硬刪除）
+   */
+  async clearPendingPosts(req: Request, res: Response): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 獲取待刪除的數量
+      const [countRows] = await pool.execute(
+        `SELECT COUNT(*) as count FROM posts WHERE status IN ('PENDING_REVIEW', 'DRAFT', 'GENERATING', 'ACTION_REQUIRED')`
+      );
+      const count = (countRows as any)[0]?.count || 0;
+
+      if (count === 0) {
+        res.json({
+          success: true,
+          message: '沒有待審核的貼文需要清除',
+          deleted: 0,
+        });
+        return;
+      }
+
+      // 獲取要刪除的貼文 ID
+      const [posts] = await pool.execute(
+        `SELECT id FROM posts WHERE status IN ('PENDING_REVIEW', 'DRAFT', 'GENERATING', 'ACTION_REQUIRED')`
+      );
+
+      // 刪除相關資料
+      for (const post of posts as any[]) {
+        await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [post.id]);
+        await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [post.id]);
+        await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [post.id]);
+        await pool.execute('DELETE FROM posts WHERE id = ?', [post.id]);
+      }
+
+      logger.info(`Cleared ${count} pending posts`);
+
+      res.json({
+        success: true,
+        message: `已清除 ${count} 篇待審核/草稿貼文`,
+        deleted: count,
+      });
+    } catch (error: any) {
+      logger.error('Failed to clear pending posts:', error);
+      res.status(500).json({
+        success: false,
+        error: '清除待審核貼文失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * POST /api/statistics/sync-threads-posts
    * 從 Threads 帳號同步歷史貼文到本地資料庫
    * @param fetchAll 如果為 true，會獲取所有歷史貼文（可能需要較長時間）

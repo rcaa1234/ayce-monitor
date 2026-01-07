@@ -894,14 +894,10 @@
                 <!-- System Overview -->
                 <div style="margin-bottom: 30px;">
                     <h2 style="margin-bottom: 20px;">系統總覽</h2>
-                    <div class="stats" id="stats">
+                    <div class="stats" id="stats" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="stat-card">
                             <h3 id="totalPosts">0</h3>
                             <p>總貼文數</p>
-                        </div>
-                        <div class="stat-card">
-                            <h3 id="draftPosts">0</h3>
-                            <p>草稿</p>
                         </div>
                         <div class="stat-card">
                             <h3 id="pendingPosts">0</h3>
@@ -1028,6 +1024,10 @@
                                     <button onclick="triggerManualSync()"
                                         style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         🔄 同步互動數據
+                                    </button>
+                                    <button onclick="clearPendingPosts()"
+                                        style="padding: 5px 12px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🗑️ 清除待審核
                                     </button>
                                 </div>
                             </div>
@@ -1666,23 +1666,20 @@
         async function loadOverview() {
             try {
                 // 取得各狀態的數量（使用 API 的 total 而非計算回傳的陣列）
-                const [allRes, draftRes, pendingRes, postedRes] = await Promise.all([
+                const [allRes, pendingRes, postedRes] = await Promise.all([
                     fetch(`${API_BASE}/posts`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${API_BASE}/posts?status=DRAFT`, { headers: { 'Authorization': `Bearer ${token}` } }),
                     fetch(`${API_BASE}/posts?status=PENDING_REVIEW`, { headers: { 'Authorization': `Bearer ${token}` } }),
                     fetch(`${API_BASE}/posts?status=POSTED`, { headers: { 'Authorization': `Bearer ${token}` } })
                 ]);
 
-                const [allData, draftData, pendingData, postedData] = await Promise.all([
+                const [allData, pendingData, postedData] = await Promise.all([
                     allRes.json(),
-                    draftRes.json(),
                     pendingRes.json(),
                     postedRes.json()
                 ]);
 
                 // 使用 API 回傳的 total（準確的資料庫數量）
                 document.getElementById('totalPosts').textContent = allData.total || 0;
-                document.getElementById('draftPosts').textContent = draftData.total || 0;
                 document.getElementById('pendingPosts').textContent = pendingData.total || 0;
                 document.getElementById('postedPosts').textContent = postedData.total || 0;
             } catch (error) {
@@ -3971,6 +3968,36 @@
             } catch (error) {
                 console.error('Failed to trigger manual sync:', error);
                 showAlert('dashboardAlert', '同步失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Clear all pending review posts
+        async function clearPendingPosts() {
+            if (!confirm('此操作將刪除所有待審核、草稿狀態的貼文。\n\n此操作無法復原，確定要繼續嗎？')) {
+                return;
+            }
+
+            try {
+                showAlert('dashboardAlert', '正在清除待審核貼文...', 'info');
+
+                const response = await fetch(`${API_BASE}/statistics/clear-pending`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '清除失敗');
+                }
+
+                showAlert('dashboardAlert', result.message, 'success');
+                loadOverview(); // 重新載入總覽數量
+            } catch (error) {
+                console.error('Failed to clear pending posts:', error);
+                showAlert('dashboardAlert', '清除失敗: ' + error.message, 'danger');
             }
         }
 
