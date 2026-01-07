@@ -8,27 +8,61 @@ import { PostStatus } from '../types';
 
 /**
  * Check for expired review requests
- * Runs every hour
+ * Runs every 5 minutes - 檢查排程前 10 分鐘仍未審核的貼文
  */
-export const checkExpiredReviews = cron.schedule('0 * * * *', async () => {
+export const checkExpiredReviews = cron.schedule('*/5 * * * *', async () => {
   logger.info('Checking for expired review requests...');
 
   try {
     const pool = getPool();
 
-    // Mark expired reviews
+    // 1. 標記超過原本過期時間的審核請求為 EXPIRED
     await pool.execute(
       `UPDATE review_requests
        SET status = 'EXPIRED'
        WHERE status = 'PENDING' AND expires_at < NOW()`
     );
 
-    logger.info('Expired reviews updated');
+    // 2. 檢查自動排程：排程前 10 分鐘未審核則失效
+    const [pendingSchedules] = await pool.execute<RowDataPacket[]>(
+      `SELECT das.id, das.post_id, das.scheduled_time
+       FROM daily_auto_schedule das
+       JOIN posts p ON das.post_id = p.id
+       WHERE das.status = 'GENERATED'
+         AND p.status = 'PENDING_REVIEW'
+         AND das.scheduled_time <= DATE_ADD(NOW(), INTERVAL 10 MINUTE)`
+    );
+
+    for (const schedule of pendingSchedules) {
+      logger.info(`Expiring unreviewed schedule ${schedule.id} (scheduled for ${schedule.scheduled_time})`);
+
+      // 標記排程為過期
+      await pool.execute(
+        `UPDATE daily_auto_schedule SET status = 'EXPIRED' WHERE id = ?`,
+        [schedule.id]
+      );
+
+      // 刪除對應的待審核貼文及相關資料
+      await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [schedule.post_id]);
+      await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [schedule.post_id]);
+      await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [schedule.post_id]);
+      await pool.execute('DELETE FROM review_requests WHERE post_id = ?', [schedule.post_id]);
+      await pool.execute('DELETE FROM posts WHERE id = ?', [schedule.post_id]);
+
+      logger.info(`Deleted expired pending post ${schedule.post_id}`);
+    }
+
+    if (pendingSchedules.length > 0) {
+      logger.info(`Expired ${pendingSchedules.length} unreviewed schedules`);
+    }
+
+    logger.info('Expired reviews check completed');
   } catch (error) {
     logger.error('Failed to check expired reviews:', error);
   }
 }, {
   scheduled: false,
+  timezone: 'Asia/Taipei',
 });
 
 /**

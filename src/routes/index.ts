@@ -2550,7 +2550,7 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 
 /**
  * DELETE /api/auto-schedules/:id
- * 用途：刪除 UCB 自動排程（僅限 PENDING 狀態）
+ * 用途：刪除 UCB 自動排程，同時刪除關聯的待審核貼文
  */
 router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -2560,7 +2560,7 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
 
     // 檢查排程是否存在及其狀態
     const [schedules] = await pool.execute<RowDataPacket[]>(
-      'SELECT id, status FROM daily_auto_schedule WHERE id = ?',
+      'SELECT id, status, post_id FROM daily_auto_schedule WHERE id = ?',
       [id]
     );
 
@@ -2579,6 +2579,24 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
       return;
     }
 
+    // 如果有關聯的貼文且狀態是待審核，一併刪除
+    if (schedule.post_id) {
+      const [posts] = await pool.execute<RowDataPacket[]>(
+        'SELECT status FROM posts WHERE id = ?',
+        [schedule.post_id]
+      );
+
+      if (posts.length > 0 && posts[0].status === 'PENDING_REVIEW') {
+        // 刪除關聯的待審核貼文及相關資料
+        await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [schedule.post_id]);
+        await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [schedule.post_id]);
+        await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [schedule.post_id]);
+        await pool.execute('DELETE FROM review_requests WHERE post_id = ?', [schedule.post_id]);
+        await pool.execute('DELETE FROM posts WHERE id = ?', [schedule.post_id]);
+        logger.info(`Deleted associated pending post: ${schedule.post_id}`);
+      }
+    }
+
     // 刪除排程
     await pool.execute(
       'DELETE FROM daily_auto_schedule WHERE id = ?',
@@ -2589,7 +2607,7 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
 
     res.json({
       success: true,
-      message: '排程已刪除'
+      message: '排程及關聯的待審核貼文已刪除'
     });
   } catch (error: any) {
     logger.error('Failed to delete auto schedule:', error);
