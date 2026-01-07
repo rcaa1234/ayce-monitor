@@ -727,6 +727,64 @@ export class StatisticsController {
   }
 
   /**
+   * GET /api/statistics/debug-performance-log
+   * 除錯用：查看 UCB 表現記錄
+   */
+  async debugPerformanceLog(req: Request, res: Response): Promise<void> {
+    try {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 查詢 post_performance_log 最近 20 筆
+      const [logs] = await pool.execute(
+        `SELECT 
+           ppl.id,
+           ppl.post_id,
+           ct.name as template_name,
+           ppl.posted_at,
+           ppl.views,
+           ppl.likes,
+           ppl.replies,
+           ppl.engagement_rate,
+           ppl.ucb_score,
+           ppl.was_exploration,
+           ppl.selection_reason,
+           ppl.created_at
+         FROM post_performance_log ppl
+         LEFT JOIN content_templates ct ON ppl.template_id = ct.id
+         ORDER BY ppl.created_at DESC
+         LIMIT 20`
+      );
+
+      // 查詢 content_templates 的 UCB 統計
+      const [templates] = await pool.execute(
+        `SELECT id, name, total_uses, avg_engagement_rate, enabled
+         FROM content_templates
+         ORDER BY total_uses DESC`
+      );
+
+      res.json({
+        success: true,
+        data: {
+          performance_logs: logs,
+          template_stats: templates,
+          summary: {
+            total_logs: (logs as any[]).length,
+            total_templates: (templates as any[]).length,
+          }
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get debug performance log:', error);
+      res.status(500).json({
+        success: false,
+        error: '查詢失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /api/statistics/best-time-post
    * 取得特定模板在最佳時段的貼文
    */
