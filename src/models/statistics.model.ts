@@ -559,7 +559,7 @@ export class StatisticsModel {
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
           p.id,
-          pr.content,
+          MAX(pr.content) as content,
           p.posted_at,
           p.post_url,
           COALESCE(pi.views, 0) as views,
@@ -576,8 +576,8 @@ export class StatisticsModel {
         WHERE p.status = 'POSTED'
           AND p.posted_at >= ?
           AND COALESCE(pi.views, 0) > 0
-        GROUP BY p.id
-        ORDER BY engagement_rate DESC, pi.views DESC
+        GROUP BY p.id, p.posted_at, p.post_url, pi.views, pi.likes, pi.replies, pi.reposts
+        ORDER BY engagement_rate DESC, views DESC
         LIMIT ?`,
         [startDate, limit]
       );
