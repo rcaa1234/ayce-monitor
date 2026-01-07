@@ -1669,30 +1669,25 @@
         // Load overview
         async function loadOverview() {
             try {
-                // 取得各狀態的數量
-                const [pendingRes, approvedRes, postedRes, schedulesRes] = await Promise.all([
+                // 取得各狀態的數量（只從 posts 表計算，避免重複）
+                const [pendingRes, approvedRes, postedRes] = await Promise.all([
                     fetch(`${API_BASE}/posts?status=PENDING_REVIEW`, { headers: { 'Authorization': `Bearer ${token}` } }),
                     fetch(`${API_BASE}/posts?status=APPROVED`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${API_BASE}/posts?status=POSTED`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${API_BASE}/auto-schedules`, { headers: { 'Authorization': `Bearer ${token}` } })
+                    fetch(`${API_BASE}/posts?status=POSTED`, { headers: { 'Authorization': `Bearer ${token}` } })
                 ]);
 
-                const [pendingData, approvedData, postedData, schedulesData] = await Promise.all([
+                const [pendingData, approvedData, postedData] = await Promise.all([
                     pendingRes.json(),
                     approvedRes.json(),
-                    postedRes.json(),
-                    schedulesRes.json()
+                    postedRes.json()
                 ]);
 
                 const pending = pendingData.total || 0;
                 const posted = postedData.total || 0;
 
-                // 排程中 = APPROVED 狀態的貼文 + 尚未發布的自動排程
-                const approvedPosts = approvedData.total || 0;
-                const pendingSchedules = (schedulesData.schedules || []).filter(s =>
-                    s.status === 'APPROVED' || s.status === 'GENERATED'
-                ).length;
-                const scheduled = approvedPosts + pendingSchedules;
+                // 排程中 = APPROVED 狀態的貼文（已審核待發布）
+                // 不需要額外計算 schedules，因為 posts.status 已經反映了審核狀態
+                const scheduled = approvedData.total || 0;
 
                 // 總貼文數 = 待審核 + 排程中 + 已發布
                 const total = pending + scheduled + posted;
