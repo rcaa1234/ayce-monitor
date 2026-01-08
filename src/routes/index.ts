@@ -2521,13 +2521,14 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
       `SELECT das.*,
               ct.name as template_name,
               sts.name as time_slot_name,
-              p.content as post_content,
-              pr.content as revision_content
+              (SELECT pr.content 
+               FROM post_revisions pr 
+               WHERE pr.post_id = das.post_id 
+               ORDER BY pr.revision_no DESC 
+               LIMIT 1) as revision_content
        FROM daily_auto_schedule das
        LEFT JOIN content_templates ct ON das.selected_template_id = ct.id
        LEFT JOIN schedule_time_slots sts ON das.selected_time_slot_id = sts.id
-       LEFT JOIN posts p ON das.post_id = p.id
-       LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.is_active = true
        ORDER BY das.schedule_date DESC
        LIMIT 30`
     );
