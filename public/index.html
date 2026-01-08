@@ -1387,6 +1387,14 @@
                     </div>
                 </div>
 
+                <!-- 儲存按鈕 -->
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-success" onclick="saveAccountSettings()"
+                        style="padding: 12px 30px; font-size: 16px;">
+                        💾 儲存帳號設定
+                    </button>
+                </div>
+
                 <!-- 新增 Threads 帳號 -->
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                     <h3 style="margin-bottom: 15px;">🔗 新增 Threads 帳號</h3>
@@ -4256,8 +4264,9 @@
                 const rankedTemplates = templates
                     .filter(t => t.enabled)
                     .map(t => {
-                        const uses = t.total_uses || 0;
-                        const avgRate = (t.avg_engagement_rate || 0) / 100;
+                        const uses = parseInt(t.total_uses) || 0;
+                        const avgRateRaw = parseFloat(t.avg_engagement_rate) || 0;
+                        const avgRate = avgRateRaw / 100;
 
                         let ucbScore, status, statusColor;
                         if (uses < minTrials) {
@@ -4271,7 +4280,7 @@
                             statusColor = '#90EE90';
                         }
 
-                        return { ...t, ucbScore, status, statusColor };
+                        return { ...t, ucbScore, status, statusColor, avgRateRaw };
                     })
                     .sort((a, b) => b.ucbScore - a.ucbScore);
 
@@ -4281,7 +4290,7 @@
                         <div style="flex: 1;">
                             <div style="font-weight: 600;">${t.name}</div>
                             <div style="font-size: 12px; opacity: 0.8;">
-                                使用 ${t.total_uses || 0} 次 • 互動率 ${(t.avg_engagement_rate || 0).toFixed(1)}%
+                                使用 ${parseInt(t.total_uses) || 0} 次 • 互動率 ${t.avgRateRaw.toFixed(1)}%
                             </div>
                         </div>
                         <div style="text-align: right;">
@@ -4294,6 +4303,50 @@
             } catch (error) {
                 console.error('Failed to load UCB template ranking:', error);
                 container.innerHTML = '<p style="opacity: 0.8;">載入失敗</p>';
+            }
+        }
+
+        // Save account settings (UCB account and LINE ID)
+        async function saveAccountSettings() {
+            try {
+                showLoading(true);
+
+                const threadsAccountId = document.getElementById('ucbThreadsAccount')?.value || '';
+                const lineUserId = document.getElementById('ucbLineNotifyUserId')?.value || '';
+
+                // 取得現有的 UCB 配置
+                const configResponse = await fetch(`${API_BASE}/ucb/config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const configData = await configResponse.json();
+                const currentConfig = configData.config || {};
+
+                // 更新配置
+                const response = await fetch(`${API_BASE}/ucb/config`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...currentConfig,
+                        threads_account_id: threadsAccountId,
+                        line_user_id: lineUserId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('dashboardAlert', '帳號設定已儲存', 'success');
+                } else {
+                    throw new Error(result.error || '儲存失敗');
+                }
+            } catch (error) {
+                console.error('Failed to save account settings:', error);
+                showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
             }
         }
 
