@@ -735,26 +735,34 @@ export class StatisticsController {
       const { getPool } = await import('../database/connection');
       const pool = getPool();
 
-      // 查詢 post_performance_log 最近 20 筆
-      const [logs] = await pool.execute(
-        `SELECT 
-           ppl.id,
-           ppl.post_id,
-           ct.name as template_name,
-           ppl.posted_at,
-           ppl.views,
-           ppl.likes,
-           ppl.replies,
-           ppl.engagement_rate,
-           ppl.ucb_score,
-           ppl.was_exploration,
-           ppl.selection_reason,
-           ppl.created_at
-         FROM post_performance_log ppl
-         LEFT JOIN content_templates ct ON ppl.template_id = ct.id
-         ORDER BY ppl.created_at DESC
-         LIMIT 20`
-      );
+      let logs: any[] = [];
+
+      // 嘗試查詢 post_performance_log（可能不存在）
+      try {
+        const [logRows] = await pool.execute(
+          `SELECT 
+             ppl.id,
+             ppl.post_id,
+             ct.name as template_name,
+             ppl.posted_at,
+             ppl.views,
+             ppl.likes,
+             ppl.replies,
+             ppl.engagement_rate,
+             ppl.ucb_score,
+             ppl.was_exploration,
+             ppl.selection_reason,
+             ppl.created_at
+           FROM post_performance_log ppl
+           LEFT JOIN content_templates ct ON ppl.template_id = ct.id
+           ORDER BY ppl.created_at DESC
+           LIMIT 20`
+        );
+        logs = logRows as any[];
+      } catch (logError: any) {
+        logger.warn('post_performance_log query failed (table may not exist):', logError.message);
+        logs = [];
+      }
 
       // 查詢 content_templates 的 UCB 統計
       const [templates] = await pool.execute(
@@ -769,7 +777,7 @@ export class StatisticsController {
           performance_logs: logs,
           template_stats: templates,
           summary: {
-            total_logs: (logs as any[]).length,
+            total_logs: logs.length,
             total_templates: (templates as any[]).length,
           }
         },
