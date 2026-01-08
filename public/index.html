@@ -4127,6 +4127,9 @@
                     return;
                 }
 
+                // 存儲排程資料供編輯使用
+                window.pendingSchedulesData = {};
+
                 container.innerHTML = schedules.map(schedule => {
                     const scheduledTime = schedule.scheduled_time
                         ? new Date(schedule.scheduled_time).toLocaleString('zh-TW')
@@ -4134,6 +4137,15 @@
                     const templateName = schedule.template_name || '未知模板';
                     const statusText = schedule.status === 'APPROVED' ? '已核准' : '待審核';
                     const statusColor = schedule.status === 'APPROVED' ? '#10b981' : '#f59e0b';
+
+                    // 取得貼文內容
+                    const postContent = schedule.revision_content || schedule.post_content || '';
+                    const preview = postContent.length > 150 ? postContent.substring(0, 150) + '...' : postContent;
+
+                    // 存儲完整內容供編輯使用
+                    if (schedule.post_id) {
+                        window.pendingSchedulesData[schedule.post_id] = postContent;
+                    }
 
                     return `
                         <div style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${statusColor};">
@@ -4155,6 +4167,11 @@
                                     </button>
                                 </div>
                             </div>
+                            ${postContent ? `
+                            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 10px; max-height: 200px; overflow-y: auto;">
+                                ${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            </div>
+                            ` : ''}
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; color: #666;">
                                 <div>📝 模板：<strong>${templateName}</strong></div>
                                 <div>📅 排程日期：<strong>${schedule.schedule_date || '未知'}</strong></div>
@@ -4202,17 +4219,26 @@
         // Edit pending post
         async function editPendingPost(postId) {
             try {
-                const response = await fetch(`${API_BASE}/posts/${postId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
+                // 優先使用已存儲的內容
+                let content = window.pendingSchedulesData?.[postId] || '';
 
-                if (!response.ok) {
-                    throw new Error(data.error || '載入貼文失敗');
+                // 如果沒有存儲的內容，從 API 取得
+                if (!content) {
+                    const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        const post = data.post || data;
+                        content = post.content || post.generated_content || '';
+                    }
                 }
 
-                const post = data.post || data;
-                const content = post.content || post.generated_content || '';
+                if (!content) {
+                    showAlert('dashboardAlert', '找不到貼文內容', 'danger');
+                    return;
+                }
 
                 const newContent = prompt('編輯貼文內容：', content);
 
