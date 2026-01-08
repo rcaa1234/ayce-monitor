@@ -4094,7 +4094,7 @@
             }
         }
 
-        // Load pending posts (排程中貼文)
+        // Load pending posts (排程中貼文) - 查詢 UCB 排程中的已核准貼文
         async function loadPendingPosts() {
             const container = document.getElementById('pendingPostsList');
             if (!container) return;
@@ -4102,7 +4102,8 @@
             try {
                 container.innerHTML = '<p style="text-align: center; color: #999;">載入中...</p>';
 
-                const response = await fetch(`${API_BASE}/posts?status=APPROVED`, {
+                // 查詢 UCB 自動排程（已核准狀態）
+                const response = await fetch(`${API_BASE}/auto-schedules`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -4112,9 +4113,12 @@
                     throw new Error(data.error || '載入失敗');
                 }
 
-                const posts = data.posts || [];
+                // 過濾出已核准的排程（status = APPROVED 或 GENERATED 且未執行）
+                const schedules = (data.schedules || []).filter(s =>
+                    s.status === 'APPROVED' || s.status === 'GENERATED'
+                );
 
-                if (posts.length === 0) {
+                if (schedules.length === 0) {
                     container.innerHTML = `
                         <div style="text-align: center; padding: 40px; color: #666;">
                             <p style="font-size: 48px; margin-bottom: 10px;">📭</p>
@@ -4123,41 +4127,75 @@
                     return;
                 }
 
-                container.innerHTML = posts.map(post => {
-                    const content = post.content || post.generated_content || '(無內容)';
-                    const preview = content.length > 200 ? content.substring(0, 200) + '...' : content;
-                    const scheduledTime = post.scheduled_at ? new Date(post.scheduled_at).toLocaleString('zh-TW') : '未設定';
+                container.innerHTML = schedules.map(schedule => {
+                    const scheduledTime = schedule.scheduled_time
+                        ? new Date(schedule.scheduled_time).toLocaleString('zh-TW')
+                        : '未設定';
+                    const templateName = schedule.template_name || '未知模板';
+                    const statusText = schedule.status === 'APPROVED' ? '已核准' : '待審核';
+                    const statusColor = schedule.status === 'APPROVED' ? '#10b981' : '#f59e0b';
 
                     return `
-                        <div style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #8b5cf6;">
+                        <div style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid ${statusColor};">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                                 <div>
-                                    <span style="background: #8b5cf6; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">排程中</span>
+                                    <span style="background: ${statusColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${statusText}</span>
                                     <span style="margin-left: 10px; color: #666; font-size: 13px;">⏰ 預定發布：${scheduledTime}</span>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
-                                    <button onclick="editPendingPost('${post.id}')" 
+                                    ${schedule.post_id ? `
+                                    <button onclick="editPendingPost('${schedule.post_id}')" 
                                         style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         ✏️ 編輯
                                     </button>
-                                    <button onclick="deletePendingPost('${post.id}')" 
+                                    ` : ''}
+                                    <button onclick="deleteAutoSchedule('${schedule.id}')" 
                                         style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         🗑️ 刪除
                                     </button>
                                 </div>
                             </div>
-                            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6; font-size: 14px;">
-                                ${preview.replace(/</g, '&lt;').replace(/>/g, '&gt;')}
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; color: #666;">
+                                <div>📝 模板：<strong>${templateName}</strong></div>
+                                <div>📅 排程日期：<strong>${schedule.schedule_date || '未知'}</strong></div>
                             </div>
-                            <div style="margin-top: 10px; font-size: 12px; color: #999;">
-                                建立時間：${new Date(post.created_at).toLocaleString('zh-TW')}
+                            ${schedule.selection_reason ? `
+                            <div style="background: #f3e8ff; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; color: #7c3aed;">
+                                🤖 ${schedule.selection_reason}
                             </div>
+                            ` : ''}
                         </div>`;
                 }).join('');
 
             } catch (error) {
                 console.error('Failed to load pending posts:', error);
                 container.innerHTML = `<p style="text-align: center; color: #ef4444;">載入失敗：${error.message}</p>`;
+            }
+        }
+
+        // Delete auto schedule
+        async function deleteAutoSchedule(scheduleId) {
+            if (!confirm('確定要刪除這個排程嗎？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auto-schedules/${scheduleId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || '刪除失敗');
+                }
+
+                showAlert('dashboardAlert', '排程已刪除', 'success');
+                loadPendingPosts();
+                loadScheduleHistory(); // 更新排程歷史
+            } catch (error) {
+                console.error('Failed to delete auto schedule:', error);
+                showAlert('dashboardAlert', '刪除失敗: ' + error.message, 'danger');
             }
         }
 
