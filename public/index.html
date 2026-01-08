@@ -1366,6 +1366,10 @@
                                 UCB 智能排程將使用此帳號發布貼文
                             </p>
                         </div>
+                        <button class="btn" onclick="saveAccountSettings()"
+                            style="margin-top: 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); width: 100%;">
+                            💾 儲存帳號設定
+                        </button>
                     </div>
 
                     <!-- LINE 通知設定 -->
@@ -1385,14 +1389,6 @@
                             style="margin-top: 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);">📨
                             測試通知</button>
                     </div>
-                </div>
-
-                <!-- 儲存按鈕 -->
-                <div style="margin-bottom: 20px;">
-                    <button class="btn btn-success" onclick="saveAccountSettings()"
-                        style="padding: 12px 30px; font-size: 16px;">
-                        💾 儲存帳號設定
-                    </button>
                 </div>
 
                 <!-- 新增 Threads 帳號 -->
@@ -4315,23 +4311,33 @@
                 const lineUserId = document.getElementById('ucbLineNotifyUserId')?.value || '';
 
                 // 取得現有的 UCB 配置
-                const configResponse = await fetch(`${API_BASE}/ucb/config`, {
+                const configResponse = await fetch(`${API_BASE}/ucb-config`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const configData = await configResponse.json();
-                const currentConfig = configData.config || {};
 
-                // 更新配置
-                const response = await fetch(`${API_BASE}/ucb/config`, {
-                    method: 'POST',
+                let currentConfig = {};
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    currentConfig = configData.config || {};
+                }
+
+                // 更新配置（使用 PUT 方法）
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        ...currentConfig,
+                        exploration_factor: currentConfig.exploration_factor || 1.5,
+                        min_trials_per_template: currentConfig.min_trials_per_template || 5,
+                        posts_per_day: currentConfig.posts_per_day || 1,
+                        auto_schedule_enabled: currentConfig.auto_schedule_enabled !== false,
                         threads_account_id: threadsAccountId,
-                        line_user_id: lineUserId
+                        line_user_id: lineUserId,
+                        time_range_start: currentConfig.time_range_start || '09:00',
+                        time_range_end: currentConfig.time_range_end || '21:00',
+                        active_days: currentConfig.active_days || []
                     })
                 });
 
