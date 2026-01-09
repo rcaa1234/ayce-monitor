@@ -1583,6 +1583,32 @@
         </div>
     </div>
 
+    <!-- Edit Post Modal -->
+    <div id="editPostModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>✏️ 編輯貼文內容</h2>
+                <button class="close-modal" onclick="closeEditPostModal()">×</button>
+            </div>
+            <form id="editPostForm" onsubmit="saveEditedPost(event)">
+                <input type="hidden" id="editPostId">
+                <div class="form-group">
+                    <label for="editPostContent">貼文內容</label>
+                    <textarea id="editPostContent" rows="15" required
+                        style="width: 100%; padding: 15px; font-size: 15px; line-height: 1.8; border: 1px solid #ddd; border-radius: 8px; resize: vertical; min-height: 300px;"
+                        placeholder="請輸入貼文內容..."></textarea>
+                    <p style="font-size: 12px; color: #666; margin-top: 8px;">
+                        字數: <span id="editPostCharCount">0</span> | 編輯後的內容會在排程時間發布到 Threads
+                    </p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditPostModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">💾 儲存變更</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let token = localStorage.getItem('token');
@@ -4216,7 +4242,7 @@
             }
         }
 
-        // Edit pending post
+        // Edit pending post - 使用 Modal 對話框
         async function editPendingPost(postId) {
             try {
                 // 優先使用已存儲的內容
@@ -4240,11 +4266,51 @@
                     return;
                 }
 
-                const newContent = prompt('編輯貼文內容：', content);
+                // 打開編輯 Modal
+                openEditPostModal(postId, content);
+            } catch (error) {
+                console.error('Failed to load post for editing:', error);
+                showAlert('dashboardAlert', '載入貼文失敗: ' + error.message, 'danger');
+            }
+        }
 
-                if (newContent === null) return; // 取消
-                if (newContent === content) return; // 沒有變更
+        // 打開編輯貼文 Modal
+        function openEditPostModal(postId, content) {
+            document.getElementById('editPostId').value = postId;
+            document.getElementById('editPostContent').value = content;
+            document.getElementById('editPostCharCount').textContent = content.length;
+            document.getElementById('editPostModal').style.display = 'flex';
 
+            // 監聽輸入更新字數
+            const textarea = document.getElementById('editPostContent');
+            textarea.oninput = function () {
+                document.getElementById('editPostCharCount').textContent = this.value.length;
+            };
+
+            // 聚焦到文字區域
+            setTimeout(() => textarea.focus(), 100);
+        }
+
+        // 關閉編輯貼文 Modal
+        function closeEditPostModal() {
+            document.getElementById('editPostModal').style.display = 'none';
+            document.getElementById('editPostId').value = '';
+            document.getElementById('editPostContent').value = '';
+        }
+
+        // 儲存編輯的貼文
+        async function saveEditedPost(event) {
+            event.preventDefault();
+
+            const postId = document.getElementById('editPostId').value;
+            const newContent = document.getElementById('editPostContent').value;
+
+            if (!postId || !newContent.trim()) {
+                showAlert('dashboardAlert', '貼文內容不能為空', 'danger');
+                return;
+            }
+
+            try {
                 const updateResponse = await fetch(`${API_BASE}/posts/${postId}`, {
                     method: 'PUT',
                     headers: {
@@ -4259,11 +4325,12 @@
                     throw new Error(updateData.error || '更新失敗');
                 }
 
-                showAlert('dashboardAlert', '貼文已更新', 'success');
+                closeEditPostModal();
+                showAlert('dashboardAlert', '✅ 貼文已更新，將會在排程時間發布到 Threads', 'success');
                 loadPendingPosts();
             } catch (error) {
-                console.error('Failed to edit pending post:', error);
-                showAlert('dashboardAlert', '編輯失敗: ' + error.message, 'danger');
+                console.error('Failed to save edited post:', error);
+                showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
             }
         }
 

@@ -94,6 +94,54 @@ export const publishWorker = new Worker(
         logger.warn(`Failed to update schedule status for post ${postId}:`, scheduleError);
       }
 
+      // Immediately update template usage stats (for UCB ranking)
+      try {
+        const { getPool } = await import('../database/connection');
+        const pool = getPool();
+
+        // Get the template_id from the post
+        const [postRows] = await pool.execute(
+          `SELECT template_id FROM posts WHERE id = ?`,
+          [postId]
+        );
+
+        const templateId = (postRows as any[])[0]?.template_id;
+
+        if (templateId) {
+          // Update template usage count
+          // This counts all POSTED posts with this template_id
+          const [stats] = await pool.execute(
+            `SELECT 
+               COUNT(*) as total_uses,
+               AVG(pi.engagement_rate) as avg_engagement_rate
+             FROM posts p
+             LEFT JOIN post_insights pi ON p.id = pi.post_id
+             WHERE p.template_id = ?
+               AND p.status = 'POSTED'`,
+            [templateId]
+          );
+
+          const statsData = (stats as any[])[0];
+
+          await pool.execute(
+            `UPDATE content_templates
+             SET total_uses = ?,
+                 avg_engagement_rate = COALESCE(?, avg_engagement_rate)
+             WHERE id = ?`,
+            [
+              statsData.total_uses || 0,
+              statsData.avg_engagement_rate || null,
+              templateId
+            ]
+          );
+
+          logger.info(`✓ Updated template ${templateId} stats after publish: ${statsData.total_uses} uses`);
+        }
+      } catch (statsError) {
+        // Non-critical error, just log it
+        logger.warn(`Failed to update template stats after publish:`, statsError);
+      }
+
       await job.updateProgress(90);
 
       // Log audit
