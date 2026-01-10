@@ -2378,7 +2378,9 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       line_user_id,
       time_range_start,
       time_range_end,
-      active_days
+      active_days,
+      ai_prompt,
+      ai_engine
     } = req.body;
 
     const { getPool } = await import('../database/connection');
@@ -2394,8 +2396,8 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       await pool.execute(
         `INSERT INTO smart_schedule_config
          (id, exploration_factor, min_trials_per_template, posts_per_day, auto_schedule_enabled,
-          threads_account_id, line_user_id, time_range_start, time_range_end, active_days, enabled)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+          threads_account_id, line_user_id, time_range_start, time_range_end, active_days, ai_prompt, ai_engine, enabled)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
         [
           id,
           exploration_factor || 1.5,
@@ -2406,7 +2408,9 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
           line_user_id || null,
           time_range_start || '09:00:00',
           time_range_end || '21:00:00',
-          JSON.stringify(active_days || [])
+          JSON.stringify(active_days || []),
+          ai_prompt || null,
+          ai_engine || 'GPT5_2'
         ]
       );
     } else {
@@ -2421,7 +2425,9 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
              line_user_id = ?,
              time_range_start = ?,
              time_range_end = ?,
-             active_days = ?
+             active_days = ?,
+             ai_prompt = COALESCE(?, ai_prompt),
+             ai_engine = COALESCE(?, ai_engine)
          WHERE enabled = true`,
         [
           exploration_factor || 1.5,
@@ -2432,7 +2438,9 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
           line_user_id || null,
           time_range_start || '09:00:00',
           time_range_end || '21:00:00',
-          JSON.stringify(active_days || [])
+          JSON.stringify(active_days || []),
+          ai_prompt || null,
+          ai_engine || null
         ]
       );
     }

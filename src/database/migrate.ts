@@ -556,6 +556,23 @@ const migrations = [
   `
   ALTER TABLE posts ADD COLUMN template_id CHAR(36) NULL;
   `,
+
+  // Migration 29: Add ai_prompt and ai_engine to smart_schedule_config
+  // 用途：簡化排程系統，改為單一提示詞模式（移除 UCB 多模板選擇）
+  // 影響：儲存 AI 發文使用的提示詞和引擎設定
+  `
+  ALTER TABLE smart_schedule_config
+  ADD COLUMN ai_prompt TEXT COMMENT 'AI 發文提示詞' AFTER active_days,
+  ADD COLUMN ai_engine VARCHAR(50) DEFAULT 'GPT5_2' COMMENT 'AI 引擎' AFTER ai_prompt;
+  `,
+
+  // Migration 30: Add is_ai_generated to posts table
+  // 用途：標記貼文是否為 AI 生成，用於統計分類
+  // 分類：AI發、非AI(含圖)、非AI(無圖)
+  `
+  ALTER TABLE posts
+  ADD COLUMN is_ai_generated BOOLEAN DEFAULT false COMMENT '是否為 AI 生成' AFTER template_id;
+  `,
 ];
 
 async function runMigrations() {

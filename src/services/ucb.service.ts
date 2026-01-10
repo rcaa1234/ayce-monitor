@@ -52,6 +52,8 @@ interface UCBConfig {
   time_range_start?: string; // UCB 發文時段開始時間 (HH:MM:SS)
   time_range_end?: string; // UCB 發文時段結束時間 (HH:MM:SS)
   active_days?: number[]; // UCB 啟用星期 (1=週一...7=週日)
+  ai_prompt?: string; // AI 發文提示詞
+  ai_engine?: string; // AI 引擎
 }
 
 /**
@@ -104,6 +106,8 @@ class UCBService {
           time_range_start: '09:00:00',
           time_range_end: '21:00:00',
           active_days: [],
+          ai_prompt: undefined,
+          ai_engine: 'GPT5_2',
         };
       }
 
@@ -120,6 +124,8 @@ class UCBService {
         active_days: config.active_days
           ? (typeof config.active_days === 'string' ? JSON.parse(config.active_days) : config.active_days)
           : [],
+        ai_prompt: config.ai_prompt || undefined,
+        ai_engine: config.ai_engine || 'GPT5_2',
       };
     } catch (error) {
       logger.error('Failed to get UCB config, using defaults:', error);
@@ -133,6 +139,8 @@ class UCBService {
         time_range_start: '09:00:00',
         time_range_end: '21:00:00',
         active_days: [],
+        ai_prompt: undefined,
+        ai_engine: 'GPT5_2',
       };
     }
   }

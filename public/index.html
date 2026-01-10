@@ -876,7 +876,7 @@
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('overview')">📊 總覽</button>
                 <button class="tab" onclick="switchTab('scheduling')">📅 發文排程</button>
-                <button class="tab" onclick="switchTab('templates')">📝 模板設定</button>
+                <button class="tab" onclick="switchTab('templates')">✨ 提示詞設定</button>
                 <button class="tab" onclick="switchTab('accounts')">⚙️ 帳號管理</button>
             </div>
 
@@ -1154,82 +1154,46 @@
                 <div id="postsGrid" class="posts-grid"></div>
             </div>
 
-            <!-- Scheduling Tab (NEW - with sub-tabs) -->
+            <!-- Scheduling Tab (with sub-tabs) -->
             <div id="schedulingTab" class="tab-content">
                 <h2 style="margin-bottom: 20px;">發文排程管理</h2>
 
                 <!-- Internal Sub-tabs -->
                 <div class="sub-tabs"
                     style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
-                    <button class="sub-tab active" onclick="switchSchedulingSubTab('ucb')">🤖 UCB智能排程</button>
-                    <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">🖊️ 手動建立</button>
+                    <button class="sub-tab active" onclick="switchSchedulingSubTab('ai')">🤖 AI發文</button>
+                    <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">📝 預約發文</button>
                     <button class="sub-tab" onclick="switchSchedulingSubTab('pending')">📋 排程中貼文</button>
                 </div>
 
-                <!-- UCB Smart Schedule Sub-tab -->
-                <div id="ucbSubTab" class="sub-tab-content active">
-                    <h3 style="margin-bottom: 20px;">UCB 智能排程配置</h3>
-                    <p style="color: #666; margin-bottom: 20px;">使用 UCB (Upper Confidence Bound) 演算法自動優化模板選擇與發文時間</p>
-
-                    <!-- UCB 模板表現排行 -->
-                    <div
-                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px; color: white;">
-                        <h3 style="margin-bottom: 15px; color: white;">📊 模板表現排行</h3>
-                        <div id="ucbTemplateRanking" style="display: grid; gap: 10px;">
-                            <p style="text-align: center; opacity: 0.8;">載入中...</p>
-                        </div>
-                        <p style="font-size: 11px; opacity: 0.7; margin-top: 15px;">
-                            💡 UCB 會優先選擇互動率高的模板，但也會探索使用次數不足的模板以收集更多數據
-                        </p>
-                    </div>
+                <!-- AI Post Sub-tab -->
+                <div id="aiSubTab" class="sub-tab-content active">
+                    <h3 style="margin-bottom: 20px;">AI 自動發文設定</h3>
+                    <p style="color: #666; margin-bottom: 20px;">設定 AI 自動生成貼文的發文頻率和時段，系統會根據「提示詞設定」的內容自動產生並發布貼文</p>
 
                     <div class="config-grid">
                         <!-- Left: Configuration Form -->
                         <div class="config-card">
-                            <h3>UCB 參數設定</h3>
-                            <form id="ucb-config-form" onsubmit="saveUCBConfig(event)">
+                            <h3>發文設定</h3>
+                            <form id="ai-config-form" onsubmit="saveAIConfig(event)">
                                 <div class="form-group">
-                                    <label>參與 UCB 的模板</label>
-                                    <div id="ucb-templates-selector"
-                                        style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fafafa;">
-                                        <p style="color: #999; text-align: center;">載入中...</p>
-                                    </div>
-                                    <small style="color: #0066cc; margin-top: 5px; display: block;">
-                                        ⚠️ 只有「啟用」且「被勾選」的模板才會參與 UCB 演算法。建議至少選擇 3 個模板以獲得更好的優化效果
-                                    </small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="exploration-factor">探索係數 (1.0-2.0)</label>
-                                    <input type="number" id="exploration-factor" min="1.0" max="2.0" step="0.1"
-                                        value="1.5" required>
-                                    <small>數值越高，系統越願意嘗試新模板（探索性強）</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="min-trials">最少試驗次數</label>
-                                    <input type="number" id="min-trials" min="1" max="20" value="5" required>
-                                    <small>每個模板至少嘗試幾次後才開始優化選擇</small>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="posts-per-day">每天發文次數</label>
+                                    <label for="posts-per-day">每日發文次數</label>
                                     <input type="number" id="posts-per-day" min="1" max="10" value="1" required>
-                                    <small>系統每天自動建立幾個排程</small>
+                                    <small>系統每天自動建立幾個發文排程</small>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="time-range-start">發文時段 - 開始時間</label>
                                     <input type="time" id="time-range-start" value="09:00" class="form-control"
                                         style="padding: 12px; font-size: 16px;">
-                                    <small>UCB 將在此時間之後選擇最佳時段發文</small>
+                                    <small>AI 會在此時間之後隨機選擇發文時間</small>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="time-range-end">發文時段 - 結束時間</label>
                                     <input type="time" id="time-range-end" value="21:00" class="form-control"
                                         style="padding: 12px; font-size: 16px;">
-                                    <small>UCB 將在此時間之前選擇最佳時段發文</small>
+                                    <small>AI 會在此時間之前選擇發文時間</small>
                                 </div>
 
                                 <div class="form-group">
@@ -1279,19 +1243,18 @@
                                             <span style="font-size: 12px;">週日</span>
                                         </label>
                                     </div>
-                                    <small style="margin-top: 8px; display: block;">選擇 UCB
-                                        自動建立排程的星期，未選擇的星期不會建立排程</small>
+                                    <small style="margin-top: 8px; display: block;">選擇 AI 自動發文的星期，未選擇的星期不會自動發文</small>
                                 </div>
 
                                 <div class="form-group">
                                     <div class="checkbox-group">
                                         <input type="checkbox" id="auto-schedule-enabled" checked>
-                                        <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動排程</label>
+                                        <label for="auto-schedule-enabled" style="margin-bottom: 0;">啟用自動發文</label>
                                     </div>
-                                    <small>每天 00:00 自動使用 UCB 建立排程並發送到 LINE 審核</small>
+                                    <small>每天 00:00 自動建立排程並發送到 LINE 審核</small>
                                 </div>
 
-                                <button type="submit" class="btn btn-success" style="width: 100%;">儲存配置</button>
+                                <button type="submit" class="btn btn-success" style="width: 100%;">💾 儲存設定</button>
                             </form>
                         </div>
 
@@ -1304,10 +1267,10 @@
                                 <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📌 使用說明</h4>
                                 <ul
                                     style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
-                                    <li><strong>啟用自動排程</strong>：每天 00:00 自動建立排程</li>
-                                    <li><strong>立即觸發</strong>：測試用，立即建立今天的排程</li>
-                                    <li><strong>排程歷史</strong>：下方顯示所有 UCB 建立的排程</li>
-                                    <li><strong>執行流程</strong>：建立排程 → 到達時間 → 生成文章 → LINE 通知審核</li>
+                                    <li><strong>啟用自動發文</strong>：每天 00:00 自動建立發文排程</li>
+                                    <li><strong>提示詞設定</strong>：在「提示詞設定」頁面設定 AI 生成內容的指令</li>
+                                    <li><strong>LINE 審核</strong>：發文前會發送到 LINE 通知審核</li>
+                                    <li><strong>執行流程</strong>：建立排程 → 生成文章 → LINE 通知 → 審核 → 發布</li>
                                 </ul>
                             </div>
 
@@ -1316,29 +1279,28 @@
                                 <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ 重要提醒</h4>
                                 <ul
                                     style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
-                                    <li>每天只能建立一個排程（避免重複）</li>
-                                    <li>必須選擇 Threads 帳號和 LINE User ID</li>
-                                    <li>至少選擇一個啟用的模板</li>
-                                    <li>UCB 會根據歷史數據自動優化選擇</li>
+                                    <li>請先在「提示詞設定」頁面設定 AI 生成提示詞</li>
+                                    <li>請在「帳號管理」頁面設定 Threads 帳號和 LINE User ID</li>
+                                    <li>每天每個時段只會建立一個發文排程</li>
                                 </ul>
                             </div>
 
                             <button class="btn btn-primary" onclick="triggerDailySchedule()"
                                 style="width: 100%; padding: 15px; font-size: 16px;">
-                                🧪 測試生成發送
+                                🧪 測試生成發文
                             </button>
                             <small
                                 style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
-                                系統會立即生成文章並發送 LINE 通知
+                                系統會立即生成一篇文章並發送 LINE 通知審核
                             </small>
                         </div>
                     </div>
 
-                    <div id="ucb-message"></div>
+                    <div id="ai-message"></div>
 
                     <div style="margin-top: 40px;">
                         <div class="action-bar">
-                            <h3>自動排程歷史</h3>
+                            <h3>發文排程歷史</h3>
                             <button class="btn btn-secondary" onclick="loadScheduleHistory()">重新整理</button>
                         </div>
                         <div id="schedule-history-container"></div>
@@ -1346,16 +1308,17 @@
                 </div>
             </div>
 
+
             <!-- Threads Accounts Tab -->
             <div id="accountsTab" class="tab-content">
                 <h2 style="margin-bottom: 20px;">帳號管理</h2>
 
-                <!-- UCB 發布設定 -->
+                <!-- AI 發文設定 -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                     <!-- 發布帳號設定 -->
                     <div
                         style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
-                        <h3 style="margin-bottom: 15px; color: white;">📱 UCB 發布帳號</h3>
+                        <h3 style="margin-bottom: 15px; color: white;">📱 AI 發文帳號</h3>
                         <div class="form-group">
                             <label style="color: rgba(255,255,255,0.9);">選擇 Threads 帳號</label>
                             <select id="ucbThreadsAccount" class="form-control"
@@ -1363,7 +1326,7 @@
                                 <option value="">請選擇帳號</option>
                             </select>
                             <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;">
-                                UCB 智能排程將使用此帳號發布貼文
+                                AI 自動發文將使用此帳號發布貼文
                             </p>
                         </div>
                         <button class="btn" onclick="saveAccountSettings()"
@@ -1427,8 +1390,8 @@
 
             <!-- Manual Post Sub-tab -->
             <div id="manualSubTab" class="sub-tab-content">
-                <h3 style="margin-bottom: 20px;">手動建立貼文</h3>
-                <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，無需 AI 生成</p>
+                <h3 style="margin-bottom: 20px;">預約發文</h3>
+                <p style="color: #666; margin-bottom: 20px;">直接輸入貼文內容，可立即發布或預約時間發布</p>
 
                 <form onsubmit="createManualPost(event)">
                     <div class="form-group">
@@ -1487,17 +1450,57 @@
             </div>
         </div>
 
-        <!-- Templates Tab (Renamed from Smart Scheduling Tab) -->
+        <!-- Prompt Settings Tab (原模板設定) -->
         <div id="templatesTab" class="tab-content">
             <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <h2 style="margin-bottom: 10px; color: #1f2937;">模板設定</h2>
-                <p style="color: #666; margin-bottom: 20px;">建立和管理 AI 生成提示詞模板，用於智能排程系統</p>
+                <h2 style="margin-bottom: 10px; color: #1f2937;">✨ 提示詞設定</h2>
+                <p style="color: #666; margin-bottom: 20px;">設定 AI 自動發文使用的提示詞，系統會根據此提示詞生成貼文內容</p>
 
-                <div class="action-bar" style="margin-bottom: 20px;">
-                    <h3 style="color: #374151;">我的模板</h3>
-                    <button class="btn btn-primary" onclick="openCreateModal()">+ 新增模板</button>
+                <form id="ai-prompt-form" onsubmit="saveAIPrompt(event)">
+                    <div class="form-group">
+                        <label for="ai-engine">AI 引擎</label>
+                        <select id="ai-engine" required style="padding: 12px; font-size: 15px;">
+                            <option value="GPT5_2">GPT-5.2 (推薦)</option>
+                            <option value="GPT5_2_INSTANT">GPT-5.2 Instant (快速)</option>
+                            <option value="GPT4O">GPT-4o</option>
+                            <option value="GEMINI_3_FLASH">Gemini 3 Flash</option>
+                            <option value="GEMINI_3_PRO_PREVIEW">Gemini 3 Pro</option>
+                            <option value="GEMINI_2_5_FLASH">Gemini 2.5 Flash</option>
+                        </select>
+                        <small>選擇生成貼文使用的 AI 引擎</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ai-prompt">AI 提示詞</label>
+                        <textarea id="ai-prompt" rows="15" required
+                            style="width: 100%; padding: 15px; font-size: 15px; line-height: 1.8; border: 1px solid #ddd; border-radius: 8px; resize: vertical;"
+                            placeholder="請輸入給 AI 的指令，描述您希望 AI 生成什麼樣的貼文內容...
+
+例如：
+你是一位社群經營專家，請根據以下風格生成一篇 Threads 貼文：
+- 主題：生活觀察、職場心得、科技趨勢
+- 風格：輕鬆、有趣、帶有洞見
+- 長度：100-300字
+- 包含 1-2 個相關的 emoji
+- 結尾可以問一個問題引發討論"></textarea>
+                        <small>詳細描述您希望 AI 生成的內容風格、主題、長度等</small>
+                    </div>
+
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button type="submit" class="btn btn-success" style="flex: 1; padding: 15px;">💾 儲存提示詞</button>
+                        <button type="button" class="btn btn-primary" onclick="testAIPrompt()"
+                            style="flex: 1; padding: 15px;">🧪 測試生成</button>
+                    </div>
+                </form>
+
+                <!-- 測試生成結果 -->
+                <div id="ai-prompt-test-result"
+                    style="display: none; margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <h4 style="margin-bottom: 15px; color: #374151;">📝 生成結果預覽</h4>
+                    <div id="ai-prompt-test-content"
+                        style="white-space: pre-wrap; line-height: 1.8; font-size: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    </div>
                 </div>
-                <div id="templates-container"></div>
             </div>
         </div>
     </div>
@@ -1722,17 +1725,10 @@
             if (subTabName === 'manual') {
                 document.getElementById('manualSubTab').classList.add('active');
                 loadThreadsAccountsForDropdowns();
-            } else if (subTabName === 'ucb') {
-                document.getElementById('ucbSubTab').classList.add('active');
-                // 載入 UCB 模板排行
-                loadUCBTemplateRanking();
-                // 先載入 Threads 帳號列表和模板選擇器，然後再載入 UCB 配置
-                Promise.all([
-                    loadThreadsAccountsForDropdowns(),
-                    loadUCBTemplatesSelector()
-                ]).then(() => {
-                    loadUCBConfig();
-                });
+            } else if (subTabName === 'ai') {
+                document.getElementById('aiSubTab').classList.add('active');
+                // 載入 AI 發文配置
+                loadAIConfig();
                 loadScheduleHistory();
             } else if (subTabName === 'pending') {
                 document.getElementById('pendingSubTab').classList.add('active');
@@ -4360,7 +4356,213 @@
             }
         }
 
-        // Load UCB template ranking
+        // ========== AI 發文配置相關函數 ==========
+
+        // 載入 AI 發文配置
+        async function loadAIConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const config = data.config || {};
+
+                // 設定表單值
+                document.getElementById('posts-per-day').value = config.posts_per_day || 1;
+                document.getElementById('time-range-start').value = config.time_range_start || '09:00';
+                document.getElementById('time-range-end').value = config.time_range_end || '21:00';
+                document.getElementById('auto-schedule-enabled').checked = config.auto_schedule_enabled !== false;
+
+                // 設定啟用星期
+                const activeDays = config.active_days || [1, 2, 3, 4, 5, 6, 7];
+                document.querySelectorAll('.active-day').forEach(checkbox => {
+                    checkbox.checked = activeDays.includes(parseInt(checkbox.value));
+                });
+            } catch (error) {
+                console.error('Failed to load AI config:', error);
+            }
+        }
+
+        // 儲存 AI 發文配置
+        async function saveAIConfig(event) {
+            event.preventDefault();
+
+            try {
+                showLoading(true);
+
+                const activeDays = [];
+                document.querySelectorAll('.active-day:checked').forEach(checkbox => {
+                    activeDays.push(parseInt(checkbox.value));
+                });
+
+                const config = {
+                    posts_per_day: parseInt(document.getElementById('posts-per-day').value) || 1,
+                    time_range_start: document.getElementById('time-range-start').value || '09:00',
+                    time_range_end: document.getElementById('time-range-end').value || '21:00',
+                    auto_schedule_enabled: document.getElementById('auto-schedule-enabled').checked,
+                    active_days: activeDays
+                };
+
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('dashboardAlert', '✅ AI 發文設定已儲存', 'success');
+                } else {
+                    throw new Error(result.error || '儲存失敗');
+                }
+            } catch (error) {
+                console.error('Failed to save AI config:', error);
+                showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 載入 AI 提示詞設定
+        async function loadAIPrompt() {
+            try {
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const config = data.config || {};
+
+                // 設定提示詞和引擎
+                document.getElementById('ai-prompt').value = config.ai_prompt || '';
+                document.getElementById('ai-engine').value = config.ai_engine || 'GPT5_2';
+            } catch (error) {
+                console.error('Failed to load AI prompt:', error);
+            }
+        }
+
+        // 儲存 AI 提示詞設定
+        async function saveAIPrompt(event) {
+            event.preventDefault();
+
+            try {
+                showLoading(true);
+
+                const aiPrompt = document.getElementById('ai-prompt').value;
+                const aiEngine = document.getElementById('ai-engine').value;
+
+                if (!aiPrompt.trim()) {
+                    showAlert('dashboardAlert', '請輸入 AI 提示詞', 'danger');
+                    return;
+                }
+
+                // 先取得現有配置
+                const configResponse = await fetch(`${API_BASE}/ucb-config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                let currentConfig = {};
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    currentConfig = configData.config || {};
+                }
+
+                // 更新配置
+                const response = await fetch(`${API_BASE}/ucb-config`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ...currentConfig,
+                        ai_prompt: aiPrompt,
+                        ai_engine: aiEngine
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('dashboardAlert', '✅ 提示詞設定已儲存', 'success');
+                } else {
+                    throw new Error(result.error || '儲存失敗');
+                }
+            } catch (error) {
+                console.error('Failed to save AI prompt:', error);
+                showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 測試 AI 提示詞生成
+        async function testAIPrompt() {
+            const prompt = document.getElementById('ai-prompt').value;
+            const engine = document.getElementById('ai-engine').value;
+
+            if (!prompt.trim()) {
+                showAlert('dashboardAlert', '請先輸入 AI 提示詞', 'danger');
+                return;
+            }
+
+            const resultContainer = document.getElementById('ai-prompt-test-result');
+            const contentDiv = document.getElementById('ai-prompt-test-content');
+
+            resultContainer.style.display = 'block';
+            contentDiv.innerHTML = '<div style="text-align: center; padding: 30px;"><div class="spinner"></div><p style="margin-top: 15px; color: #666;">AI 正在生成內容...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/generate/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        engine: engine
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '生成失敗');
+                }
+
+                const data = await response.json();
+
+                contentDiv.innerHTML = `
+                    <div style="white-space: pre-wrap; line-height: 1.8;">${escapeHtml(data.content)}</div>
+                    <div style="margin-top: 15px; padding: 10px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #0369a1;">
+                        <strong>使用引擎：</strong>${getEngineName(data.engine || engine)}
+                    </div>
+                `;
+            } catch (error) {
+                contentDiv.innerHTML = `<div style="color: #ef4444;">生成失敗: ${error.message}</div>`;
+            }
+        }
+
+        // 載入提示詞設定頁面
+        function loadTemplates() {
+            loadAIPrompt();
+        }
+
+        // 載入發文排程頁面
+        function loadScheduling() {
+            loadAIConfig();
+            loadScheduleHistory();
+        }
+
+        // Load UCB template ranking (保留但簡化)
         async function loadUCBTemplateRanking() {
             const container = document.getElementById('ucbTemplateRanking');
             if (!container) return;
