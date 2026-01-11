@@ -328,20 +328,29 @@ export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
 
 /**
  * createDailyAutoSchedule
- * 用途：每天自動建立排程,使用 UCB 策略選擇最佳時段和模板
- * 執行時間：每天 00:00
- * 影響：新增功能,不影響現有排程
+ * 用途：每天自動建立排程，使用提示詞設定中的單一提示詞生成內容
+ * 執行時間：每天 00:00 或由 dailyAutoScheduler 觸發
+ * 影響：使用 smart_schedule_config 中的 ai_prompt 和 ai_engine
  * 
- * 修改說明：現在會在建立排程時就立即產生內容並發送 LINE 預審通知
+ * 修改說明：已簡化為使用單一提示詞，移除 UCB 多模板選擇邏輯
  */
 export async function createDailyAutoSchedule() {
-  logger.info('Creating daily auto schedule using UCB strategy...');
+  logger.info('Creating daily auto schedule using single prompt...');
 
   try {
     const pool = getPool();
     const { ucbService } = await import('../services/ucb.service');
     const { generateUUID } = await import('../utils/uuid');
     const { PostModel } = await import('../models/post.model');
+
+    // 取得配置（含提示詞、引擎、時間範圍等）
+    const aiConfig = await ucbService.getConfig();
+
+    // 檢查是否有設定提示詞
+    if (!aiConfig.ai_prompt) {
+      logger.warn('No AI prompt configured, please set up prompt in "提示詞設定" page');
+      return;
+    }
 
     // 檢查今天是否已有排程
     const today = new Date();
@@ -357,32 +366,43 @@ export async function createDailyAutoSchedule() {
       return;
     }
 
-    // 使用 UCB 選擇最佳時段和模板
-    const selection = await ucbService.selectOptimalSchedule(today);
+    // 計算發文時間（在設定的時段內隨機選擇）
+    const startTime = aiConfig.time_range_start || '09:00:00';
+    const endTime = aiConfig.time_range_end || '21:00:00';
 
-    if (!selection) {
-      logger.warn('UCB service returned no selection, cannot create schedule');
-      return;
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+
+    // 計算隨機發文時間
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+    const randomMinutes = startMinutes + Math.floor(Math.random() * (endMinutes - startMinutes));
+    const scheduledHour = Math.floor(randomMinutes / 60);
+    const scheduledMinute = randomMinutes % 60;
+
+    const scheduledTime = new Date(today);
+    scheduledTime.setHours(scheduledHour, scheduledMinute, 0, 0);
+
+    // 如果選擇的時間已經過了，設定為明天同一時間
+    if (scheduledTime <= new Date()) {
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
 
-    // 取得 UCB 配置（含 Threads 帳號和 LINE User ID）
-    const ucbConfig = await ucbService.getConfig();
-
-    // 取得建立者: 優先使用 UCB config 的 LINE User ID，否則使用 content_creator 角色
+    // 取得建立者: 優先使用配置的 LINE User ID
     let creatorId: string;
 
-    if (ucbConfig.line_user_id) {
+    if (aiConfig.line_user_id) {
       // 使用 LINE User ID 查找用戶
       const [lineUsers] = await pool.execute<RowDataPacket[]>(
         `SELECT id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
-        [ucbConfig.line_user_id]
+        [aiConfig.line_user_id]
       );
 
       if (lineUsers.length > 0) {
         creatorId = lineUsers[0].id;
-        logger.info(`Using UCB LINE User ID (${ucbConfig.line_user_id}) as creator`);
+        logger.info(`Using configured LINE User ID (${aiConfig.line_user_id}) as creator`);
       } else {
-        logger.warn(`UCB LINE User ID ${ucbConfig.line_user_id} not found, using content_creator fallback`);
+        logger.warn(`LINE User ID ${aiConfig.line_user_id} not found, using content_creator fallback`);
         // Fallback to content_creator
         const [users] = await pool.execute<RowDataPacket[]>(
           `SELECT u.id FROM users u
@@ -413,39 +433,36 @@ export async function createDailyAutoSchedule() {
       creatorId = users[0].id;
     }
 
-    // 建立自動排程記錄
+    // 建立自動排程記錄（不再需要 selected_template_id 和 selected_time_slot_id）
     const scheduleId = generateUUID();
     await pool.execute(
       `INSERT INTO daily_auto_schedule
-       (id, schedule_date, selected_time_slot_id, selected_template_id, scheduled_time,
-        status, ucb_score, selection_reason, created_at)
-       VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, NOW())`,
+       (id, schedule_date, scheduled_time, status, selection_reason, created_at)
+       VALUES (?, ?, ?, 'PENDING', ?, NOW())`,
       [
         scheduleId,
         todayStr,
-        selection.timeSlot.id,
-        selection.template.id,
-        selection.scheduledTime,
-        selection.ucbScore,
-        selection.reason,
+        scheduledTime,
+        'AI 自動發文（單一提示詞）',
       ]
     );
 
-    // 建立 Post (DRAFT) - 包含 template_id 以支援重新生成
+    // 建立 Post (DRAFT) - 標記為 AI 生成，使用配置的引擎
     const post = await PostModel.create({
       status: PostStatus.DRAFT,
       created_by: creatorId,
-      template_id: selection.template.id,
+      is_ai_generated: true,
     });
 
     logger.info(`Created post ${post.id} for auto-schedule ${scheduleId}`);
 
-    // 加入生成佇列（包含排程時間，讓 LINE 通知可以顯示）
+    // 加入生成佇列（使用提示詞設定中的單一提示詞和引擎）
     await queueService.addGenerateJob({
       postId: post.id,
       createdBy: creatorId,
-      stylePreset: selection.template.prompt,
-      scheduledTime: selection.scheduledTime.toISOString(),
+      stylePreset: aiConfig.ai_prompt, // 使用單一提示詞
+      engine: aiConfig.ai_engine || 'GPT5_2', // 使用配置的引擎
+      scheduledTime: scheduledTime.toISOString(),
       autoScheduleId: scheduleId,
     });
 
@@ -457,8 +474,8 @@ export async function createDailyAutoSchedule() {
       [post.id, scheduleId]
     );
 
-    logger.info(`✓ Daily auto schedule created: ${selection.template.name} at ${selection.scheduledTime.toLocaleTimeString('zh-TW')}`);
-    logger.info(`  Reason: ${selection.reason}`);
+    logger.info(`✓ Daily auto schedule created at ${scheduledTime.toLocaleTimeString('zh-TW')}`);
+    logger.info(`  Using AI engine: ${aiConfig.ai_engine || 'GPT5_2'}`);
     logger.info(`  Post ${post.id} created and queued for content generation`);
   } catch (error) {
     logger.error('Failed to create daily auto schedule:', error);
