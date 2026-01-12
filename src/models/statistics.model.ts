@@ -159,7 +159,7 @@ export class StatisticsModel {
   }
 
   /**
-   * 獲取樣板統計數據
+   * 獲取發文類型統計數據（三種分類：AI 發文、圖片式文字、人工發文）
    * @param days 統計天數，預設 3650 天（約 10 年，即全部歷史）
    */
   static async getTemplateStats(days: number = 3650): Promise<TemplateStats[]> {
@@ -169,12 +169,13 @@ export class StatisticsModel {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
+      // 使用 CASE WHEN 根據 is_ai_generated 和 media_type 分類
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          t.id,
-          t.name,
-          COALESCE(t.preferred_engine, 'GPT5_2') as preferred_engine,
-          COUNT(DISTINCT p.id) as total_uses,
+          post_type as id,
+          post_type as name,
+          'GPT5_2' as preferred_engine,
+          COUNT(*) as total_uses,
           COALESCE(AVG(
             CASE
               WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
@@ -191,9 +192,15 @@ export class StatisticsModel {
             )
             FROM posts p2
             LEFT JOIN post_insights pi2 ON p2.id = pi2.post_id
-            WHERE p2.template_id = t.id
-              AND p2.status = 'POSTED'
+            WHERE p2.status = 'POSTED'
               AND pi2.views IS NOT NULL
+              AND (
+                CASE
+                  WHEN p2.is_ai_generated = true THEN 'AI 發文'
+                  WHEN p2.media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM') THEN '圖片式文字'
+                  ELSE '人工發文'
+                END
+              ) = post_type
             ORDER BY (
               CASE
                 WHEN pi2.views > 0 THEN ((pi2.likes + pi2.replies + COALESCE(pi2.reposts, 0)) / pi2.views)
@@ -202,12 +209,27 @@ export class StatisticsModel {
             ) DESC
             LIMIT 1
           ) as best_performing_time
-        FROM content_templates t
-        LEFT JOIN posts p ON t.id = p.template_id AND p.status = 'POSTED' AND p.posted_at >= ?
+        FROM (
+          SELECT
+            p.id,
+            CASE
+              WHEN p.is_ai_generated = true THEN 'AI 發文'
+              WHEN p.media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM') THEN '圖片式文字'
+              ELSE '人工發文'
+            END as post_type
+          FROM posts p
+          WHERE p.status = 'POSTED' AND p.posted_at >= ?
+        ) AS categorized_posts
+        LEFT JOIN posts p ON categorized_posts.id = p.id
         LEFT JOIN post_insights pi ON p.id = pi.post_id
-        GROUP BY t.id, t.name, t.preferred_engine
+        GROUP BY post_type
         HAVING total_uses > 0
-        ORDER BY avg_engagement_rate DESC`,
+        ORDER BY 
+          CASE post_type
+            WHEN 'AI 發文' THEN 1
+            WHEN '圖片式文字' THEN 2
+            WHEN '人工發文' THEN 3
+          END`,
         [startDate]
       );
 
