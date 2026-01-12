@@ -238,21 +238,19 @@ export class StatisticsModel {
   }
 
   /**
-   * 獲取時段統計數據
+   * 獲取時段統計數據（按實際發文時間的小時分組）
    */
-  static async getTimeslotStats(days: number = 30): Promise<TimeslotStats[]> {
+  static async getTimeslotStats(days: number = 3650): Promise<TimeslotStats[]> {
     const pool = getPool();
 
     try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
+      // 按發文小時分組統計
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          ts.id,
-          ts.name,
-          ts.start_hour,
-          ts.start_minute,
+          HOUR(p.posted_at) as id,
+          CONCAT(LPAD(HOUR(p.posted_at), 2, '0'), ':00 - ', LPAD(HOUR(p.posted_at), 2, '0'), ':59') as name,
+          HOUR(p.posted_at) as start_hour,
+          0 as start_minute,
           COUNT(DISTINCT p.id) as posts_count,
           COALESCE(AVG(
             CASE
@@ -262,14 +260,12 @@ export class StatisticsModel {
           ), 0) as avg_engagement_rate,
           COALESCE(AVG(pi.likes), 0) as avg_likes,
           COALESCE(AVG(pi.views), 0) as avg_views
-        FROM schedule_time_slots ts
-        LEFT JOIN posts p ON ts.id = p.time_slot_id AND p.status = 'POSTED'
+        FROM posts p
         LEFT JOIN post_insights pi ON p.id = pi.post_id
-        WHERE p.posted_at >= ? OR p.posted_at IS NULL
-        GROUP BY ts.id, ts.name, ts.start_hour, ts.start_minute
+        WHERE p.status = 'POSTED' AND p.posted_at IS NOT NULL
+        GROUP BY HOUR(p.posted_at)
         HAVING posts_count > 0
-        ORDER BY ts.start_hour ASC, ts.start_minute ASC`,
-        [startDate]
+        ORDER BY start_hour ASC`
       );
 
       return rows as TimeslotStats[];
