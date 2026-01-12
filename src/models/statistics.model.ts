@@ -166,10 +166,8 @@ export class StatisticsModel {
     const pool = getPool();
 
     try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
       // 使用 CASE WHEN 根據 is_ai_generated 和 media_type 分類
+      // 注意：不再使用 days 過濾，統計所有已發布貼文
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
           post_type as id,
@@ -218,7 +216,7 @@ export class StatisticsModel {
               ELSE '人工發文'
             END as post_type
           FROM posts p
-          WHERE p.status = 'POSTED' AND p.posted_at >= ?
+          WHERE p.status = 'POSTED'
         ) AS categorized_posts
         LEFT JOIN posts p ON categorized_posts.id = p.id
         LEFT JOIN post_insights pi ON p.id = pi.post_id
@@ -229,8 +227,7 @@ export class StatisticsModel {
             WHEN 'AI 發文' THEN 1
             WHEN '圖片式文字' THEN 2
             WHEN '人工發文' THEN 3
-          END`,
-        [startDate]
+          END`
       );
 
       return rows as TemplateStats[];
