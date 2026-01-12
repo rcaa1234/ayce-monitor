@@ -486,6 +486,11 @@ export async function createDailyAutoSchedule() {
  * Dynamic Daily Auto Schedule Creator
  * 用途：每 10 分鐘檢查今天是否需要建立排程，如果還沒有排程就立即建立
  * 頻率：每 10 分鐘檢查一次
+ * 
+ * 重要：必須同時滿足以下條件才會自動排程：
+ * 1. auto_schedule_enabled = true
+ * 2. ai_prompt 已設定（非空）
+ * 3. 今天是 active_days 中的日期
  */
 const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
   try {
@@ -494,7 +499,19 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
 
     // 檢查配置
     const config = await ucbService.getConfig();
-    logger.info(`[UCB Scheduler] Checking UCB config`);
+    logger.info(`[AI Scheduler] Checking AI auto-schedule config`);
+
+    // ⚠️ 檢查是否啟用自動排程
+    if (!config.auto_schedule_enabled) {
+      logger.info('[AI Scheduler] Auto-schedule is DISABLED, skipping');
+      return;
+    }
+
+    // ⚠️ 檢查是否有設定 AI 提示詞
+    if (!config.ai_prompt || config.ai_prompt.trim() === '') {
+      logger.info('[AI Scheduler] No AI prompt configured, skipping');
+      return;
+    }
 
     // 檢查今天是星期幾 (1=週一, 7=週日)
     const today = new Date();
@@ -504,7 +521,7 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
     // 檢查 active_days 設定
     const activeDays = config.active_days || [];
     if (activeDays.length > 0 && !activeDays.includes(dayOfWeek)) {
-      logger.info(`[UCB Scheduler] Today (day ${dayOfWeek}) is not an active day, skipping`);
+      logger.info(`[AI Scheduler] Today (day ${dayOfWeek}) is not an active day, skipping`);
       return;
     }
 
@@ -514,15 +531,15 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
       [todayStr]
     );
 
-    logger.info(`[UCB Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
+    logger.info(`[AI Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
 
     if (existing.length > 0) {
-      logger.info('[UCB Scheduler] Schedule already exists for today, skipping');
+      logger.info('[AI Scheduler] Schedule already exists for today, skipping');
       return; // 已有排程,不重複建立
     }
 
     // 如果今天還沒有排程，立即建立
-    logger.info(`⏰ Creating daily schedule for ${todayStr}`);
+    logger.info(`⏰ Creating daily AI schedule for ${todayStr}`);
     await createDailyAutoSchedule();
   } catch (error) {
     logger.error('Error in dynamic daily auto scheduler:', error);
