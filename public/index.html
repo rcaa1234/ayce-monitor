@@ -1033,6 +1033,10 @@
                                         style="padding: 5px 12px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         🗑️ 清除待審核
                                     </button>
+                                    <button onclick="clearScheduledPosts()"
+                                        style="padding: 5px 12px; background: #f97316; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                                        🗑️ 清除排程中
+                                    </button>
                                 </div>
                             </div>
                             <p style="margin-top: 10px; font-size: 11px; color: #999;">
@@ -4083,6 +4087,36 @@
                 loadOverview(); // 重新載入總覽數量
             } catch (error) {
                 console.error('Failed to clear pending posts:', error);
+                showAlert('dashboardAlert', '清除失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // Clear all scheduled (APPROVED) posts
+        async function clearScheduledPosts() {
+            if (!confirm('此操作將刪除所有排程中（已審核待發布）的貼文。\n\n此操作無法復原，確定要繼續嗎？')) {
+                return;
+            }
+
+            try {
+                showAlert('dashboardAlert', '正在清除排程中貼文...', 'info');
+
+                const response = await fetch(`${API_BASE}/statistics/clear-scheduled`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '清除失敗');
+                }
+
+                showAlert('dashboardAlert', result.message, 'success');
+                loadOverview(); // 重新載入總覽數量
+            } catch (error) {
+                console.error('Failed to clear scheduled posts:', error);
                 showAlert('dashboardAlert', '清除失敗: ' + error.message, 'danger');
             }
         }

@@ -51,6 +51,9 @@ router.get('/best-time-post', statisticsController.getBestTimePost.bind(statisti
 // DELETE /api/statistics/clear-pending - 清除所有待審核的貼文
 router.delete('/clear-pending', statisticsController.clearPendingPosts.bind(statisticsController));
 
+// DELETE /api/statistics/clear-scheduled - 清除所有排程中的貼文
+router.delete('/clear-scheduled', statisticsController.clearScheduledPosts.bind(statisticsController));
+
 // GET /api/statistics/debug-performance-log - 除錯：查看 UCB 表現記錄
 router.get('/debug-performance-log', statisticsController.debugPerformanceLog.bind(statisticsController));
 
