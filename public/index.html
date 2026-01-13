@@ -4816,17 +4816,15 @@
                     return;
                 }
 
-                // 組織時段標籤
-                const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-
                 let html = '';
                 timeslots.forEach(slot => {
-                    const label = `${dayNames[slot.day_of_week]} ${String(slot.hour).padStart(2, '0')}:00`;
+                    // 使用後端返回的 name 欄位（例如 "08:00 - 08:59"）
+                    const label = slot.name || `${String(slot.start_hour || 0).padStart(2, '0')}:00`;
                     html += `
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <div style="font-weight: bold; margin-bottom: 8px;">${label}</div>
+                            <div style="font-weight: bold; margin-bottom: 8px;">🕐 ${label}</div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
-                                <div>使用次數: ${slot.posts_count || 0}</div>
+                                <div>貼文數: ${slot.posts_count || 0}</div>
                                 <div>參與率: ${(parseFloat(slot.avg_engagement_rate) || 0).toFixed(1)}%</div>
                                 <div>平均按讚: ${Math.round(parseFloat(slot.avg_likes) || 0)}</div>
                                 <div>平均觀看: ${Math.round(parseFloat(slot.avg_views) || 0)}</div>
