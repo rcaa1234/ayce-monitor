@@ -999,6 +999,67 @@ export class StatisticsController {
   }
 
   /**
+   * GET /api/statistics/posts-by-hour
+   * 查詢指定時段（小時）的貼文列表
+   */
+  async getPostsByHour(req: Request, res: Response): Promise<void> {
+    try {
+      const hour = parseInt(req.query.hour as string);
+
+      if (isNaN(hour) || hour < 0 || hour > 23) {
+        res.status(400).json({
+          success: false,
+          error: '無效的時段參數（0-23）',
+        });
+        return;
+      }
+
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 查詢指定時段的貼文（使用台灣時區 UTC+8）
+      const [rows] = await pool.execute(
+        `SELECT 
+          p.id,
+          p.post_url,
+          p.posted_at,
+          pr.content as content_preview,
+          pi.views,
+          pi.likes,
+          pi.replies,
+          CASE WHEN pi.views > 0 
+               THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100) 
+               ELSE 0 END as engagement_rate
+        FROM posts p
+        LEFT JOIN post_insights pi ON p.id = pi.post_id
+        LEFT JOIN post_revisions pr ON p.id = pr.post_id
+        WHERE p.status = 'POSTED' 
+          AND p.posted_at IS NOT NULL
+          AND HOUR(CONVERT_TZ(p.posted_at, '+00:00', '+08:00')) = ?
+        ORDER BY p.posted_at DESC
+        LIMIT 20`,
+        [hour]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          hour,
+          posts: rows,
+          total: (rows as any[]).length,
+        },
+      });
+    } catch (error: any) {
+      logger.error('Failed to get posts by hour:', error);
+      res.status(500).json({
+        success: false,
+        error: '查詢失敗',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
    * 將 Threads API 的 media_type 轉換為資料庫 ENUM 值
    * 資料庫 ENUM: 'NONE', 'IMAGE', 'VIDEO', 'CAROUSEL'
    */

@@ -4820,14 +4820,26 @@
                 timeslots.forEach(slot => {
                     // 使用後端返回的 name 欄位（例如 "08:00 - 08:59"）
                     const label = slot.name || `${String(slot.start_hour || 0).padStart(2, '0')}:00`;
+                    const hour = slot.start_hour || slot.id || 0;
                     html += `
-                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <div style="font-weight: bold; margin-bottom: 8px;">🕐 ${label}</div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
-                                <div>貼文數: ${slot.posts_count || 0}</div>
-                                <div>參與率: ${(parseFloat(slot.avg_engagement_rate) || 0).toFixed(1)}%</div>
-                                <div>平均按讚: ${Math.round(parseFloat(slot.avg_likes) || 0)}</div>
-                                <div>平均觀看: ${Math.round(parseFloat(slot.avg_views) || 0)}</div>
+                        <div style="background: white; border-radius: 8px; margin-bottom: 10px; overflow: hidden;">
+                            <div onclick="toggleTimeslotDetail(${hour}, this)" 
+                                 style="padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;"
+                                 onmouseover="this.style.background='#f5f5f5'" 
+                                 onmouseout="this.style.background='white'">
+                                <div>
+                                    <div style="font-weight: bold; margin-bottom: 8px;">🕐 ${label}</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
+                                        <div>貼文數: ${slot.posts_count || 0}</div>
+                                        <div>參與率: ${(parseFloat(slot.avg_engagement_rate) || 0).toFixed(1)}%</div>
+                                        <div>平均按讚: ${Math.round(parseFloat(slot.avg_likes) || 0)}</div>
+                                        <div>平均觀看: ${Math.round(parseFloat(slot.avg_views) || 0)}</div>
+                                    </div>
+                                </div>
+                                <span style="font-size: 18px; color: #999; transition: transform 0.2s;">▼</span>
+                            </div>
+                            <div id="timeslot-detail-${hour}" style="display: none; padding: 0 15px 15px 15px; border-top: 1px solid #eee;">
+                                <p style="color: #999; text-align: center; padding: 10px 0; font-size: 12px;">點擊載入貼文...</p>
                             </div>
                         </div>
                     `;
@@ -4838,6 +4850,67 @@
             } catch (error) {
                 console.error('Failed to load timeslot statistics:', error);
                 container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        // Toggle timeslot detail
+        async function toggleTimeslotDetail(hour, headerEl) {
+            const detailEl = document.getElementById(`timeslot-detail-${hour}`);
+            const arrowEl = headerEl.querySelector('span');
+
+            if (detailEl.style.display === 'none') {
+                detailEl.style.display = 'block';
+                arrowEl.style.transform = 'rotate(180deg)';
+
+                // 載入該時段的貼文
+                detailEl.innerHTML = '<p style="color: #999; text-align: center; padding: 10px 0; font-size: 12px;">載入中...</p>';
+
+                try {
+                    const response = await fetch(`${API_BASE}/statistics/posts-by-hour?hour=${hour}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(result.error || 'Failed to load posts');
+                    }
+
+                    const posts = result.data.posts || [];
+
+                    if (posts.length === 0) {
+                        detailEl.innerHTML = '<p style="color: #999; text-align: center; padding: 10px 0; font-size: 12px;">此時段無貼文</p>';
+                        return;
+                    }
+
+                    let html = '<div style="font-size: 12px;">';
+                    posts.forEach(post => {
+                        const content = post.content_preview || post.content || '(無內容)';
+                        const truncated = content.length > 40 ? content.substring(0, 40) + '...' : content;
+                        const postedAt = post.posted_at ? new Date(post.posted_at).toLocaleDateString('zh-TW', {
+                            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                        }) : '-';
+
+                        html += `
+                            <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span style="color: #666;">${postedAt}</span>
+                                    <span style="color: #667eea;">👁 ${(post.views || 0).toLocaleString()} · ❤️ ${post.likes || 0}</span>
+                                </div>
+                                <div style="color: #333;">${truncated}</div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+
+                    detailEl.innerHTML = html;
+
+                } catch (error) {
+                    console.error('Failed to load posts for hour:', error);
+                    detailEl.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 10px 0; font-size: 12px;">載入失敗</p>';
+                }
+            } else {
+                detailEl.style.display = 'none';
+                arrowEl.style.transform = 'rotate(0deg)';
             }
         }
 

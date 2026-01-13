@@ -54,6 +54,9 @@ router.delete('/clear-pending', statisticsController.clearPendingPosts.bind(stat
 // DELETE /api/statistics/clear-scheduled - 清除所有排程中的貼文
 router.delete('/clear-scheduled', statisticsController.clearScheduledPosts.bind(statisticsController));
 
+// GET /api/statistics/posts-by-hour - 查詢指定時段的貼文
+router.get('/posts-by-hour', statisticsController.getPostsByHour.bind(statisticsController));
+
 // GET /api/statistics/debug-performance-log - 除錯：查看 UCB 表現記錄
 router.get('/debug-performance-log', statisticsController.debugPerformanceLog.bind(statisticsController));
 
