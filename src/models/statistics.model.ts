@@ -247,7 +247,7 @@ export class StatisticsModel {
       // 按發文小時分組統計
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
-          HOUR(p.posted_at) as id,
+          CAST(HOUR(p.posted_at) AS CHAR) as id,
           CONCAT(LPAD(HOUR(p.posted_at), 2, '0'), ':00 - ', LPAD(HOUR(p.posted_at), 2, '0'), ':59') as name,
           HOUR(p.posted_at) as start_hour,
           0 as start_minute,
@@ -264,8 +264,8 @@ export class StatisticsModel {
         LEFT JOIN post_insights pi ON p.id = pi.post_id
         WHERE p.status = 'POSTED' AND p.posted_at IS NOT NULL
         GROUP BY HOUR(p.posted_at)
-        HAVING posts_count > 0
-        ORDER BY start_hour ASC`
+        HAVING COUNT(DISTINCT p.id) > 0
+        ORDER BY HOUR(p.posted_at) ASC`
       );
 
       return rows as TimeslotStats[];
