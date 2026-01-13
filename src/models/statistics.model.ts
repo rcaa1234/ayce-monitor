@@ -244,28 +244,37 @@ export class StatisticsModel {
     const pool = getPool();
 
     try {
-      // 按發文小時分組統計
+      // 使用子查詢方式確保 MySQL 兼容性
       const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT
-          CAST(HOUR(p.posted_at) AS CHAR) as id,
-          CONCAT(LPAD(HOUR(p.posted_at), 2, '0'), ':00 - ', LPAD(HOUR(p.posted_at), 2, '0'), ':59') as name,
-          HOUR(p.posted_at) as start_hour,
+        `SELECT 
+          hour_of_day as id,
+          CONCAT(LPAD(hour_of_day, 2, '0'), ':00 - ', LPAD(hour_of_day, 2, '0'), ':59') as name,
+          hour_of_day as start_hour,
           0 as start_minute,
-          COUNT(DISTINCT p.id) as posts_count,
-          COALESCE(AVG(
-            CASE
-              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
-              ELSE 0
-            END
-          ), 0) as avg_engagement_rate,
-          COALESCE(AVG(pi.likes), 0) as avg_likes,
-          COALESCE(AVG(pi.views), 0) as avg_views
-        FROM posts p
-        LEFT JOIN post_insights pi ON p.id = pi.post_id
-        WHERE p.status = 'POSTED' AND p.posted_at IS NOT NULL
-        GROUP BY HOUR(p.posted_at)
-        HAVING COUNT(DISTINCT p.id) > 0
-        ORDER BY HOUR(p.posted_at) ASC`
+          post_count as posts_count,
+          avg_rate as avg_engagement_rate,
+          avg_like as avg_likes,
+          avg_view as avg_views
+        FROM (
+          SELECT 
+            HOUR(p.posted_at) as hour_of_day,
+            COUNT(*) as post_count,
+            COALESCE(AVG(
+              CASE 
+                WHEN pi.views > 0 THEN ((COALESCE(pi.likes, 0) + COALESCE(pi.replies, 0) + COALESCE(pi.reposts, 0)) / pi.views * 100)
+                ELSE 0 
+              END
+            ), 0) as avg_rate,
+            COALESCE(AVG(COALESCE(pi.likes, 0)), 0) as avg_like,
+            COALESCE(AVG(COALESCE(pi.views, 0)), 0) as avg_view
+          FROM posts p
+          LEFT JOIN post_insights pi ON p.id = pi.post_id
+          WHERE p.status = 'POSTED' 
+            AND p.posted_at IS NOT NULL
+          GROUP BY HOUR(p.posted_at)
+        ) as hourly_stats
+        WHERE post_count > 0
+        ORDER BY hour_of_day ASC`
       );
 
       return rows as TimeslotStats[];
