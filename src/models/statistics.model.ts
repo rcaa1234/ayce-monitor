@@ -257,7 +257,7 @@ export class StatisticsModel {
           avg_view as avg_views
         FROM (
           SELECT 
-            HOUR(p.posted_at) as hour_of_day,
+            HOUR(CONVERT_TZ(p.posted_at, '+00:00', '+08:00')) as hour_of_day,
             COUNT(*) as post_count,
             COALESCE(AVG(
               CASE 
@@ -271,7 +271,7 @@ export class StatisticsModel {
           LEFT JOIN post_insights pi ON p.id = pi.post_id
           WHERE p.status = 'POSTED' 
             AND p.posted_at IS NOT NULL
-          GROUP BY HOUR(p.posted_at)
+          GROUP BY HOUR(CONVERT_TZ(p.posted_at, '+00:00', '+08:00'))
         ) as hourly_stats
         WHERE post_count > 0
         ORDER BY hour_of_day ASC`
