@@ -3311,10 +3311,25 @@
                 return;
             }
 
-            if (!confirm('✅ 系統將使用 UCB 演算法選擇最佳模板和時段\n\n📋 立即建立排程並生成文章（測試用）\n💬 生成完成後會發送 LINE 通知給您審核\n\n確定要立即觸發嗎？')) return;
+            // 先檢查 AI 提示詞是否已設定
+            try {
+                const configRes = await fetch(`${API_BASE}/ucb-config`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const configData = await configRes.json();
+
+                if (!configData.ai_prompt || configData.ai_prompt.trim() === '') {
+                    alert('❌ 請先到「提示詞設定」頁面設定 AI 生成提示詞');
+                    return;
+                }
+            } catch (e) {
+                console.error('Failed to check config:', e);
+            }
+
+            if (!confirm('📋 系統將立即生成一篇測試文章\n💬 生成完成後會發送 LINE 通知給您審核\n\n確定要立即觸發嗎？')) return;
 
             try {
-                showSmartMessage('ucb-message', '⏳ 正在觸發 UCB 排程並生成文章...', 'info');
+                showSmartMessage('ai-message', '⏳ 正在生成文章...請稍候', 'info');
 
                 const response = await fetch(`${API_BASE}/trigger-daily-schedule`, {
                     method: 'POST',
@@ -3327,18 +3342,18 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.message || '觸發失敗');
+                    throw new Error(errorData.message || errorData.error || '觸發失敗');
                 }
 
                 const data = await response.json();
-                showSmartMessage('ucb-message', '✅ 排程已建立並開始生成文章！請稍候查看 LINE 通知', 'success');
+                showSmartMessage('ai-message', '✅ 文章已建立！請稍候查看 LINE 通知進行審核', 'success');
 
                 // Reload schedule history
                 setTimeout(() => {
                     loadScheduleHistory();
                 }, 1000);
             } catch (error) {
-                showSmartMessage('ucb-message', '❌ 觸發失敗: ' + error.message, 'error');
+                showSmartMessage('ai-message', '❌ 觸發失敗: ' + error.message, 'error');
             }
         }
 

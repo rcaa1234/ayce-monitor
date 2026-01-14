@@ -2928,7 +2928,7 @@ router.post('/auto-schedules/:id/manual-approve', authenticate, async (req: Requ
 /**
  * POST /api/trigger-daily-schedule
  * 用途：快速測試內容生成和 LINE 通知流程（測試用）
- * 說明：此功能完全獨立於 UCB 排程系統，用於測試整個審核發布流程
+ * 說明：使用「提示詞設定」中的 AI 提示詞來生成內容
  */
 router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -2940,22 +2940,43 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
 
     logger.info('🧪 Quick test: Generating content for LINE approval test');
 
-    // 從 UCB 配置取得 LINE User ID
+    // 從配置取得 AI 提示詞和設定
     const [configs] = await pool.execute<RowDataPacket[]>(
-      `SELECT line_user_id FROM smart_schedule_config WHERE enabled = true LIMIT 1`
+      `SELECT line_user_id, threads_account_id, ai_prompt, ai_engine 
+       FROM smart_schedule_config WHERE enabled = true LIMIT 1`
     );
 
-    if (configs.length === 0 || !configs[0].line_user_id) {
+    if (configs.length === 0) {
       res.status(400).json({
-        error: '請先在 UCB 設定中設定 LINE User ID',
-        hint: '前往 UCB 智能排程設定頁面，填寫您的 LINE User ID'
+        error: '尚未設定配置',
+        hint: '請到「帳號管理」頁面設定 Threads 帳號和 LINE User ID'
       });
       return;
     }
 
-    const lineUserId = configs[0].line_user_id;
+    const config = configs[0];
 
-    // 找到對應的使用者並取得 Threads 帳號
+    if (!config.line_user_id) {
+      res.status(400).json({
+        error: '請先設定 LINE User ID',
+        hint: '前往「帳號管理」頁面，填寫您的 LINE User ID'
+      });
+      return;
+    }
+
+    if (!config.ai_prompt || config.ai_prompt.trim() === '') {
+      res.status(400).json({
+        error: 'AI 提示詞未設定',
+        hint: '請到「提示詞設定」頁面設定 AI 生成提示詞'
+      });
+      return;
+    }
+
+    const lineUserId = config.line_user_id;
+    const aiPrompt = config.ai_prompt;
+    const aiEngine = config.ai_engine || 'GPT5_2';
+
+    // 找到對應的使用者
     const [users] = await pool.execute<RowDataPacket[]>(
       `SELECT u.id, ta.id as threads_account_id
        FROM users u
@@ -2974,52 +2995,37 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
     }
 
     const creatorId = users[0].id;
-    const threadsAccountId = users[0].threads_account_id;
+    const threadsAccountId = users[0].threads_account_id || config.threads_account_id;
 
-    // 隨機選擇一個啟用的模板
-    const [templates] = await pool.execute<RowDataPacket[]>(
-      `SELECT id, name, prompt, preferred_engine FROM content_templates
-       WHERE enabled = true
-       ORDER BY RAND()
-       LIMIT 1`
-    );
-
-    if (templates.length === 0) {
+    if (!threadsAccountId) {
       res.status(400).json({
-        error: '沒有可用的內容模板',
-        hint: '請先建立至少一個啟用的內容模板'
+        error: '沒有可用的 Threads 帳號',
+        hint: '請到「帳號管理」頁面選擇 Threads 帳號'
       });
       return;
     }
 
-    const template = templates[0];
-    logger.info(`📝 Using template: ${template.name}`);
+    logger.info(`📝 Using AI prompt: ${aiPrompt.substring(0, 50)}...`);
+    logger.info(`🤖 Using AI engine: ${aiEngine}`);
 
-    // 建立 Post (DRAFT 狀態) - 包含 template_id 以支援重新生成
+    // 建立 Post (DRAFT 狀態)
     const post = await PostModel.create({
       status: PostStatus.DRAFT,
       created_by: creatorId,
-      template_id: template.id,
+      is_ai_generated: true,
     });
 
     logger.info(`✓ Created post: ${post.id}`);
 
-    // Threads 帳號會透過 created_by -> users -> threads_accounts 關聯自動取得
-    if (threadsAccountId) {
-      logger.info(`✓ User has Threads account: ${threadsAccountId}`);
-    } else {
-      logger.warn(`⚠ User does not have a default Threads account`);
-    }
-
-    // 加入生成佇列
+    // 加入生成佇列（使用單一提示詞配置）
     await queueService.addGenerateJob({
       postId: post.id,
       createdBy: creatorId,
-      stylePreset: template.prompt,
-      engine: template.preferred_engine || 'GPT5_2',
+      stylePreset: aiPrompt,
+      engine: aiEngine,
     });
 
-    logger.info(`✓ Added to generation queue with engine: ${template.preferred_engine || 'GPT5_2'}`);
+    logger.info(`✓ Added to generation queue with engine: ${aiEngine}`);
     logger.info(`📱 LINE notification will be sent to: ${lineUserId}`);
 
     res.json({
@@ -3027,9 +3033,9 @@ router.post('/trigger-daily-schedule', authenticate, async (req: Request, res: R
       message: '✅ 測試已啟動！文章生成完成後會發送 LINE 通知給您審核',
       details: {
         postId: post.id,
-        templateName: template.name,
+        prompt: aiPrompt.substring(0, 100) + '...',
         lineUserId: lineUserId,
-        engine: template.preferred_engine || 'GPT5_2',
+        engine: aiEngine,
       }
     });
   } catch (error: any) {

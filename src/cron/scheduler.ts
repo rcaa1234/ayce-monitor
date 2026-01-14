@@ -352,9 +352,12 @@ export async function createDailyAutoSchedule() {
       return;
     }
 
-    // 檢查今天是否已有排程
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    // 檢查今天是否已有排程（使用台灣時區）
+    const now = new Date();
+    // 轉換為台灣時間
+    const taiwanOffset = 8 * 60; // UTC+8
+    const taiwanNow = new Date(now.getTime() + (taiwanOffset + now.getTimezoneOffset()) * 60 * 1000);
+    const todayStr = taiwanNow.toISOString().split('T')[0]; // YYYY-MM-DD (台灣日期)
 
     const [existing] = await pool.execute<RowDataPacket[]>(
       'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
@@ -373,19 +376,31 @@ export async function createDailyAutoSchedule() {
     const [startHour, startMinute] = startTime.split(':').map(Number);
     const [endHour, endMinute] = endTime.split(':').map(Number);
 
-    // 計算隨機發文時間
+    // 計算隨機發文時間（以分鐘為單位）
     const startMinutes = startHour * 60 + startMinute;
     const endMinutes = endHour * 60 + endMinute;
     const randomMinutes = startMinutes + Math.floor(Math.random() * (endMinutes - startMinutes));
     const scheduledHour = Math.floor(randomMinutes / 60);
     const scheduledMinute = randomMinutes % 60;
 
-    const scheduledTime = new Date(today);
-    scheduledTime.setHours(scheduledHour, scheduledMinute, 0, 0);
+    // 建立台灣時區的排程時間
+    // 先取得台灣今天的日期，然後設定時間
+    const scheduledTime = new Date();
+    // 設定為台灣時間的今天 00:00
+    const taiwanMidnight = new Date(taiwanNow.getFullYear(), taiwanNow.getMonth(), taiwanNow.getDate(), 0, 0, 0, 0);
+    // 轉回 UTC（減去 8 小時）
+    scheduledTime.setTime(taiwanMidnight.getTime() - taiwanOffset * 60 * 1000);
+    // 加上排程的小時和分鐘
+    scheduledTime.setTime(scheduledTime.getTime() + (scheduledHour * 60 + scheduledMinute) * 60 * 1000);
+
+    logger.info(`[Schedule] Calculated time: startTime=${startTime}, endTime=${endTime}, randomHour=${scheduledHour}, randomMinute=${scheduledMinute}`);
+    logger.info(`[Schedule] Scheduled time (UTC): ${scheduledTime.toISOString()}`);
+    logger.info(`[Schedule] Scheduled time (Taiwan): ${new Date(scheduledTime.getTime() + taiwanOffset * 60 * 1000).toISOString()}`);
 
     // 如果選擇的時間已經過了，設定為明天同一時間
-    if (scheduledTime <= new Date()) {
+    if (scheduledTime <= now) {
       scheduledTime.setDate(scheduledTime.getDate() + 1);
+      logger.info(`[Schedule] Time already passed, moving to tomorrow: ${scheduledTime.toISOString()}`);
     }
 
     // 取得建立者: 優先使用配置的 LINE User ID
