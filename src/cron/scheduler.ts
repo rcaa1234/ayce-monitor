@@ -731,6 +731,24 @@ export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
 });
 
 /**
+ * Google Trends 每日抓取
+ * Runs daily at 06:00 - 每天早上抓取搜尋趨勢數據
+ */
+export const dailyTrendsFetch = cron.schedule('0 6 * * *', async () => {
+  logger.info('[Trends] Running daily trends fetch...');
+
+  try {
+    const trendsService = (await import('../services/trends.service')).default;
+    await trendsService.fetchTrendsForAllBrands();
+    logger.info('[Trends] Daily trends fetch completed');
+  } catch (error) {
+    logger.error('[Trends] Daily trends fetch failed:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
@@ -767,11 +785,15 @@ export async function startSchedulers() {
     logger.info('[Monitor] Starting monitorCrawlScheduler (every 30 minutes)...');
     monitorCrawlScheduler.start();
 
+    // Start Trends scheduler
+    logger.info('[Trends] Starting dailyTrendsFetch (daily at 06:00)...');
+    dailyTrendsFetch.start();
+
     logger.info('✓ All schedulers started successfully');
     logger.info('  - Fixed schedulers: 6 jobs');
     logger.info('  - UCB schedulers: 2 jobs');
-    logger.info('  - Monitor schedulers: 1 job');
-    logger.info('  - Total: 9 cron jobs running');
+    logger.info('  - Monitor schedulers: 2 jobs');
+    logger.info('  - Total: 10 cron jobs running');
   } catch (error) {
     logger.error('[Scheduler] Failed to start schedulers:', error);
     throw error;
@@ -796,6 +818,9 @@ export function stopSchedulers() {
 
   // Stop Monitor scheduler
   monitorCrawlScheduler.stop();
+
+  // Stop Trends scheduler
+  dailyTrendsFetch.stop();
 
   logger.info('✓ All schedulers stopped');
 }

@@ -46,4 +46,13 @@ router.get('/crawl-logs', monitorController.getCrawlLogs.bind(monitorController)
 // ========================================
 router.get('/templates', monitorController.getSourceTemplates.bind(monitorController));
 
+// ========================================
+// Google Trends
+// ========================================
+router.get('/trends/compare', monitorController.compareTrends.bind(monitorController));
+router.get('/trends/daily', monitorController.getDailyTrends.bind(monitorController));
+router.get('/trends/related/:keyword', monitorController.getRelatedQueries.bind(monitorController));
+router.get('/trends/:brandId', monitorController.getBrandTrends.bind(monitorController));
+router.post('/trends/fetch', monitorController.fetchTrends.bind(monitorController));
+
 export default router;

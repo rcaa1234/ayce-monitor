@@ -594,6 +594,112 @@ class MonitorController {
 
         res.json({ success: true, data: templates });
     }
+
+    // ========================================
+    // Google Trends API
+    // ========================================
+
+    /**
+     * GET /api/monitor/trends/:brandId - 取得品牌的搜尋趨勢
+     */
+    async getBrandTrends(req: Request, res: Response): Promise<void> {
+        try {
+            const { brandId } = req.params;
+            const { days = 30 } = req.query;
+
+            const trendsService = (await import('../services/trends.service')).default;
+            const trends = await trendsService.getBrandTrends(brandId, Number(days));
+
+            res.json({ success: true, data: trends });
+        } catch (error: any) {
+            logger.error('Failed to get brand trends:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/trends/compare - 比較多個品牌的趨勢
+     */
+    async compareTrends(req: Request, res: Response): Promise<void> {
+        try {
+            const { brand_ids, days = 30 } = req.query;
+
+            if (!brand_ids) {
+                res.status(400).json({ success: false, error: '請提供品牌 ID' });
+                return;
+            }
+
+            const brandIdList = typeof brand_ids === 'string'
+                ? brand_ids.split(',')
+                : (brand_ids as string[]);
+
+            const trendsService = (await import('../services/trends.service')).default;
+            const comparison = await trendsService.compareBrandTrends(brandIdList, Number(days));
+
+            res.json({ success: true, data: comparison });
+        } catch (error: any) {
+            logger.error('Failed to compare trends:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/trends/fetch - 手動抓取趨勢數據
+     */
+    async fetchTrends(req: Request, res: Response): Promise<void> {
+        try {
+            const trendsService = (await import('../services/trends.service')).default;
+
+            // 非同步執行，立即返回
+            trendsService.fetchTrendsForAllBrands().catch(err => {
+                logger.error('Background trends fetch failed:', err);
+            });
+
+            res.json({
+                success: true,
+                message: '已開始抓取 Google Trends 數據，請稍後查看結果'
+            });
+        } catch (error: any) {
+            logger.error('Failed to trigger trends fetch:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/trends/daily - 取得每日熱門搜尋
+     */
+    async getDailyTrends(req: Request, res: Response): Promise<void> {
+        try {
+            const { geo = 'TW' } = req.query;
+
+            const trendsService = (await import('../services/trends.service')).default;
+            const trends = await trendsService.getDailyTrends(geo as string);
+
+            res.json({ success: true, data: trends });
+        } catch (error: any) {
+            logger.error('Failed to get daily trends:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/trends/related/:keyword - 取得相關搜尋詞
+     */
+    async getRelatedQueries(req: Request, res: Response): Promise<void> {
+        try {
+            const { keyword } = req.params;
+            const { geo = 'TW' } = req.query;
+
+            const trendsService = (await import('../services/trends.service')).default;
+            const related = await trendsService.getRelatedQueries(keyword, geo as string);
+
+            res.json({ success: true, data: related });
+        } catch (error: any) {
+            logger.error('Failed to get related queries:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }
 
 export default new MonitorController();
+
