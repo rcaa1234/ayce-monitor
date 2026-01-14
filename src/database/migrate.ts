@@ -573,6 +573,396 @@ const migrations = [
   ALTER TABLE posts
   ADD COLUMN is_ai_generated BOOLEAN DEFAULT false COMMENT '是否為 AI 生成' AFTER template_id;
   `,
+
+  // ========================================
+  // Migration 31-37: 聲量監控系統
+  // ========================================
+
+  // Migration 31: 品牌管理表 monitor_brands
+  `
+  CREATE TABLE IF NOT EXISTS monitor_brands (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 基本資訊
+    name VARCHAR(100) NOT NULL COMMENT '品牌名稱',
+    short_name VARCHAR(50) NULL COMMENT '簡稱/代碼',
+    description TEXT NULL COMMENT '品牌描述',
+    logo_url VARCHAR(500) NULL COMMENT 'Logo 圖片 URL',
+    brand_type ENUM('own', 'competitor', 'industry', 'other') DEFAULT 'own' COMMENT '類型',
+    category VARCHAR(100) NULL COMMENT '產業類別',
+    
+    -- 關鍵字設定
+    keywords JSON NOT NULL COMMENT '監控關鍵字',
+    keyword_groups JSON NULL COMMENT '關鍵字分組',
+    exclude_keywords JSON NULL COMMENT '排除關鍵字',
+    hashtags JSON NULL COMMENT '追蹤的 Hashtag',
+    
+    -- 通知設定
+    notify_enabled BOOLEAN DEFAULT true COMMENT '啟用即時通知',
+    notify_channels JSON DEFAULT ('["line"]') COMMENT '通知管道',
+    notify_threshold INT DEFAULT 1 COMMENT '累積 N 筆才通知',
+    notify_interval_minutes INT DEFAULT 30 COMMENT '通知間隔（分鐘）',
+    notify_negative_only BOOLEAN DEFAULT false COMMENT '僅負面才通知',
+    notify_high_engagement BOOLEAN DEFAULT true COMMENT '高互動時通知',
+    engagement_threshold INT DEFAULT 100 COMMENT '高互動閾值',
+    
+    -- 報表設定
+    report_enabled BOOLEAN DEFAULT false COMMENT '啟用自動報表',
+    report_frequency ENUM('daily', 'weekly', 'monthly') DEFAULT 'weekly' COMMENT '報表頻率',
+    report_recipients JSON NULL COMMENT '報表收件人 Email',
+    
+    -- 顯示設定
+    display_color VARCHAR(7) DEFAULT '#667eea' COMMENT '顯示顏色',
+    display_order INT DEFAULT 0 COMMENT '排序順序',
+    is_pinned BOOLEAN DEFAULT false COMMENT '置頂顯示',
+    
+    -- 狀態
+    is_active BOOLEAN DEFAULT true COMMENT '是否啟用',
+    
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by CHAR(36) NULL COMMENT '建立者',
+    
+    INDEX idx_active_type (is_active, brand_type),
+    INDEX idx_order (display_order)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品牌/監控目標管理';
+  `,
+
+  // Migration 32: 監控來源表 monitor_sources
+  `
+  CREATE TABLE IF NOT EXISTS monitor_sources (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 基本資訊
+    name VARCHAR(100) NOT NULL COMMENT '來源名稱',
+    description TEXT NULL COMMENT '描述',
+    url VARCHAR(2000) NOT NULL COMMENT '監控網址',
+    platform ENUM('dcard', 'ptt', 'facebook', 'instagram', 'youtube', 'threads', 'twitter', 'news', 'blog', 'forum', 'pixnet', 'mobile01', 'other') DEFAULT 'other' COMMENT '平台類型',
+    platform_category VARCHAR(50) NULL COMMENT '平台子分類',
+    
+    -- 來源類型
+    source_type ENUM('page', 'search', 'rss', 'api') DEFAULT 'page' COMMENT '來源類型',
+    search_query VARCHAR(200) NULL COMMENT '搜尋關鍵字（當 source_type=search）',
+    
+    -- 抓取設定
+    check_interval_hours INT DEFAULT 1 COMMENT '檢查間隔（小時，1-24）',
+    crawl_depth INT DEFAULT 1 COMMENT '爬取深度',
+    max_pages INT DEFAULT 3 COMMENT '最多爬幾頁',
+    max_items_per_check INT DEFAULT 50 COMMENT '每次最多處理幾筆',
+    
+    -- 技術設定
+    use_puppeteer BOOLEAN DEFAULT false COMMENT '使用無頭瀏覽器',
+    user_agent VARCHAR(500) NULL COMMENT '自訂 User-Agent',
+    request_delay_ms INT DEFAULT 1000 COMMENT '請求間隔（毫秒）',
+    timeout_seconds INT DEFAULT 30 COMMENT '超時秒數',
+    
+    -- 選取器設定
+    selectors JSON NULL COMMENT 'CSS 選取器設定',
+    
+    -- 健康狀態
+    is_active BOOLEAN DEFAULT true COMMENT '是否啟用',
+    health_status ENUM('healthy', 'warning', 'error', 'unknown') DEFAULT 'unknown' COMMENT '健康狀態',
+    last_checked_at DATETIME NULL COMMENT '上次檢查時間',
+    last_success_at DATETIME NULL COMMENT '上次成功時間',
+    consecutive_failures INT DEFAULT 0 COMMENT '連續失敗次數',
+    last_error TEXT NULL COMMENT '最後錯誤訊息',
+    total_crawl_count INT DEFAULT 0 COMMENT '總爬取次數',
+    total_mention_count INT DEFAULT 0 COMMENT '總發現提及數',
+    
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by CHAR(36) NULL,
+    
+    INDEX idx_active (is_active),
+    INDEX idx_platform (platform),
+    INDEX idx_next_check (is_active, last_checked_at),
+    INDEX idx_health (health_status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='監控來源網站設定';
+  `,
+
+  // Migration 33: 品牌-來源關聯表 monitor_brand_sources
+  `
+  CREATE TABLE IF NOT EXISTS monitor_brand_sources (
+    id CHAR(36) PRIMARY KEY,
+    brand_id CHAR(36) NOT NULL,
+    source_id CHAR(36) NOT NULL,
+    
+    -- 個別設定
+    custom_keywords JSON NULL COMMENT '此來源專用關鍵字',
+    custom_notify_enabled BOOLEAN NULL COMMENT '覆蓋通知設定',
+    priority INT DEFAULT 0 COMMENT '優先度',
+    
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_brand_source (brand_id, source_id),
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_id) REFERENCES monitor_sources(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品牌與監控來源關聯';
+  `,
+
+  // Migration 34: 提及記錄表 monitor_mentions
+  `
+  CREATE TABLE IF NOT EXISTS monitor_mentions (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 關聯
+    source_id CHAR(36) NOT NULL COMMENT '來源',
+    brand_id CHAR(36) NOT NULL COMMENT '品牌',
+    crawl_log_id CHAR(36) NULL COMMENT '關聯爬取日誌',
+    
+    -- 文章基本資訊
+    external_id VARCHAR(200) NULL COMMENT '外部平台文章 ID',
+    url VARCHAR(2000) NOT NULL COMMENT '文章連結',
+    title VARCHAR(1000) NULL COMMENT '標題',
+    content MEDIUMTEXT NULL COMMENT '完整內容',
+    content_preview VARCHAR(500) NULL COMMENT '內容摘要',
+    content_length INT NULL COMMENT '內容字數',
+    content_hash VARCHAR(64) NULL COMMENT '內容 Hash',
+    
+    -- 作者資訊
+    author_id VARCHAR(100) NULL COMMENT '作者 ID',
+    author_name VARCHAR(100) NULL COMMENT '作者名稱',
+    author_avatar_url VARCHAR(500) NULL COMMENT '作者頭像',
+    author_followers INT NULL COMMENT '作者粉絲數',
+    is_kol BOOLEAN DEFAULT false COMMENT '是否為 KOL',
+    
+    -- 匹配資訊
+    matched_keywords JSON NOT NULL COMMENT '觸發的關鍵字',
+    keyword_count INT DEFAULT 1 COMMENT '關鍵字出現總次數',
+    match_location ENUM('title', 'content', 'both', 'hashtag') DEFAULT 'content' COMMENT '匹配位置',
+    match_context TEXT NULL COMMENT '關鍵字上下文',
+    
+    -- 互動數據
+    likes_count INT NULL COMMENT '讚數',
+    comments_count INT NULL COMMENT '留言數',
+    shares_count INT NULL COMMENT '分享數',
+    views_count INT NULL COMMENT '觀看數',
+    engagement_score INT NULL COMMENT '互動分數',
+    is_high_engagement BOOLEAN DEFAULT false COMMENT '高互動標記',
+    
+    -- 情感分析（預留）
+    sentiment ENUM('positive', 'negative', 'neutral', 'mixed') NULL COMMENT '情感傾向',
+    sentiment_score DECIMAL(4,3) NULL COMMENT '情感分數 -1.000 到 1.000',
+    sentiment_confidence DECIMAL(3,2) NULL COMMENT '信心度 0-1',
+    sentiment_keywords JSON NULL COMMENT '情感關鍵詞',
+    sentiment_analyzed_at DATETIME NULL COMMENT '分析時間',
+    
+    -- 議題分類（預留）
+    topics JSON NULL COMMENT '議題標籤',
+    category VARCHAR(50) NULL COMMENT '自動分類',
+    
+    -- 時間資訊
+    published_at DATETIME NULL COMMENT '原文發布時間',
+    discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '發現時間',
+    
+    -- 通知狀態
+    is_notified BOOLEAN DEFAULT false COMMENT '已 LINE 通知',
+    notified_at DATETIME NULL COMMENT '通知時間',
+    notification_id CHAR(36) NULL COMMENT '關聯通知記錄',
+    
+    -- 使用者操作
+    is_read BOOLEAN DEFAULT false COMMENT '已讀',
+    read_at DATETIME NULL,
+    is_starred BOOLEAN DEFAULT false COMMENT '星號標記',
+    is_archived BOOLEAN DEFAULT false COMMENT '封存',
+    is_flagged BOOLEAN DEFAULT false COMMENT '標記為問題',
+    flag_reason VARCHAR(200) NULL COMMENT '標記原因',
+    user_notes TEXT NULL COMMENT '使用者備註',
+    assigned_to CHAR(36) NULL COMMENT '指派給',
+    
+    -- 處理狀態
+    action_status ENUM('new', 'viewed', 'processing', 'responded', 'resolved', 'ignored') DEFAULT 'new' COMMENT '處理狀態',
+    action_notes TEXT NULL COMMENT '處理備註',
+    resolved_at DATETIME NULL,
+    resolved_by CHAR(36) NULL,
+    
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_brand_discovered (brand_id, discovered_at DESC),
+    INDEX idx_source_discovered (source_id, discovered_at DESC),
+    INDEX idx_unread (brand_id, is_read, discovered_at DESC),
+    INDEX idx_unnotified (is_notified, discovered_at),
+    INDEX idx_sentiment (sentiment, discovered_at),
+    INDEX idx_engagement (is_high_engagement, engagement_score DESC),
+    INDEX idx_action (action_status, discovered_at),
+    INDEX idx_content_hash (content_hash),
+    INDEX idx_external_id (external_id),
+    INDEX idx_published (published_at DESC),
+    
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_id) REFERENCES monitor_sources(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='輿情提及記錄';
+  `,
+
+  // Migration 35: 統計彙總表 monitor_stats
+  `
+  CREATE TABLE IF NOT EXISTS monitor_stats (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 維度
+    brand_id CHAR(36) NOT NULL,
+    source_id CHAR(36) NULL COMMENT 'NULL = 全來源合計',
+    stat_date DATE NOT NULL COMMENT '統計日期',
+    stat_type ENUM('daily', 'weekly', 'monthly') DEFAULT 'daily' COMMENT '統計類型',
+    
+    -- 聲量統計
+    mention_count INT DEFAULT 0 COMMENT '提及次數',
+    unique_articles INT DEFAULT 0 COMMENT '不重複文章數',
+    unique_authors INT DEFAULT 0 COMMENT '不重複作者數',
+    
+    -- 情感統計
+    positive_count INT DEFAULT 0,
+    negative_count INT DEFAULT 0,
+    neutral_count INT DEFAULT 0,
+    mixed_count INT DEFAULT 0,
+    avg_sentiment_score DECIMAL(4,3) NULL COMMENT '平均情感分數',
+    
+    -- 互動統計
+    total_likes INT DEFAULT 0,
+    total_comments INT DEFAULT 0,
+    total_shares INT DEFAULT 0,
+    total_views INT DEFAULT 0,
+    total_engagement INT DEFAULT 0,
+    avg_engagement DECIMAL(10,2) DEFAULT 0,
+    max_engagement INT DEFAULT 0 COMMENT '單篇最高互動',
+    high_engagement_count INT DEFAULT 0 COMMENT '高互動貼文數',
+    
+    -- KOL 統計
+    kol_mention_count INT DEFAULT 0 COMMENT 'KOL 提及數',
+    
+    -- 時段分佈
+    hourly_distribution JSON NULL COMMENT '24小時分佈',
+    
+    -- 比較數據
+    mention_change_percent DECIMAL(5,2) NULL COMMENT '與前期比較變化%',
+    engagement_change_percent DECIMAL(5,2) NULL,
+    
+    -- 熱門關鍵字
+    top_keywords JSON NULL COMMENT '熱門關鍵字',
+    top_topics JSON NULL COMMENT '熱門議題',
+    
+    -- 時間戳記
+    calculated_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '計算時間',
+    
+    UNIQUE KEY uk_brand_source_date_type (brand_id, source_id, stat_date, stat_type),
+    INDEX idx_brand_date (brand_id, stat_date DESC),
+    INDEX idx_stat_type (stat_type, stat_date DESC),
+    
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='聲量統計彙總';
+  `,
+
+  // Migration 36: 爬取日誌表 monitor_crawl_logs
+  `
+  CREATE TABLE IF NOT EXISTS monitor_crawl_logs (
+    id CHAR(36) PRIMARY KEY,
+    source_id CHAR(36) NOT NULL,
+    
+    -- 執行資訊
+    started_at DATETIME NOT NULL,
+    completed_at DATETIME NULL,
+    duration_ms INT NULL COMMENT '執行時間（毫秒）',
+    
+    -- 結果統計
+    status ENUM('running', 'success', 'partial', 'failed', 'timeout', 'skipped') DEFAULT 'running',
+    pages_crawled INT DEFAULT 0 COMMENT '爬取頁數',
+    articles_found INT DEFAULT 0 COMMENT '發現文章數',
+    articles_processed INT DEFAULT 0 COMMENT '處理文章數',
+    new_mentions INT DEFAULT 0 COMMENT '新增提及數',
+    duplicate_skipped INT DEFAULT 0 COMMENT '重複跳過數',
+    
+    -- 錯誤資訊
+    error_code VARCHAR(50) NULL,
+    error_message TEXT NULL,
+    error_stack TEXT NULL,
+    
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_source_date (source_id, started_at DESC),
+    INDEX idx_status (status, started_at DESC),
+    
+    FOREIGN KEY (source_id) REFERENCES monitor_sources(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='爬取執行日誌';
+  `,
+
+  // Migration 37: 通知日誌表 monitor_notifications
+  `
+  CREATE TABLE IF NOT EXISTS monitor_notifications (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 通知類型
+    notification_type ENUM('realtime', 'digest', 'alert', 'report') DEFAULT 'realtime' COMMENT '類型',
+    channel ENUM('line', 'email', 'webhook', 'sms') DEFAULT 'line',
+    
+    -- 關聯
+    brand_id CHAR(36) NULL,
+    mention_ids JSON NULL COMMENT '包含的提及 ID 列表',
+    mention_count INT DEFAULT 0,
+    
+    -- 通知內容
+    title VARCHAR(200) NULL,
+    summary TEXT NULL COMMENT '摘要內容',
+    message TEXT NULL COMMENT '完整通知內容',
+    
+    -- 狀態
+    status ENUM('pending', 'sending', 'sent', 'failed', 'cancelled') DEFAULT 'pending',
+    retry_count INT DEFAULT 0,
+    max_retries INT DEFAULT 3,
+    
+    -- 結果
+    sent_at DATETIME NULL,
+    error_message TEXT NULL,
+    response_data JSON NULL COMMENT 'API 回應',
+    
+    -- 時間戳記
+    scheduled_at DATETIME NULL COMMENT '排程發送時間',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX idx_status (status, created_at),
+    INDEX idx_brand (brand_id, created_at DESC),
+    INDEX idx_channel (channel, status)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通知發送日誌';
+  `,
+
+  // Migration 38: Google Trends 趨勢表 monitor_trends
+  `
+  CREATE TABLE IF NOT EXISTS monitor_trends (
+    id CHAR(36) PRIMARY KEY,
+    
+    -- 關聯
+    brand_id CHAR(36) NOT NULL,
+    
+    -- 數據來源
+    source ENUM('google_trends', 'other') DEFAULT 'google_trends',
+    keyword VARCHAR(200) NOT NULL COMMENT '搜尋的關鍵字',
+    
+    -- 趨勢數據
+    trend_date DATE NOT NULL,
+    trend_value INT NULL COMMENT '熱度值 0-100',
+    
+    -- 地區
+    region VARCHAR(50) DEFAULT 'TW',
+    region_breakdown JSON NULL COMMENT '各地區分佈',
+    
+    -- 相關搜尋
+    related_queries JSON NULL COMMENT '相關搜尋詞',
+    rising_queries JSON NULL COMMENT '快速上升的搜尋詞',
+    
+    -- 時間戳記
+    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_brand_keyword_date (brand_id, keyword, trend_date),
+    INDEX idx_brand_date (brand_id, trend_date DESC),
+    
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Google Trends 搜尋趨勢';
+  `,
 ];
 
 async function runMigrations() {

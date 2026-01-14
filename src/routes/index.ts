@@ -3078,4 +3078,8 @@ router.get('/diagnose', authenticate, async (req: Request, res: Response): Promi
 // Statistics routes
 router.use('/statistics', statisticsRoutes);
 
+// Monitor routes (聲量監控)
+import monitorRoutes from './monitor.routes';
+router.use('/monitor', monitorRoutes);
+
 export default router;
