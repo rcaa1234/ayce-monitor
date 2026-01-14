@@ -878,6 +878,7 @@
                 <button class="tab" onclick="switchTab('scheduling')">📅 發文排程</button>
                 <button class="tab" onclick="switchTab('templates')">✨ 提示詞設定</button>
                 <button class="tab" onclick="switchTab('accounts')">⚙️ 帳號管理</button>
+                <button class="tab" onclick="switchTab('monitor')">🔔 聲量監控</button>
             </div>
 
             <!-- Alert Area -->
@@ -1511,6 +1512,113 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- Monitor Tab (聲量監控) -->
+    <div id="monitorTab" class="tab-content">
+        <h2 style="margin-bottom: 20px;">🔔 聲量監控</h2>
+
+        <!-- Monitor Sub-tabs -->
+        <div class="tabs" style="margin-bottom: 20px;">
+            <button class="tab active" onclick="switchMonitorTab('mentions')">📋 提及列表</button>
+            <button class="tab" onclick="switchMonitorTab('brands')">🏷️ 品牌管理</button>
+            <button class="tab" onclick="switchMonitorTab('sources')">🌐 來源管理</button>
+            <button class="tab" onclick="switchMonitorTab('stats')">📊 聲量統計</button>
+        </div>
+
+        <!-- Mentions Sub-tab -->
+        <div id="monitorMentionsTab" class="sub-tab-content active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="mentionBrandFilter" onchange="loadMentions()"
+                        style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                        <option value="">全部品牌</option>
+                    </select>
+                    <select id="mentionReadFilter" onchange="loadMentions()"
+                        style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                        <option value="">全部狀態</option>
+                        <option value="false">未讀</option>
+                        <option value="true">已讀</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="loadMentions()">🔄 重新整理</button>
+            </div>
+
+            <div id="mentionsList" style="display: grid; gap: 15px;">
+                <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
+            </div>
+        </div>
+
+        <!-- Brands Sub-tab -->
+        <div id="monitorBrandsTab" class="sub-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>品牌/監控目標</h3>
+                <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增品牌</button>
+            </div>
+
+            <div id="brandsList" style="display: grid; gap: 15px;">
+                <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
+            </div>
+        </div>
+
+        <!-- Sources Sub-tab -->
+        <div id="monitorSourcesTab" class="sub-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>監控來源</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="showSourceTemplates()">📋 預設來源</button>
+                    <button class="btn btn-primary" onclick="showAddSourceModal()">➕ 新增來源</button>
+                </div>
+            </div>
+
+            <div id="sourcesList" style="display: grid; gap: 15px;">
+                <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
+            </div>
+        </div>
+
+        <!-- Stats Sub-tab -->
+        <div id="monitorStatsTab" class="sub-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>聲量統計</h3>
+                <select id="monitorStatsDays" onchange="loadMonitorStats()"
+                    style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                    <option value="7">過去 7 天</option>
+                    <option value="14">過去 14 天</option>
+                    <option value="30" selected>過去 30 天</option>
+                </select>
+            </div>
+
+            <div class="stats" id="monitorStatsCards"
+                style="grid-template-columns: repeat(3, 1fr); margin-bottom: 30px;">
+                <div class="stat-card">
+                    <h3 id="monitorTotalMentions">0</h3>
+                    <p>總提及數</p>
+                </div>
+                <div class="stat-card"
+                    style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white;">
+                    <h3 id="monitorUnreadCount" style="color: white;">0</h3>
+                    <p style="color: rgba(255,255,255,0.8);">未讀提及</p>
+                </div>
+                <div class="stat-card"
+                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
+                    <h3 id="monitorBrandCount" style="color: white;">0</h3>
+                    <p style="color: rgba(255,255,255,0.8);">監控品牌</p>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div
+                    style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <h4 style="margin-bottom: 15px;">📊 各品牌提及數</h4>
+                    <div id="monitorBrandStats"></div>
+                </div>
+                <div
+                    style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <h4 style="margin-bottom: 15px;">🌐 各來源提及數</h4>
+                    <div id="monitorSourceStats"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Post Detail Modal -->
@@ -5029,6 +5137,432 @@
                 loadStatsSummary();
             }
         });
+
+        // ========================================
+        // 聲量監控功能
+        // ========================================
+
+        let currentMonitorTab = 'mentions';
+
+        function switchMonitorTab(tabName) {
+            currentMonitorTab = tabName;
+
+            // 更新 sub-tab 按鈕樣式
+            document.querySelectorAll('#monitorTab .tabs .tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 隱藏所有 sub-tab 內容
+            document.getElementById('monitorMentionsTab').style.display = 'none';
+            document.getElementById('monitorBrandsTab').style.display = 'none';
+            document.getElementById('monitorSourcesTab').style.display = 'none';
+            document.getElementById('monitorStatsTab').style.display = 'none';
+
+            // 顯示選中的 sub-tab
+            if (tabName === 'mentions') {
+                document.getElementById('monitorMentionsTab').style.display = 'block';
+                loadMentions();
+            } else if (tabName === 'brands') {
+                document.getElementById('monitorBrandsTab').style.display = 'block';
+                loadBrands();
+            } else if (tabName === 'sources') {
+                document.getElementById('monitorSourcesTab').style.display = 'block';
+                loadSources();
+            } else if (tabName === 'stats') {
+                document.getElementById('monitorStatsTab').style.display = 'block';
+                loadMonitorStats();
+            }
+        }
+
+        async function loadMentions() {
+            const container = document.getElementById('mentionsList');
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+            try {
+                const brandId = document.getElementById('mentionBrandFilter').value;
+                const isRead = document.getElementById('mentionReadFilter').value;
+
+                let url = `${API_BASE}/monitor/mentions?limit=20`;
+                if (brandId) url += `&brand_id=${brandId}`;
+                if (isRead) url += `&is_read=${isRead}`;
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                const mentions = result.data.mentions || [];
+
+                if (mentions.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">尚無提及記錄</p>';
+                    return;
+                }
+
+                container.innerHTML = mentions.map(m => `
+                    <div style="background: ${m.is_read ? '#f8f9fa' : 'white'}; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${m.brand_color || '#667eea'};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div>
+                                <span style="background: ${m.brand_color || '#667eea'}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px;">${m.brand_name}</span>
+                                <span style="margin-left: 10px; color: #666; font-size: 12px;">${m.source_name}</span>
+                            </div>
+                            <span style="color: #999; font-size: 12px;">${new Date(m.discovered_at).toLocaleString('zh-TW')}</span>
+                        </div>
+                        <h4 style="margin-bottom: 10px; color: #333;">${m.title || '(無標題)'}</h4>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 10px;">${m.content_preview || ''}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 12px; color: #888;">
+                                🔑 ${JSON.parse(m.matched_keywords || '[]').join(', ')}
+                                ${m.likes_count ? ` · ❤️ ${m.likes_count}` : ''}
+                                ${m.comments_count ? ` · 💬 ${m.comments_count}` : ''}
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <a href="${m.url}" target="_blank" class="btn btn-secondary" style="padding: 5px 15px; font-size: 12px;">🔗 查看原文</a>
+                                ${!m.is_read ? `<button class="btn btn-primary" style="padding: 5px 15px; font-size: 12px;" onclick="markMentionRead('${m.id}', this)">✓ 標為已讀</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Failed to load mentions:', error);
+                container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        async function markMentionRead(mentionId, btn) {
+            try {
+                await fetch(`${API_BASE}/monitor/mentions/${mentionId}/read`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                btn.closest('div[style*="background"]').style.background = '#f8f9fa';
+                btn.remove();
+            } catch (error) {
+                console.error('Failed to mark as read:', error);
+            }
+        }
+
+        async function loadBrands() {
+            const container = document.getElementById('brandsList');
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/monitor/brands`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                const brands = result.data || [];
+
+                // 更新品牌過濾下拉選單
+                const brandFilter = document.getElementById('mentionBrandFilter');
+                brandFilter.innerHTML = '<option value="">全部品牌</option>' +
+                    brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+
+                if (brands.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 0;">
+                            <p style="color: #999; margin-bottom: 20px;">尚未設定監控品牌</p>
+                            <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增第一個品牌</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = brands.map(b => `
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${b.display_color || '#667eea'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4 style="margin-bottom: 5px;">${b.name} 
+                                    <span style="background: ${b.brand_type === 'own' ? '#10b981' : '#f59e0b'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">
+                                        ${b.brand_type === 'own' ? '自有品牌' : '競品'}
+                                    </span>
+                                </h4>
+                                <p style="color: #666; font-size: 13px;">關鍵字：${JSON.parse(b.keywords || '[]').join(', ')}</p>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <span style="color: ${b.is_active ? '#10b981' : '#dc3545'}; font-size: 12px;">${b.is_active ? '✓ 啟用中' : '⊘ 停用'}</span>
+                                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteBrand('${b.id}')">刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Failed to load brands:', error);
+                container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        async function loadSources() {
+            const container = document.getElementById('sourcesList');
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/monitor/sources`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                const sources = result.data || [];
+
+                if (sources.length === 0) {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px 0;">
+                            <p style="color: #999; margin-bottom: 20px;">尚未設定監控來源</p>
+                            <button class="btn btn-primary" onclick="showSourceTemplates()">📋 從預設來源新增</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const healthColors = {
+                    healthy: '#10b981',
+                    warning: '#f59e0b',
+                    error: '#dc3545',
+                    unknown: '#999'
+                };
+
+                container.innerHTML = sources.map(s => `
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4 style="margin-bottom: 5px;">
+                                    <span style="color: ${healthColors[s.health_status] || '#999'};">●</span>
+                                    ${s.name}
+                                    <span style="background: #e5e7eb; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">${s.platform}</span>
+                                </h4>
+                                <p style="color: #666; font-size: 12px; word-break: break-all;">${s.url}</p>
+                                <p style="color: #888; font-size: 11px; margin-top: 5px;">
+                                    檢查間隔: ${s.check_interval_hours} 小時 · 
+                                    上次檢查: ${s.last_checked_at ? new Date(s.last_checked_at).toLocaleString('zh-TW') : '從未'}
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 立即爬取</button>
+                                <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteSource('${s.id}')">刪除</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Failed to load sources:', error);
+                container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
+            }
+        }
+
+        async function loadMonitorStats() {
+            try {
+                const days = document.getElementById('monitorStatsDays').value;
+                const response = await fetch(`${API_BASE}/monitor/stats/overview?days=${days}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                const data = result.data;
+
+                document.getElementById('monitorTotalMentions').textContent = data.total_mentions || 0;
+                document.getElementById('monitorUnreadCount').textContent = data.unread_count || 0;
+                document.getElementById('monitorBrandCount').textContent = (data.brand_stats || []).length;
+
+                // 品牌統計
+                const brandStats = document.getElementById('monitorBrandStats');
+                if (data.brand_stats && data.brand_stats.length > 0) {
+                    brandStats.innerHTML = data.brand_stats.map(b => `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                            <span style="color: ${b.display_color || '#667eea'};">● ${b.name}</span>
+                            <span><strong>${b.mention_count}</strong> 次</span>
+                        </div>
+                    `).join('');
+                } else {
+                    brandStats.innerHTML = '<p style="color: #999; text-align: center;">無資料</p>';
+                }
+
+                // 來源統計
+                const sourceStats = document.getElementById('monitorSourceStats');
+                if (data.source_stats && data.source_stats.length > 0) {
+                    sourceStats.innerHTML = data.source_stats.map(s => `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+                            <span>${s.name} <small style="color: #888;">(${s.platform})</small></span>
+                            <span><strong>${s.mention_count}</strong> 次</span>
+                        </div>
+                    `).join('');
+                } else {
+                    sourceStats.innerHTML = '<p style="color: #999; text-align: center;">無資料</p>';
+                }
+
+            } catch (error) {
+                console.error('Failed to load monitor stats:', error);
+            }
+        }
+
+        function showAddBrandModal() {
+            const keywords = prompt('請輸入品牌名稱和監控關鍵字（用逗號分隔）：\n例如：我的品牌, 品牌A, 產品名');
+            if (!keywords) return;
+
+            const name = prompt('請輸入品牌顯示名稱：');
+            if (!name) return;
+
+            const brandType = confirm('這是您的自有品牌嗎？\n\n按「確定」= 自有品牌\n按「取消」= 競品') ? 'own' : 'competitor';
+
+            createBrand(name, keywords.split(',').map(k => k.trim()), brandType);
+        }
+
+        async function createBrand(name, keywords, brandType) {
+            try {
+                const response = await fetch(`${API_BASE}/monitor/brands`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, keywords, brand_type: brandType })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                showAlert('dashboardAlert', '品牌已建立', 'success');
+                loadBrands();
+            } catch (error) {
+                showAlert('dashboardAlert', '建立失敗: ' + error.message, 'danger');
+            }
+        }
+
+        async function deleteBrand(brandId) {
+            if (!confirm('確定要刪除此品牌嗎？所有相關的提及記錄也會被刪除。')) return;
+
+            try {
+                await fetch(`${API_BASE}/monitor/brands/${brandId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadBrands();
+            } catch (error) {
+                showAlert('dashboardAlert', '刪除失敗', 'danger');
+            }
+        }
+
+        async function showSourceTemplates() {
+            try {
+                const response = await fetch(`${API_BASE}/monitor/templates`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                const templates = result.data || [];
+
+                const options = templates.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
+                const choice = prompt(`請選擇要新增的來源（輸入編號）：\n\n${options}`);
+
+                if (!choice) return;
+
+                const idx = parseInt(choice) - 1;
+                if (idx >= 0 && idx < templates.length) {
+                    const template = templates[idx];
+                    await createSource(template.name, template.url, template.platform);
+                }
+            } catch (error) {
+                showAlert('dashboardAlert', '載入預設來源失敗', 'danger');
+            }
+        }
+
+        function showAddSourceModal() {
+            const name = prompt('請輸入來源名稱：');
+            if (!name) return;
+
+            const url = prompt('請輸入監控網址：');
+            if (!url) return;
+
+            const platform = prompt('請選擇平台類型：\ndcard, ptt, facebook, instagram, youtube, threads, news, blog, forum, other') || 'other';
+
+            createSource(name, url, platform);
+        }
+
+        async function createSource(name, url, platform) {
+            try {
+                // 取得所有品牌 ID
+                const brandsRes = await fetch(`${API_BASE}/monitor/brands`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const brandsResult = await brandsRes.json();
+                const brandIds = (brandsResult.data || []).map(b => b.id);
+
+                const response = await fetch(`${API_BASE}/monitor/sources`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, url, platform, brand_ids: brandIds })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                showAlert('dashboardAlert', '來源已建立', 'success');
+                loadSources();
+            } catch (error) {
+                showAlert('dashboardAlert', '建立失敗: ' + error.message, 'danger');
+            }
+        }
+
+        async function deleteSource(sourceId) {
+            if (!confirm('確定要刪除此來源嗎？')) return;
+
+            try {
+                await fetch(`${API_BASE}/monitor/sources/${sourceId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                loadSources();
+            } catch (error) {
+                showAlert('dashboardAlert', '刪除失敗', 'danger');
+            }
+        }
+
+        async function triggerCrawl(sourceId) {
+            try {
+                showAlert('dashboardAlert', '正在爬取...', 'info');
+
+                const response = await fetch(`${API_BASE}/monitor/crawl`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ source_id: sourceId })
+                });
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error);
+
+                showAlert('dashboardAlert', result.message, 'success');
+                loadSources();
+            } catch (error) {
+                showAlert('dashboardAlert', '爬取失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // 當切換到 monitor tab 時載入資料
+        const originalSwitchTab = switchTab;
+        switchTab = function (tabName) {
+            originalSwitchTab(tabName);
+            if (tabName === 'monitor') {
+                loadMentions();
+                loadBrands();
+            }
+        };
 
     </script>
 </body>

@@ -657,6 +657,80 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
 });
 
 /**
+ * 聲量監控 - 定時爬取和通知
+ * Runs every 30 minutes - 檢查需要爬取的來源並發送通知
+ */
+export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
+  logger.info('[Monitor] Running scheduled crawls...');
+
+  try {
+    const monitorService = (await import('../services/monitor.service')).default;
+
+    // 執行排程爬取
+    await monitorService.runScheduledCrawls();
+
+    // 發送未通知的提及
+    const lineService = (await import('../services/line.service')).default;
+    const unnotified = await monitorService.getUnnotifiedMentions(10);
+
+    if (unnotified.length > 0) {
+      // 取得管理員的 LINE User ID
+      const pool = getPool();
+      const [admins] = await pool.execute<RowDataPacket[]>(
+        `SELECT line_user_id FROM users WHERE line_user_id IS NOT NULL LIMIT 1`
+      );
+
+      if (admins.length === 0) {
+        logger.warn('[Monitor] No LINE user found for notifications');
+      } else {
+        const lineUserId = admins[0].line_user_id;
+
+        // 按品牌分組通知
+        const byBrand = new Map<string, any[]>();
+        for (const mention of unnotified) {
+          const key = mention.brand_id;
+          if (!byBrand.has(key)) byBrand.set(key, []);
+          byBrand.get(key)!.push(mention);
+        }
+
+        for (const [brandId, mentions] of byBrand) {
+          const brand = mentions[0];
+          const message = `🔔 聲量監控警報\n\n` +
+            `📍 品牌：${brand.brand_name}\n` +
+            `📊 新增 ${mentions.length} 筆提及\n\n` +
+            mentions.slice(0, 3).map((m: any) =>
+              `• ${m.title?.substring(0, 30) || '(無標題)'}...\n  🔑 ${JSON.parse(m.matched_keywords).join(', ')}\n  🔗 ${m.url}`
+            ).join('\n\n') +
+            (mentions.length > 3 ? `\n\n... 還有 ${mentions.length - 3} 筆` : '');
+
+          try {
+            await lineService.sendNotification(lineUserId, message);
+
+            // 標記已通知
+            const { generateUUID } = await import('../utils/uuid');
+            const notificationId = generateUUID();
+            await monitorService.markAsNotified(
+              mentions.map((m: any) => m.id),
+              notificationId
+            );
+
+            logger.info(`[Monitor] Sent notification for ${mentions.length} mentions of brand ${brand.brand_name}`);
+          } catch (notifyError) {
+            logger.error('[Monitor] Failed to send notification:', notifyError);
+          }
+        }
+      }
+    }
+
+    logger.info('[Monitor] Scheduled crawls completed');
+  } catch (error) {
+    logger.error('[Monitor] Scheduled crawl failed:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
@@ -689,10 +763,15 @@ export async function startSchedulers() {
     logger.info('[UCB Scheduler] Starting executeAutoScheduledPosts (every minute)...');
     executeAutoScheduledPosts.start();
 
+    // Start Monitor scheduler
+    logger.info('[Monitor] Starting monitorCrawlScheduler (every 30 minutes)...');
+    monitorCrawlScheduler.start();
+
     logger.info('✓ All schedulers started successfully');
     logger.info('  - Fixed schedulers: 6 jobs');
     logger.info('  - UCB schedulers: 2 jobs');
-    logger.info('  - Total: 8 cron jobs running');
+    logger.info('  - Monitor schedulers: 1 job');
+    logger.info('  - Total: 9 cron jobs running');
   } catch (error) {
     logger.error('[Scheduler] Failed to start schedulers:', error);
     throw error;
@@ -714,6 +793,9 @@ export function stopSchedulers() {
   // Stop UCB auto-scheduling
   dailyAutoScheduler.stop();
   executeAutoScheduledPosts.stop();
+
+  // Stop Monitor scheduler
+  monitorCrawlScheduler.stop();
 
   logger.info('✓ All schedulers stopped');
 }
