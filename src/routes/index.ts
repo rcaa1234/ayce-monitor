@@ -2515,6 +2515,126 @@ router.post('/line/test-notification', authenticate, async (req: Request, res: R
 });
 
 /**
+ * GET /api/diagnose/auto-schedule
+ * 用途：診斷自動發文為何沒有作動
+ */
+router.get('/diagnose/auto-schedule', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    const issues: string[] = [];
+    const info: any = {};
+
+    // 1. 檢查 smart_schedule_config
+    const [configs] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM smart_schedule_config WHERE enabled = true LIMIT 1'
+    );
+
+    if (configs.length === 0) {
+      issues.push('沒有啟用的配置記錄，請到「帳號管理」頁面設定');
+      info.config = null;
+    } else {
+      const config = configs[0];
+      info.config = {
+        auto_schedule_enabled: config.auto_schedule_enabled,
+        ai_prompt: config.ai_prompt ? config.ai_prompt.substring(0, 100) + '...' : null,
+        ai_engine: config.ai_engine || 'GPT5_2',
+        threads_account_id: config.threads_account_id,
+        line_user_id: config.line_user_id,
+        active_days: config.active_days,
+        time_range: `${config.time_range_start || '09:00'} - ${config.time_range_end || '21:00'}`,
+        posts_per_day: config.posts_per_day,
+      };
+
+      // 檢查各項設定
+      if (!config.auto_schedule_enabled) {
+        issues.push('自動排程未啟用 (auto_schedule_enabled = false)');
+      }
+      if (!config.ai_prompt || config.ai_prompt.trim() === '') {
+        issues.push('AI 提示詞未設定（請到「提示詞設定」頁面設定）');
+      }
+      if (!config.threads_account_id) {
+        issues.push('Threads 帳號未設定（請到「帳號管理」頁面選擇帳號）');
+      }
+      if (!config.line_user_id) {
+        issues.push('LINE User ID 未設定（無法發送審核通知）');
+      }
+
+      // 檢查今天是否是 active_days
+      const today = new Date();
+      const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+      const dayNames = ['', '一', '二', '三', '四', '五', '六', '日'];
+      const activeDays = config.active_days ?
+        (typeof config.active_days === 'string' ? JSON.parse(config.active_days) : config.active_days) : [];
+
+      info.today = {
+        date: today.toISOString().split('T')[0],
+        dayOfWeek: dayOfWeek,
+        dayName: `星期${dayNames[dayOfWeek]}`,
+      };
+
+      if (activeDays.length > 0 && !activeDays.includes(dayOfWeek)) {
+        issues.push(`今天是星期${dayNames[dayOfWeek]}(${dayOfWeek})，不在啟用日期 [${activeDays.map((d: number) => dayNames[d]).join(', ')}] 中`);
+      }
+    }
+
+    // 2. 檢查今天的排程
+    const todayStr = new Date().toISOString().split('T')[0];
+    const [schedules] = await pool.execute<RowDataPacket[]>(
+      'SELECT id, status, scheduled_time, post_id, error_message, created_at FROM daily_auto_schedule WHERE schedule_date = ? ORDER BY created_at DESC',
+      [todayStr]
+    );
+    info.today_schedules = schedules;
+
+    if (schedules.length === 0) {
+      info.schedule_status = '今天尚未建立任何排程';
+    } else {
+      info.schedule_status = `今天已有 ${schedules.length} 個排程`;
+    }
+
+    // 3. 檢查最近的 AI 貼文
+    const [recentPosts] = await pool.execute<RowDataPacket[]>(
+      `SELECT p.id, p.status, p.created_at, 
+              das.status as schedule_status, das.error_message
+       FROM posts p
+       LEFT JOIN daily_auto_schedule das ON p.id = das.post_id
+       WHERE p.is_ai_generated = true
+       ORDER BY p.created_at DESC
+       LIMIT 5`
+    );
+    info.recent_ai_posts = recentPosts;
+
+    // 4. 檢查 Threads 帳號
+    if (info.config?.threads_account_id) {
+      const [accounts] = await pool.execute<RowDataPacket[]>(
+        'SELECT id, account_name, is_active FROM threads_accounts WHERE id = ?',
+        [info.config.threads_account_id]
+      );
+      if (accounts.length === 0) {
+        issues.push(`設定的 Threads 帳號 (${info.config.threads_account_id}) 不存在`);
+      } else if (!accounts[0].is_active) {
+        issues.push(`Threads 帳號 (${accounts[0].account_name}) 未啟用`);
+      }
+      info.threads_account = accounts[0] || null;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        has_issues: issues.length > 0,
+        issues,
+        info,
+        diagnosis_time: new Date().toISOString(),
+      }
+    });
+  } catch (error: any) {
+    logger.error('Failed to diagnose auto-schedule:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/auto-schedules
  * 用途：取得自動排程歷史
  */
