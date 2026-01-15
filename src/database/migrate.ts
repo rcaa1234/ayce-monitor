@@ -963,6 +963,13 @@ const migrations = [
     FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Google Trends 搜尋趨勢';
   `,
+
+  // Migration 39: Add topic_category to posts for AI learning
+  `
+  ALTER TABLE posts 
+  ADD COLUMN IF NOT EXISTS topic_category VARCHAR(50) NULL COMMENT '主題分類 (emotional, humor, life, motivation, sexy, etc)',
+  ADD COLUMN IF NOT EXISTS learning_metadata JSON NULL COMMENT 'AI學習相關元數據';
+  `,
 ];
 
 async function runMigrations() {
