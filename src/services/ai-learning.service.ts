@@ -296,33 +296,133 @@ class AILearningService {
     }
 
     /**
-     * 自動分類文章主題（基於內容關鍵字）
+     * 自動分類文章主題（基於四大內容模組）
+     * ①【爽與解壓模組】約 40%
+     * ②【務實處理模組】約 30%
+     * ③【不舒服真實模組】約 20%
+     * ④【爭議提問模組】約 10%
      */
     classifyContent(content: string): string {
-        const topicKeywords: Record<string, string[]> = {
-            'emotional': ['感情', '愛情', '心情', '感受', '難過', '開心', '幸福', '心痛', '想念', '暖心'],
-            'humor': ['笑死', '好笑', '幽默', '搞笑', '哈哈', 'XD', '太扯', '離譜', '神奇'],
-            'life': ['生活', '日常', '工作', '職場', '同事', '老闆', '週末', '休假'],
-            'motivation': ['加油', '努力', '堅持', '夢想', '目標', '成長', '進步', '突破'],
-            'relationship': ['朋友', '閨蜜', '社交', '人際', '相處', '聚會'],
-            'food': ['美食', '吃', '餐廳', '料理', '甜點', '咖啡', '好吃'],
-            'sexy': ['性感', '慾望', '誘惑', '魅力', '迷人', '性', '身體'],
+        // 四大內容模組的關鍵字
+        const moduleKeywords: Record<string, string[]> = {
+            // ① 爽與解壓模組 (40%) - 高潮舒壓、快感釋放、慾火起來
+            'pleasure_relief': [
+                '高潮', '舒壓', '快感', '釋放', '放鬆', '爽', '解放',
+                '很敏感', '很想要', '慾火', '身體想要', '舒服',
+                '壓力小', '釋放壓力', '收工'
+            ],
+
+            // ② 務實處理模組 (30%) - 不想等、不想配合、省事、快戰速決
+            'practical': [
+                '不想等', '不想配合', '懶得', '省事', '快戰速決',
+                '直接來', '快一點', '不想慢慢來', '省力', '效率',
+                '玩具', '自己來', '自慰', '解決'
+            ],
+
+            // ③ 不舒服真實模組 (20%) - 爽完不想理人、真人vs玩具、自私
+            'uncomfortable_truth': [
+                '不想理', '聖人模式', '穩定', '麻煩', '自私',
+                '被拒絕', '不同步', '落差', '真人', '對比',
+                '無奈', '冷掉', '不在狀態'
+            ],
+
+            // ④ 爭議提問模組 (10%) - 反問、拋事實、不給答案
+            'controversial': [
+                '？', '有多少人', '敢說', '承認', '真的嗎',
+                '到底', '為什麼', '誰', '是不是'
+            ],
         };
 
-        const contentLower = content.toLowerCase();
         const scores: Record<string, number> = {};
 
-        for (const [topic, keywords] of Object.entries(topicKeywords)) {
-            scores[topic] = keywords.filter(kw => contentLower.includes(kw)).length;
+        for (const [module, keywords] of Object.entries(moduleKeywords)) {
+            scores[module] = keywords.filter(kw => content.includes(kw)).length;
         }
 
         const maxScore = Math.max(...Object.values(scores));
         if (maxScore === 0) {
-            return 'general';
+            return 'pleasure_relief'; // 預設為爽與解壓模組
         }
 
-        return Object.entries(scores).find(([, score]) => score === maxScore)?.[0] || 'general';
+        return Object.entries(scores).find(([, score]) => score === maxScore)?.[0] || 'pleasure_relief';
+    }
+
+    /**
+     * 根據模組比例權重選擇下一篇應該用的模組
+     * 基於過去文章的模組分佈，自動平衡
+     */
+    async selectNextModule(): Promise<string> {
+        // 理想比例
+        const targetRatios: Record<string, number> = {
+            'pleasure_relief': 0.40,      // 40%
+            'practical': 0.30,            // 30%
+            'uncomfortable_truth': 0.20,  // 20%
+            'controversial': 0.10,        // 10%
+        };
+
+        // 取得過去 50 篇的模組分佈
+        const posts = await this.getAIPostsPerformance(50);
+
+        if (posts.length < 10) {
+            // 不夠數據，隨機選擇（按權重）
+            const random = Math.random();
+            let cumulative = 0;
+            for (const [module, ratio] of Object.entries(targetRatios)) {
+                cumulative += ratio;
+                if (random <= cumulative) return module;
+            }
+            return 'pleasure_relief';
+        }
+
+        // 計算目前比例
+        const currentCounts: Record<string, number> = {
+            'pleasure_relief': 0,
+            'practical': 0,
+            'uncomfortable_truth': 0,
+            'controversial': 0,
+        };
+
+        for (const post of posts) {
+            const category = post.topic_category || 'pleasure_relief';
+            if (currentCounts[category] !== undefined) {
+                currentCounts[category]++;
+            }
+        }
+
+        const total = posts.length || 1;
+
+        // 找出最需要補充的模組（目前比例 vs 目標比例差距最大的）
+        let maxDeficit = -Infinity;
+        let selectedModule = 'pleasure_relief';
+
+        for (const [module, targetRatio] of Object.entries(targetRatios)) {
+            const currentRatio = currentCounts[module] / total;
+            const deficit = targetRatio - currentRatio;
+
+            if (deficit > maxDeficit) {
+                maxDeficit = deficit;
+                selectedModule = module;
+            }
+        }
+
+        logger.info(`[AI Learning] Module balance - Current: ${JSON.stringify(currentCounts)}, Selected: ${selectedModule}`);
+
+        return selectedModule;
+    }
+
+    /**
+     * 取得模組的中文名稱
+     */
+    getModuleName(module: string): string {
+        const names: Record<string, string> = {
+            'pleasure_relief': '爽與解壓',
+            'practical': '務實處理',
+            'uncomfortable_truth': '不舒服真實',
+            'controversial': '爭議提問',
+        };
+        return names[module] || module;
     }
 }
 
 export default new AILearningService();
+

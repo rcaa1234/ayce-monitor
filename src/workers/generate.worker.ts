@@ -80,14 +80,28 @@ export const generateWorker = new Worker(
       }
 
       // ========================================
-      // AI 學習功能：注入歷史成功範例
+      // AI 學習功能：注入歷史成功範例 + 選擇模組
       // ========================================
       let enhancedPrompt = effectiveStylePreset || '';
+      let selectedModule = 'pleasure_relief';
 
       try {
         const aiLearningService = (await import('../services/ai-learning.service')).default;
 
-        // 取得成功範例
+        // 1. 根據比例選擇這次應該生成的模組
+        selectedModule = await aiLearningService.selectNextModule();
+        const moduleName = aiLearningService.getModuleName(selectedModule);
+        logger.info(`[AI Learning] Selected module: ${selectedModule} (${moduleName})`);
+
+        // 如果提示詞中有 {MODULE} 佔位符，替換它
+        if (enhancedPrompt.includes('{MODULE}')) {
+          enhancedPrompt = enhancedPrompt.replace('{MODULE}', moduleName);
+        } else {
+          // 沒有佔位符，自動附加提示
+          enhancedPrompt += `\n\n⚠️ 這次請生成【${moduleName}】類型的貼文`;
+        }
+
+        // 2. 取得成功範例
         const examples = await aiLearningService.getTopPerformingPosts(3);
 
         if (examples.length > 0) {
