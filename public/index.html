@@ -1460,53 +1460,142 @@
 
         <!-- Prompt Settings Tab (原模板設定) -->
         <div id="templatesTab" class="tab-content">
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <h2 style="margin-bottom: 10px; color: #1f2937;">✨ 提示詞設定</h2>
-                <p style="color: #666; margin-bottom: 20px;">設定 AI 自動發文使用的提示詞，系統會根據此提示詞生成貼文內容</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+                <!-- 左側：提示詞編輯區 -->
+                <div
+                    style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h2 style="margin-bottom: 10px; color: #1f2937;">✨ 提示詞設定</h2>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 14px;">設定 AI 自動發文使用的主提示詞</p>
 
-                <form id="ai-prompt-form" onsubmit="saveAIPrompt(event)">
-                    <div class="form-group">
-                        <label for="ai-engine">AI 引擎</label>
-                        <select id="ai-engine" required style="padding: 12px; font-size: 15px;">
-                            <option value="GPT5_2">GPT-5.2 (推薦)</option>
-                            <option value="GPT5_2_INSTANT">GPT-5.2 Instant (快速)</option>
-                            <option value="GPT4O">GPT-4o</option>
-                            <option value="GEMINI_3_FLASH">Gemini 3 Flash</option>
-                            <option value="GEMINI_3_PRO_PREVIEW">Gemini 3 Pro</option>
-                            <option value="GEMINI_2_5_FLASH">Gemini 2.5 Flash</option>
-                        </select>
-                        <small>選擇生成貼文使用的 AI 引擎</small>
+                    <form id="ai-prompt-form" onsubmit="saveAIPrompt(event)">
+                        <div class="form-group">
+                            <label for="ai-engine">AI 引擎</label>
+                            <select id="ai-engine" required style="padding: 12px; font-size: 15px;">
+                                <option value="GPT5_2">GPT-5.2 (推薦)</option>
+                                <option value="GPT5_2_INSTANT">GPT-5.2 Instant (快速)</option>
+                                <option value="GPT4O">GPT-4o</option>
+                                <option value="GEMINI_3_FLASH">Gemini 3 Flash</option>
+                                <option value="GEMINI_3_PRO_PREVIEW">Gemini 3 Pro</option>
+                                <option value="GEMINI_2_5_FLASH">Gemini 2.5 Flash</option>
+                            </select>
+                            <small>選擇生成貼文使用的 AI 引擎</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ai-prompt">AI 提示詞</label>
+                            <textarea id="ai-prompt" rows="18" required
+                                style="width: 100%; padding: 15px; font-size: 14px; line-height: 1.7; border: 1px solid #ddd; border-radius: 8px; resize: vertical;"
+                                placeholder="請輸入給 AI 的指令..."></textarea>
+                            <small>系統會自動加入維度設定和成功範例</small>
+                        </div>
+
+                        <div style="display: flex; gap: 15px; margin-top: 20px;">
+                            <button type="submit" class="btn btn-success" style="flex: 1; padding: 15px;">💾
+                                儲存提示詞</button>
+                            <button type="button" class="btn btn-primary" onclick="testAIPrompt()"
+                                style="flex: 1; padding: 15px;">🧪 測試生成</button>
+                        </div>
+                    </form>
+
+                    <!-- 測試生成結果 -->
+                    <div id="ai-prompt-test-result"
+                        style="display: none; margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                        <h4 style="margin-bottom: 15px; color: #374151;">📝 生成結果預覽</h4>
+                        <div id="ai-prompt-test-content"
+                            style="white-space: pre-wrap; line-height: 1.8; font-size: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右側：維度設定面板 -->
+                <div
+                    style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-height: 85vh; overflow-y: auto;">
+                    <h2 style="margin-bottom: 10px; color: #1f2937;">🎛️ 維度設定</h2>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 14px;">調整各維度的選項權重和狀態</p>
+
+                    <div id="dimensions-container">
+                        <!-- MODULE -->
+                        <div class="dimension-section" data-dimension="module">
+                            <div class="dimension-header" onclick="toggleDimension('module')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">📦 內容模組 (MODULE)</span>
+                                <span id="module-toggle">▼</span>
+                            </div>
+                            <div id="module-options" class="dimension-options" style="padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- ANGLE -->
+                        <div class="dimension-section" data-dimension="angle" style="margin-top: 15px;">
+                            <div class="dimension-header" onclick="toggleDimension('angle')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">🎬 情境切角 (ANGLE)</span>
+                                <span id="angle-toggle">▶</span>
+                            </div>
+                            <div id="angle-options" class="dimension-options" style="display: none; padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- OUTLET -->
+                        <div class="dimension-section" data-dimension="outlet" style="margin-top: 15px;">
+                            <div class="dimension-header" onclick="toggleDimension('outlet')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">💡 處理出口 (OUTLET)</span>
+                                <span id="outlet-toggle">▶</span>
+                            </div>
+                            <div id="outlet-options" class="dimension-options" style="display: none; padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- TONE_BIAS -->
+                        <div class="dimension-section" data-dimension="tone_bias" style="margin-top: 15px;">
+                            <div class="dimension-header" onclick="toggleDimension('tone_bias')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">🗣️ 語氣偏壓 (TONE)</span>
+                                <span id="tone_bias-toggle">▶</span>
+                            </div>
+                            <div id="tone_bias-options" class="dimension-options"
+                                style="display: none; padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- ENDING_STYLE -->
+                        <div class="dimension-section" data-dimension="ending_style" style="margin-top: 15px;">
+                            <div class="dimension-header" onclick="toggleDimension('ending_style')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">🔚 收尾意圖 (ENDING)</span>
+                                <span id="ending_style-toggle">▶</span>
+                            </div>
+                            <div id="ending_style-options" class="dimension-options"
+                                style="display: none; padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
+
+                        <!-- LENGTH_TARGET -->
+                        <div class="dimension-section" data-dimension="length_target" style="margin-top: 15px;">
+                            <div class="dimension-header" onclick="toggleDimension('length_target')"
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
+                                <span style="font-weight: 600;">📏 字數目標 (LENGTH)</span>
+                                <span id="length_target-toggle">▶</span>
+                            </div>
+                            <div id="length_target-options" class="dimension-options"
+                                style="display: none; padding: 0 10px;">
+                                <p style="color: #999; font-size: 13px;">載入中...</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="ai-prompt">AI 提示詞</label>
-                        <textarea id="ai-prompt" rows="15" required
-                            style="width: 100%; padding: 15px; font-size: 15px; line-height: 1.8; border: 1px solid #ddd; border-radius: 8px; resize: vertical;"
-                            placeholder="請輸入給 AI 的指令，描述您希望 AI 生成什麼樣的貼文內容...
-
-例如：
-你是一位社群經營專家，請根據以下風格生成一篇 Threads 貼文：
-- 主題：生活觀察、職場心得、科技趨勢
-- 風格：輕鬆、有趣、帶有洞見
-- 長度：100-300字
-- 包含 1-2 個相關的 emoji
-- 結尾可以問一個問題引發討論"></textarea>
-                        <small>詳細描述您希望 AI 生成的內容風格、主題、長度等</small>
-                    </div>
-
-                    <div style="display: flex; gap: 15px; margin-top: 20px;">
-                        <button type="submit" class="btn btn-success" style="flex: 1; padding: 15px;">💾 儲存提示詞</button>
-                        <button type="button" class="btn btn-primary" onclick="testAIPrompt()"
-                            style="flex: 1; padding: 15px;">🧪 測試生成</button>
-                    </div>
-                </form>
-
-                <!-- 測試生成結果 -->
-                <div id="ai-prompt-test-result"
-                    style="display: none; margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-                    <h4 style="margin-bottom: 15px; color: #374151;">📝 生成結果預覽</h4>
-                    <div id="ai-prompt-test-content"
-                        style="white-space: pre-wrap; line-height: 1.8; font-size: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <!-- 統計區塊 -->
+                    <div style="margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                        <h4 style="margin-bottom: 10px; color: #374151; font-size: 14px;">📊 最近 30 天使用統計</h4>
+                        <div id="dimension-stats" style="font-size: 13px; color: #666;">
+                            <p>載入中...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4740,6 +4829,275 @@
         // 載入提示詞設定頁面
         function loadTemplates() {
             loadAIPrompt();
+            loadDimensions();
+            loadDimensionStats();
+        }
+
+        // ========================================
+        // 維度設定相關函數
+        // ========================================
+
+        let dimensionsData = {};
+        const dimensionExpanded = {
+            module: true,
+            angle: false,
+            outlet: false,
+            tone_bias: false,
+            ending_style: false,
+            length_target: false
+        };
+
+        // 載入所有維度設定
+        async function loadDimensions() {
+            try {
+                const response = await fetch(`${API_BASE}/dimensions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error('載入失敗');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    dimensionsData = result.data;
+                    renderAllDimensions();
+                }
+            } catch (error) {
+                console.error('Failed to load dimensions:', error);
+                document.querySelectorAll('.dimension-options').forEach(el => {
+                    el.innerHTML = '<p style="color: #ef4444; font-size: 13px;">載入失敗</p>';
+                });
+            }
+        }
+
+        // 載入維度使用統計
+        async function loadDimensionStats() {
+            try {
+                const response = await fetch(`${API_BASE}/generation/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) return;
+
+                const result = await response.json();
+                if (result.success) {
+                    renderDimensionStats(result.data);
+                }
+            } catch (error) {
+                console.error('Failed to load dimension stats:', error);
+            }
+        }
+
+        // 渲染所有維度
+        function renderAllDimensions() {
+            const dimensions = ['module', 'angle', 'outlet', 'tone_bias', 'ending_style', 'length_target'];
+            dimensions.forEach(dim => renderDimensionOptions(dim));
+        }
+
+        // 渲染單一維度的選項
+        function renderDimensionOptions(dimension) {
+            const container = document.getElementById(`${dimension}-options`);
+            if (!container) return;
+
+            const options = dimensionsData[dimension] || [];
+
+            if (options.length === 0) {
+                container.innerHTML = '<p style="color: #999; font-size: 13px;">尚無選項</p>';
+                return;
+            }
+
+            let html = '';
+            options.forEach(opt => {
+                const weightPercent = Math.round(opt.weight * 100);
+                const activeClass = opt.isActive ? '' : 'opacity: 0.5;';
+
+                html += `
+                    <div class="dimension-option" style="display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #eee; ${activeClass}">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500; font-size: 14px;">${escapeHtml(opt.name)}</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 2px;">${escapeHtml(opt.code)}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="range" min="0" max="100" value="${weightPercent}" 
+                                onchange="updateDimensionWeight('${opt.id}', this.value)"
+                                style="width: 60px; cursor: pointer;">
+                            <span style="font-size: 12px; width: 35px; text-align: right;">${weightPercent}%</span>
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" ${opt.isActive ? 'checked' : ''} 
+                                    onchange="toggleDimensionActive('${opt.id}', this.checked)"
+                                    style="margin: 0;">
+                            </label>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div style="padding: 10px; text-align: center;">
+                    <button class="btn btn-secondary" onclick="showAddDimensionModal('${dimension}')" 
+                        style="font-size: 12px; padding: 6px 12px;">
+                        ➕ 新增選項
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 切換維度展開/收合
+        function toggleDimension(dimension) {
+            dimensionExpanded[dimension] = !dimensionExpanded[dimension];
+
+            const optionsEl = document.getElementById(`${dimension}-options`);
+            const toggleEl = document.getElementById(`${dimension}-toggle`);
+
+            if (optionsEl) {
+                optionsEl.style.display = dimensionExpanded[dimension] ? 'block' : 'none';
+            }
+            if (toggleEl) {
+                toggleEl.textContent = dimensionExpanded[dimension] ? '▼' : '▶';
+            }
+        }
+
+        // 更新維度權重
+        async function updateDimensionWeight(id, value) {
+            try {
+                const weight = parseFloat(value) / 100;
+
+                const response = await fetch(`${API_BASE}/dimensions/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ weight })
+                });
+
+                if (!response.ok) {
+                    throw new Error('更新失敗');
+                }
+            } catch (error) {
+                console.error('Failed to update dimension weight:', error);
+                showAlert('dashboardAlert', '權重更新失敗', 'danger');
+            }
+        }
+
+        // 切換維度啟用狀態
+        async function toggleDimensionActive(id, isActive) {
+            try {
+                const response = await fetch(`${API_BASE}/dimensions/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ isActive })
+                });
+
+                if (!response.ok) {
+                    throw new Error('更新失敗');
+                }
+
+                // 重新載入維度
+                loadDimensions();
+            } catch (error) {
+                console.error('Failed to toggle dimension active:', error);
+                showAlert('dashboardAlert', '狀態更新失敗', 'danger');
+            }
+        }
+
+        // 顯示新增維度選項的對話框
+        function showAddDimensionModal(dimensionType) {
+            const dimensionNames = {
+                module: '內容模組',
+                angle: '情境切角',
+                outlet: '處理出口',
+                tone_bias: '語氣偏壓',
+                ending_style: '收尾意圖',
+                length_target: '字數目標'
+            };
+
+            const code = prompt(`請輸入新【${dimensionNames[dimensionType]}】選項的代碼（英文，例如：new_option）：`);
+            if (!code) return;
+
+            const name = prompt('請輸入選項的中文名稱：');
+            if (!name) return;
+
+            addDimensionOption(dimensionType, code, name);
+        }
+
+        // 新增維度選項
+        async function addDimensionOption(dimensionType, code, name) {
+            try {
+                const response = await fetch(`${API_BASE}/dimensions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        dimensionType,
+                        code,
+                        name,
+                        weight: 0.10
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || '新增失敗');
+                }
+
+                showAlert('dashboardAlert', '✅ 選項已新增', 'success');
+                loadDimensions();
+            } catch (error) {
+                console.error('Failed to add dimension option:', error);
+                showAlert('dashboardAlert', '新增失敗: ' + error.message, 'danger');
+            }
+        }
+
+        // 渲染統計資料
+        function renderDimensionStats(stats) {
+            const container = document.getElementById('dimension-stats');
+            if (!container) return;
+
+            const moduleStats = stats.module || {};
+            const total = Object.values(moduleStats).reduce((a, b) => a + b, 0);
+
+            if (total === 0) {
+                container.innerHTML = '<p style="color: #999;">尚無統計資料</p>';
+                return;
+            }
+
+            const moduleNames = {
+                pleasure_relief: '爽與解壓',
+                practical: '務實處理',
+                uncomfortable_truth: '不舒服真實',
+                controversial: '爭議提問'
+            };
+
+            let html = '<div style="display: grid; gap: 8px;">';
+
+            for (const [code, count] of Object.entries(moduleStats)) {
+                const percent = Math.round((count / total) * 100);
+                const name = moduleNames[code] || code;
+
+                html += `
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span>${name}</span>
+                            <span>${count} 篇 (${percent}%)</span>
+                        </div>
+                        <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #667eea, #764ba2);"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         // 載入發文排程頁面
