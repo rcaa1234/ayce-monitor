@@ -4,7 +4,6 @@ import config from '../config';
 import logger from '../utils/logger';
 import { QUEUE_NAMES, GenerateJobData } from '../services/queue.service';
 import contentService from '../services/content.service';
-import lineService from '../services/line.service';
 import { PostModel } from '../models/post.model';
 import { UserModel } from '../models/user.model';
 import { AuditModel } from '../models/audit.model';
@@ -13,6 +12,9 @@ import { PostStatus } from '../types';
 const connection = new Redis(config.redis.url, {
   maxRetriesPerRequest: null,
 });
+
+// 最大重試次數
+const MAX_RETRIES = 3;
 
 export const generateWorker = new Worker(
   QUEUE_NAMES.GENERATE,
@@ -25,154 +27,126 @@ export const generateWorker = new Worker(
       // Update job progress
       await job.updateProgress(10);
 
-      // 如果沒有提供 stylePreset，嘗試從貼文關聯的模板獲取
-      let effectiveStylePreset = stylePreset;
-      if (!effectiveStylePreset) {
-        try {
-          const { getPool } = await import('../database/connection');
-          const pool = getPool();
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
 
-          // 步驟 1: 查詢貼文的 template_id
-          const [postInfo] = await pool.execute(
-            `SELECT template_id FROM posts WHERE id = ?`,
-            [postId]
-          );
-          let templateId = (postInfo as any[])[0]?.template_id;
-          logger.info(`[Regenerate] Post ${postId} has template_id: ${templateId}`);
+      // ========================================
+      // 第一步：生成 Generation Plan
+      // ========================================
+      const plannerService = (await import('../services/planner.service')).default;
+      const promptBuilderService = (await import('../services/prompt-builder.service')).default;
+      const postCheckService = (await import('../services/post-check.service')).default;
 
-          // 步驟 2: 如果沒有 template_id，嘗試從 daily_auto_schedule 獲取
-          if (!templateId) {
-            const [scheduleInfo] = await pool.execute(
-              `SELECT selected_template_id FROM daily_auto_schedule WHERE post_id = ?`,
-              [postId]
-            );
-            if ((scheduleInfo as any[]).length > 0) {
-              templateId = (scheduleInfo as any[])[0].selected_template_id;
-              logger.info(`[Regenerate] Found template_id from schedule: ${templateId}`);
-            }
-          }
+      const plan = await plannerService.generatePlan();
+      logger.info(`[Planner] Generated plan for post ${postId}`);
 
-          // 步驟 3: 用 template_id 查詢模板的 prompt
-          if (templateId) {
-            const [templates] = await pool.execute(
-              `SELECT name, prompt FROM content_templates WHERE id = ?`,
-              [templateId]
-            );
+      await job.updateProgress(20);
 
-            if ((templates as any[]).length > 0) {
-              const template = (templates as any[])[0];
-              effectiveStylePreset = template.prompt;
-              logger.info(`[Regenerate] Found template "${template.name}", prompt length: ${effectiveStylePreset?.length || 0}`);
-              if (effectiveStylePreset) {
-                logger.info(`[Regenerate] Prompt preview: ${effectiveStylePreset.substring(0, 100)}...`);
-              }
-            } else {
-              logger.warn(`[Regenerate] Template ${templateId} not found in content_templates`);
-            }
-          } else {
-            logger.warn(`[Regenerate] Post ${postId} has no template_id and no schedule, using default prompt`);
-          }
-        } catch (e) {
-          logger.error('[Regenerate] Failed to fetch template prompt:', e);
+      // ========================================
+      // 第二步：組裝提示詞
+      // ========================================
+      // 取得 Master Prompt（用戶設定的提示詞）
+      let masterPrompt = stylePreset || '';
+
+      if (!masterPrompt) {
+        // 從配置取得
+        const [configs] = await pool.execute<any[]>(
+          'SELECT ai_prompt FROM smart_schedule_config WHERE enabled = true LIMIT 1'
+        );
+        if (configs.length > 0 && configs[0].ai_prompt) {
+          masterPrompt = configs[0].ai_prompt;
         }
-      } else {
-        logger.info(`[Regenerate] Using provided stylePreset, length: ${effectiveStylePreset.length}`);
       }
 
+      // 組裝完整提示詞
+      const fullPrompt = await promptBuilderService.buildFullPrompt(masterPrompt, plan);
+      logger.info(`[PromptBuilder] Built prompt with ${fullPrompt.length} chars`);
+
+      await job.updateProgress(30);
+
       // ========================================
-      // AI 學習功能：注入歷史成功範例 + 選擇模組
+      // 第三步：生成內容（含重試機制）
       // ========================================
-      let enhancedPrompt = effectiveStylePreset || '';
-      let selectedModule = 'pleasure_relief';
+      let result: any = null;
+      let checkResult: any = null;
+      let retryCount = 0;
 
-      try {
-        const aiLearningService = (await import('../services/ai-learning.service')).default;
+      // 取得最近貼文用於相似度檢查
+      const recentSummaries = await plannerService.getRecentPostsSummary(15);
 
-        // 1. 根據比例選擇這次應該生成的模組
-        selectedModule = await aiLearningService.selectNextModule();
-        const moduleName = aiLearningService.getModuleName(selectedModule);
-        logger.info(`[AI Learning] Selected module: ${selectedModule} (${moduleName})`);
+      while (retryCount <= MAX_RETRIES) {
+        let promptToUse = fullPrompt;
 
-        // 如果提示詞中有 {MODULE} 佔位符，替換它
-        if (enhancedPrompt.includes('{MODULE}')) {
-          enhancedPrompt = enhancedPrompt.replace('{MODULE}', moduleName);
-        } else {
-          // 沒有佔位符，自動附加提示
-          enhancedPrompt += `\n\n⚠️ 這次請生成【${moduleName}】類型的貼文`;
+        // 如果是重試，加入修正指令
+        if (retryCount > 0 && checkResult) {
+          const fixPrompt = postCheckService.generateFixPrompt(checkResult, plan);
+          promptToUse = fullPrompt + '\n\n' + fixPrompt;
+          logger.info(`[PostCheck] Retry ${retryCount}/${MAX_RETRIES} with fix instructions`);
         }
 
-        // 2. 取得成功範例
-        const examples = await aiLearningService.getTopPerformingPosts(3);
+        // 生成內容
+        result = await contentService.generateContent(postId, {
+          stylePreset: promptToUse,
+          topic,
+          keywords,
+          engine: engine as any,
+        });
 
-        if (examples.length > 0) {
-          logger.info(`[AI Learning] Found ${examples.length} successful examples to reference`);
+        // 檢查生成結果
+        checkResult = postCheckService.checkContent(result.content, plan, recentSummaries);
 
-          // 如果提示詞中有 {PAST_EXAMPLES} 佔位符，替換它
-          if (enhancedPrompt.includes('{PAST_EXAMPLES}')) {
-            let examplesText = '\n---\n以下是過去互動最好的貼文範例，請參考風格（但不要直接複製）：\n';
-
-            examples.forEach((ex, idx) => {
-              examplesText += `\n【範例 ${idx + 1}】(互動分數: ${ex.engagement_score.toFixed(0)})\n`;
-              examplesText += ex.content.substring(0, 300);
-              if (ex.content.length > 300) examplesText += '...';
-              examplesText += '\n';
-            });
-
-            examplesText += '\n---\n請創作一篇新的貼文：';
-            enhancedPrompt = enhancedPrompt.replace('{PAST_EXAMPLES}', examplesText);
-          } else {
-            // 沒有佔位符，自動附加在最後
-            enhancedPrompt += '\n\n---\n📊 參考資訊：以下是過去表現最好的貼文風格，可作為參考：\n';
-            examples.forEach((ex, idx) => {
-              enhancedPrompt += `【範例 ${idx + 1}】${ex.content.substring(0, 150)}...\n`;
-            });
-          }
-        } else {
-          logger.info('[AI Learning] No historical examples available yet');
+        if (checkResult.passed) {
+          logger.info(`[PostCheck] Content passed all checks`);
+          break;
         }
-      } catch (learningError) {
-        logger.warn('[AI Learning] Failed to get examples, continuing without:', learningError);
+
+        logger.warn(`[PostCheck] Content failed: ${checkResult.issues.join(', ')}`);
+        retryCount++;
+
+        if (retryCount > MAX_RETRIES) {
+          logger.warn(`[PostCheck] Max retries reached, using last result`);
+        }
       }
 
-      // Generate content with enhanced prompt
-      const result = await contentService.generateContent(postId, {
-        stylePreset: enhancedPrompt,
-        topic,
-        keywords,
-        engine: engine as any,
-      });
-
-      await job.updateProgress(60);
+      await job.updateProgress(70);
 
       // ========================================
-      // AI 學習功能：自動分類主題
+      // 第四步：儲存 Generation Plan 和檢測結果
       // ========================================
       try {
-        const aiLearningService = (await import('../services/ai-learning.service')).default;
-        const { getPool } = await import('../database/connection');
-        const pool = getPool();
-
-        // 自動分類內容主題
-        const topicCategory = aiLearningService.classifyContent(result.content);
-
-        // 更新 posts 表的 topic_category
         await pool.execute(
-          `UPDATE posts SET topic_category = ?, learning_metadata = ? WHERE id = ?`,
+          `UPDATE posts SET 
+            topic_category = ?,
+            generation_plan = ?,
+            angle = ?,
+            outlet = ?,
+            tone_bias = ?,
+            ending_style = ?,
+            length_target = ?,
+            risk_flags = ?,
+            post_check_result = ?,
+            retry_count = ?
+          WHERE id = ?`,
           [
-            topicCategory,
-            JSON.stringify({
-              classified_at: new Date().toISOString(),
-              prompt_length: enhancedPrompt.length,
-              examples_count: 3,
-            }),
+            plan.module,
+            JSON.stringify(plan),
+            plan.angle || null,
+            plan.outlet,
+            plan.toneBias,
+            plan.endingStyle,
+            plan.lengthTarget,
+            JSON.stringify(checkResult?.riskFlags || []),
+            JSON.stringify(checkResult),
+            retryCount,
             postId,
           ]
         );
-
-        logger.info(`[AI Learning] Classified post ${postId} as topic: ${topicCategory}`);
-      } catch (classifyError) {
-        logger.warn('[AI Learning] Failed to classify content:', classifyError);
+        logger.info(`[DB] Saved generation plan and check result for post ${postId}`);
+      } catch (dbError) {
+        logger.warn('[DB] Failed to save generation plan:', dbError);
       }
+
+      await job.updateProgress(80);
 
       // Find reviewer (user who created the post or default reviewer)
       const creator = await UserModel.findById(createdBy);
@@ -180,8 +154,6 @@ export const generateWorker = new Worker(
       if (!creator || !creator.line_user_id) {
         throw new Error('Creator does not have LINE user ID configured');
       }
-
-      await job.updateProgress(70);
 
       // Log audit
       await AuditModel.log({
@@ -193,6 +165,9 @@ export const generateWorker = new Worker(
           engine: result.engine,
           similarity_max: result.similarityMax,
           revision_id: result.revisionId,
+          plan: plan,
+          check_passed: checkResult?.passed,
+          retry_count: retryCount,
         },
       });
 
@@ -211,12 +186,14 @@ export const generateWorker = new Worker(
         content: result.content,
         scheduledTime,
         autoScheduleId,
+        plan,
+        checkResult,
+        retryCount,
       };
     } catch (error: any) {
       console.error(`❌ [GENERATE WORKER] Job ${job.id} failed with error:`);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
-      console.error('Error object:', error);
       logger.error(`Generate job ${job.id} failed:`, error);
 
       // Update post status to failed

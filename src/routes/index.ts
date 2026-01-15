@@ -3204,6 +3204,175 @@ router.get('/diagnose', authenticate, async (req: Request, res: Response): Promi
 // Statistics routes
 router.use('/statistics', statisticsRoutes);
 
+// ========================================
+// Generation Dimensions API（維度管理）
+// ========================================
+
+/**
+ * GET /api/dimensions
+ * 取得所有維度設定
+ */
+router.get('/dimensions', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    const [dimensions] = await pool.execute<RowDataPacket[]>(
+      `SELECT * FROM generation_dimensions ORDER BY dimension_type, display_order`
+    );
+
+    // 按維度類型分組
+    const grouped: Record<string, any[]> = {
+      module: [],
+      angle: [],
+      outlet: [],
+      tone_bias: [],
+      ending_style: [],
+      length_target: [],
+    };
+
+    for (const dim of dimensions) {
+      if (grouped[dim.dimension_type]) {
+        grouped[dim.dimension_type].push({
+          id: dim.id,
+          code: dim.code,
+          name: dim.name,
+          description: dim.description,
+          weight: parseFloat(dim.weight),
+          isActive: dim.is_active,
+          displayOrder: dim.display_order,
+          compatibleModules: dim.compatible_modules ? JSON.parse(dim.compatible_modules) : null,
+        });
+      }
+    }
+
+    res.json({ success: true, data: grouped });
+  } catch (error: any) {
+    logger.error('Failed to get dimensions:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/dimensions/:id
+ * 更新單一維度設定
+ */
+router.put('/dimensions/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, description, weight, isActive, compatibleModules } = req.body;
+
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    await pool.execute(
+      `UPDATE generation_dimensions SET 
+        name = COALESCE(?, name),
+        description = COALESCE(?, description),
+        weight = COALESCE(?, weight),
+        is_active = COALESCE(?, is_active),
+        compatible_modules = ?
+      WHERE id = ?`,
+      [
+        name || null,
+        description || null,
+        weight !== undefined ? weight : null,
+        isActive !== undefined ? isActive : null,
+        compatibleModules ? JSON.stringify(compatibleModules) : null,
+        id,
+      ]
+    );
+
+    res.json({ success: true, message: '維度設定已更新' });
+  } catch (error: any) {
+    logger.error('Failed to update dimension:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/dimensions
+ * 新增維度選項
+ */
+router.post('/dimensions', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { dimensionType, code, name, description, weight, compatibleModules } = req.body;
+
+    if (!dimensionType || !code || !name) {
+      res.status(400).json({ success: false, error: '缺少必要欄位' });
+      return;
+    }
+
+    const { getPool } = await import('../database/connection');
+    const { generateUUID } = await import('../utils/uuid');
+    const pool = getPool();
+
+    const id = generateUUID();
+    await pool.execute(
+      `INSERT INTO generation_dimensions 
+        (id, dimension_type, code, name, description, weight, compatible_modules)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        dimensionType,
+        code,
+        name,
+        description || null,
+        weight || 0.10,
+        compatibleModules ? JSON.stringify(compatibleModules) : null,
+      ]
+    );
+
+    res.json({ success: true, message: '維度選項已新增', id });
+  } catch (error: any) {
+    logger.error('Failed to create dimension:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/dimensions/:id
+ * 刪除維度選項
+ */
+router.delete('/dimensions/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+
+    await pool.execute('DELETE FROM generation_dimensions WHERE id = ?', [id]);
+
+    res.json({ success: true, message: '維度選項已刪除' });
+  } catch (error: any) {
+    logger.error('Failed to delete dimension:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/generation/stats
+ * 取得生成統計（各維度使用情況）
+ */
+router.get('/generation/stats', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const plannerService = (await import('../services/planner.service')).default;
+
+    const stats = await plannerService.getRecentDimensionStats();
+
+    // 轉換 Map 為物件
+    const result: Record<string, Record<string, number>> = {};
+    for (const [dim, dimStats] of stats) {
+      result[dim] = Object.fromEntries(dimStats);
+    }
+
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Failed to get generation stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Monitor routes (聲量監控)
 import monitorRoutes from './monitor.routes';
 router.use('/monitor', monitorRoutes);

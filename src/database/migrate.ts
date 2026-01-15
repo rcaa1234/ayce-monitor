@@ -970,6 +970,117 @@ const migrations = [
   ADD COLUMN IF NOT EXISTS topic_category VARCHAR(50) NULL COMMENT '主題分類 (emotional, humor, life, motivation, sexy, etc)',
   ADD COLUMN IF NOT EXISTS learning_metadata JSON NULL COMMENT 'AI學習相關元數據';
   `,
+
+  // Migration 40: 擴展 posts 表支援 Generation Plan
+  `
+  ALTER TABLE posts
+  ADD COLUMN IF NOT EXISTS generation_plan JSON NULL COMMENT '生成計劃 {module, angle, outlet, tone_bias, ending_style, length_target}',
+  ADD COLUMN IF NOT EXISTS angle VARCHAR(100) NULL COMMENT '切角',
+  ADD COLUMN IF NOT EXISTS outlet VARCHAR(100) NULL COMMENT '出口/處理方式',
+  ADD COLUMN IF NOT EXISTS tone_bias VARCHAR(100) NULL COMMENT '語氣偏壓',
+  ADD COLUMN IF NOT EXISTS ending_style VARCHAR(100) NULL COMMENT '收尾意圖',
+  ADD COLUMN IF NOT EXISTS length_target VARCHAR(20) NULL COMMENT '字數目標',
+  ADD COLUMN IF NOT EXISTS risk_flags JSON NULL COMMENT '風險標記',
+  ADD COLUMN IF NOT EXISTS post_check_result JSON NULL COMMENT '生成後檢測結果',
+  ADD COLUMN IF NOT EXISTS retry_count INT DEFAULT 0 COMMENT '重試次數';
+  `,
+
+  // Migration 41: Generation Dimensions 設定表
+  `
+  CREATE TABLE IF NOT EXISTS generation_dimensions (
+    id CHAR(36) PRIMARY KEY,
+    dimension_type ENUM('module', 'angle', 'outlet', 'tone_bias', 'ending_style', 'length_target') NOT NULL,
+    code VARCHAR(100) NOT NULL COMMENT '代碼',
+    name VARCHAR(200) NOT NULL COMMENT '中文名稱',
+    description TEXT NULL COMMENT '說明',
+    weight DECIMAL(3,2) DEFAULT 1.00 COMMENT '權重 0.00-1.00',
+    is_active BOOLEAN DEFAULT TRUE,
+    display_order INT DEFAULT 0,
+    
+    -- 相容性規則
+    compatible_modules JSON NULL COMMENT '可搭配的 MODULE 代碼陣列',
+    incompatible_with JSON NULL COMMENT '不可搭配的其他維度代碼陣列',
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    UNIQUE KEY uk_type_code (dimension_type, code),
+    INDEX idx_type_active (dimension_type, is_active)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI生成維度設定';
+  `,
+
+  // Migration 42: 插入預設維度資料 - MODULE
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order) VALUES
+  (UUID(), 'module', 'pleasure_relief', '爽與解壓', '高潮舒壓、快感釋放、慾火起來、讓人覺得爽是合理的', 0.40, 1),
+  (UUID(), 'module', 'practical', '務實處理', '不想等、不想配合、懶得前戲、想快一點、省事快戰速決', 0.30, 2),
+  (UUID(), 'module', 'uncomfortable_truth', '不舒服真實', '爽完不想理人、真人vs玩具殘酷對比、自私但不道歉、被拒絕久了務實轉向', 0.20, 3),
+  (UUID(), 'module', 'controversial', '爭議提問', '反問、拋殘酷事實、不給答案、引戰留言區爆', 0.10, 4);
+  `,
+
+  // Migration 43: 插入預設維度資料 - ANGLE (切角)
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order) VALUES
+  (UUID(), 'angle', 'after_shower', '洗完澡', '洗完澡身體放鬆敏感', 0.08, 1),
+  (UUID(), 'angle', 'lights_off', '關燈後', '關燈後獨處的慾望', 0.08, 2),
+  (UUID(), 'angle', 'family_home', '家裡有人', '有人在家但還是想解決', 0.06, 3),
+  (UUID(), 'angle', 'rejected_long', '被拒絕久了', '被拒絕一段時間後的務實轉向', 0.08, 4),
+  (UUID(), 'angle', 'after_workout', '運動後', '運動後爆汗身體很敏感', 0.06, 5),
+  (UUID(), 'angle', 'period_around', '生理期前後', '生理期前後慾望特別強', 0.06, 6),
+  (UUID(), 'angle', 'late_night', '深夜獨處', '深夜安靜下來的慾望', 0.10, 7),
+  (UUID(), 'angle', 'before_sleep', '睡前', '睡前想放鬆一下', 0.08, 8),
+  (UUID(), 'angle', 'just_woke_up', '剛醒來', '早起時身體很敏感', 0.06, 9),
+  (UUID(), 'angle', 'after_work', '下班後', '下班後累但想解壓', 0.08, 10),
+  (UUID(), 'angle', 'watching_drama', '追劇到激情戲', '看到激情畫面被挑起', 0.06, 11),
+  (UUID(), 'angle', 'weekend_morning', '週末早上', '難得的悠閒時光', 0.06, 12),
+  (UUID(), 'angle', 'partner_asleep', '對方睡著了', '對方已經睡了自己還想要', 0.06, 13),
+  (UUID(), 'angle', 'sudden_urge', '突然很想要', '沒有特別原因就是突然慾火起來', 0.08, 14);
+  `,
+
+  // Migration 44: 插入預設維度資料 - OUTLET (出口/處理方式)
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order, compatible_modules) VALUES
+  (UUID(), 'outlet', 'solo_slow', '自慰-慢慢玩', '享受過程慢慢來', 0.12, 1, '["pleasure_relief"]'),
+  (UUID(), 'outlet', 'solo_quick', '自慰-快戰速決', '直接追求高潮解決', 0.15, 2, '["practical", "pleasure_relief"]'),
+  (UUID(), 'outlet', 'solo_edging', '自慰-停停走走', '快到就停再來', 0.08, 3, '["pleasure_relief"]'),
+  (UUID(), 'outlet', 'toy_solo', '玩具-自己用', '用玩具更有效率', 0.15, 4, '["practical", "pleasure_relief"]'),
+  (UUID(), 'outlet', 'toy_together', '玩具-兩人一起', '兩個人一起用減壓加速升級', 0.10, 5, '["pleasure_relief"]'),
+  (UUID(), 'outlet', 'find_partner', '找人', '有對象且互動成立時', 0.10, 6, '["pleasure_relief"]'),
+  (UUID(), 'outlet', 'hold_for_now', '先忍-改天換方式', '暫時忍住但有下一步', 0.08, 7, '["uncomfortable_truth"]'),
+  (UUID(), 'outlet', 'lower_bar', '降低門檻', '不用鋪陳直接追快感', 0.12, 8, '["practical"]'),
+  (UUID(), 'outlet', 'toy_vs_real', '玩具比真人穩', '玩具不會拒絕不會累', 0.10, 9, '["uncomfortable_truth"]');
+  `,
+
+  // Migration 45: 插入預設維度資料 - TONE_BIAS (語氣偏壓)
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order) VALUES
+  (UUID(), 'tone_bias', 'blunt_raw', '直白粗暴', '直接講不包裝', 0.25, 1),
+  (UUID(), 'tone_bias', 'playful_mean', '調皮嘴賤', '帶點調侃欠揍', 0.20, 2),
+  (UUID(), 'tone_bias', 'cold_practical', '冷淡務實', '冷冷的講事實', 0.20, 3),
+  (UUID(), 'tone_bias', 'annoying_honest', '欠揍誠實', '讓人想打但是真話', 0.20, 4),
+  (UUID(), 'tone_bias', 'gentle_no_comfort', '溫和但不安慰', '語氣溫但不是療癒', 0.15, 5);
+  `,
+
+  // Migration 46: 插入預設維度資料 - ENDING_STYLE (收尾意圖)
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order) VALUES
+  (UUID(), 'ending_style', 'done_sleep', '收工型', '做完就好可以睡了', 0.20, 1),
+  (UUID(), 'ending_style', 'contrast', '反差型', '原本以為...結果...', 0.12, 2),
+  (UUID(), 'ending_style', 'sage_mode', '聖人模式', '爽完世界靜音不想理人', 0.15, 3),
+  (UUID(), 'ending_style', 'provocative', '挑釁型', '留刺點引戰', 0.10, 4),
+  (UUID(), 'ending_style', 'blank_ending', '留白型', '停在動作不上價值', 0.15, 5),
+  (UUID(), 'ending_style', 'upgrade_together', '升級型', '兩人一起用換玩法更快到', 0.08, 6),
+  (UUID(), 'ending_style', 'relief_done', '解放完成', '壓力真的小很多', 0.10, 7),
+  (UUID(), 'ending_style', 'no_wait', '不用等型', '至少不用再等', 0.10, 8);
+  `,
+
+  // Migration 47: 插入預設維度資料 - LENGTH_TARGET (字數目標)
+  `
+  INSERT IGNORE INTO generation_dimensions (id, dimension_type, code, name, description, weight, display_order) VALUES
+  (UUID(), 'length_target', '50-70', '短狠', '50-70字 短而有力', 0.35, 1),
+  (UUID(), 'length_target', '70-95', '中等', '70-95字 標準長度', 0.40, 2),
+  (UUID(), 'length_target', '95-120', '慢慢戳', '95-120字 較長描述', 0.25, 3);
+  `,
 ];
 
 async function runMigrations() {
