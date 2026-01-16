@@ -964,170 +964,38 @@ const migrations = [
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Google Trends 搜尋趨勢';
   `,
 
-  // Migration 39: Add topic_category to posts for AI learning (MySQL compatible)
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'topic_category';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(50) NULL COMMENT "主題分類"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  // Migration 39: Add topic_category to posts
+  `ALTER TABLE posts ADD COLUMN topic_category VARCHAR(50) NULL COMMENT '主題分類'`,
 
   // Migration 39b: Add learning_metadata column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'learning_metadata';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT "AI學習相關元數據"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN learning_metadata JSON NULL COMMENT 'AI學習相關元數據'`,
 
-  // Migration 40: 擴展 posts 表支援 Generation Plan - generation_plan
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'generation_plan';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT "生成計劃"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  // Migration 40: generation_plan column
+  `ALTER TABLE posts ADD COLUMN generation_plan JSON NULL COMMENT '生成計劃'`,
 
   // Migration 40b: angle column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'angle';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(100) NULL COMMENT "切角"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN angle VARCHAR(100) NULL COMMENT '切角'`,
 
   // Migration 40c: outlet column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'outlet';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(100) NULL COMMENT "出口/處理方式"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN outlet VARCHAR(100) NULL COMMENT '出口/處理方式'`,
 
   // Migration 40d: tone_bias column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'tone_bias';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(100) NULL COMMENT "語氣偏壓"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN tone_bias VARCHAR(100) NULL COMMENT '語氣偏壓'`,
 
   // Migration 40e: ending_style column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'ending_style';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(100) NULL COMMENT "收尾意圖"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN ending_style VARCHAR(100) NULL COMMENT '收尾意圖'`,
 
   // Migration 40f: length_target column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'length_target';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' VARCHAR(20) NULL COMMENT "字數目標"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN length_target VARCHAR(20) NULL COMMENT '字數目標'`,
 
   // Migration 40g: risk_flags column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'risk_flags';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT "風險標記"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN risk_flags JSON NULL COMMENT '風險標記'`,
 
   // Migration 40h: post_check_result column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'post_check_result';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' JSON NULL COMMENT "生成後檢測結果"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN post_check_result JSON NULL COMMENT '生成後檢測結果'`,
 
   // Migration 40i: retry_count column
-  `
-  SET @dbname = DATABASE();
-  SET @tablename = 'posts';
-  SET @columnname = 'retry_count';
-  SET @preparedStatement = (SELECT IF(
-    (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = @tablename AND COLUMN_NAME = @columnname) > 0,
-    'SELECT 1',
-    CONCAT('ALTER TABLE ', @tablename, ' ADD COLUMN ', @columnname, ' INT DEFAULT 0 COMMENT "重試次數"')
-  ));
-  PREPARE alterIfNotExists FROM @preparedStatement;
-  EXECUTE alterIfNotExists;
-  DEALLOCATE PREPARE alterIfNotExists;
-  `,
+  `ALTER TABLE posts ADD COLUMN retry_count INT DEFAULT 0 COMMENT '重試次數'`,
 
   // Migration 41: Generation Dimensions 設定表
   `
