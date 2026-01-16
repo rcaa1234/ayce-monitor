@@ -3511,42 +3511,6 @@
             }
 
             container.innerHTML = `
-                ${ucbConfig ? `
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
-                    <h3 style="margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 20px;">🎯</span> 目前執行中的 UCB 參數
-                    </h3>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">探索因子</div>
-                            <div style="font-size: 18px; font-weight: bold;">${parseFloat(ucbConfig.exploration_factor || 1.5).toFixed(2)}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">每日發文數</div>
-                            <div style="font-size: 18px; font-weight: bold;">${ucbConfig.posts_per_day || 1} 則</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">發文時間範圍</div>
-                            <div style="font-size: 16px; font-weight: bold;">${ucbConfig.time_range_start || '未設定'} ~ ${ucbConfig.time_range_end || '未設定'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">Threads 帳號</div>
-                            <div style="font-size: 14px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(threadsAccountName)}">${escapeHtml(threadsAccountName)}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">自動排程狀態</div>
-                            <div style="font-size: 16px; font-weight: bold;">${ucbConfig.auto_schedule_enabled ? '✅ 已啟用' : '⏸️ 已暫停'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; backdrop-filter: blur(10px);">
-                            <div style="font-size: 11px; opacity: 0.9; margin-bottom: 4px;">最小測試次數</div>
-                            <div style="font-size: 18px; font-weight: bold;">${ucbConfig.min_trials_per_template || 5} 次</div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 12px; font-size: 12px; opacity: 0.85; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; border-left: 3px solid rgba(255,255,255,0.5);">
-                        💡 以上參數由 UCB 演算法使用，每天 00:00 自動建立排程，或使用「立即觸發」按鈕測試
-                    </div>
-                </div>
-                ` : ''}
                 <div class="schedule-list">
                     ${schedules.map(schedule => {
                 const statusMap = {
