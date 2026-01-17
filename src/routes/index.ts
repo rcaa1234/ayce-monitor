@@ -3233,15 +3233,29 @@ router.get('/dimensions', authenticate, async (req: Request, res: Response): Pro
 
     for (const dim of dimensions) {
       if (grouped[dim.dimension_type]) {
+        // 安全地解析 compatible_modules（可能已經是物件或是字符串）
+        let compatibleModules = null;
+        if (dim.compatible_modules) {
+          if (typeof dim.compatible_modules === 'string') {
+            try {
+              compatibleModules = JSON.parse(dim.compatible_modules);
+            } catch {
+              compatibleModules = null;
+            }
+          } else {
+            compatibleModules = dim.compatible_modules;
+          }
+        }
+
         grouped[dim.dimension_type].push({
           id: dim.id,
           code: dim.code,
           name: dim.name,
           description: dim.description,
-          weight: parseFloat(dim.weight),
+          weight: parseFloat(dim.weight) || 0,
           isActive: dim.is_active,
           displayOrder: dim.display_order,
-          compatibleModules: dim.compatible_modules ? JSON.parse(dim.compatible_modules) : null,
+          compatibleModules,
         });
       }
     }
