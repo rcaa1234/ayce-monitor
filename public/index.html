@@ -3406,8 +3406,9 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const configData = await configRes.json();
+                const config = configData.config || {};
 
-                if (!configData.ai_prompt || configData.ai_prompt.trim() === '') {
+                if (!config.ai_prompt || config.ai_prompt.trim() === '') {
                     alert('❌ 請先到「提示詞設定」頁面設定 AI 生成提示詞');
                     return;
                 }
