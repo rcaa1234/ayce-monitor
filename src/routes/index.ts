@@ -2647,16 +2647,14 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 
     const [schedules] = await pool.execute<RowDataPacket[]>(
       `SELECT das.*,
-              ct.name as template_name,
-              sts.name as time_slot_name,
+              p.generation_plan,
               (SELECT pr.content 
                FROM post_revisions pr 
                WHERE pr.post_id = das.post_id 
                ORDER BY pr.revision_no DESC 
                LIMIT 1) as revision_content
        FROM daily_auto_schedule das
-       LEFT JOIN content_templates ct ON das.selected_template_id = ct.id
-       LEFT JOIN schedule_time_slots sts ON das.selected_time_slot_id = sts.id
+       LEFT JOIN posts p ON das.post_id = p.id
        ORDER BY das.schedule_date DESC
        LIMIT 30`
     );

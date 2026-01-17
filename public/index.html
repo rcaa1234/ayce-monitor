@@ -3486,30 +3486,6 @@
                 return;
             }
 
-            // Fetch current UCB config to display
-            let ucbConfig = null;
-            try {
-                const response = await fetch(`${API_BASE}/ucb-config`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    ucbConfig = data.config;
-                }
-            } catch (error) {
-                console.error('Failed to load UCB config for schedule history:', error);
-            }
-
-            // Get Threads account name
-            let threadsAccountName = '未設定';
-            if (ucbConfig && ucbConfig.threads_account_id) {
-                const accountSelect = document.getElementById('ucbThreadsAccount');
-                const selectedOption = accountSelect.querySelector(`option[value="${ucbConfig.threads_account_id}"]`);
-                if (selectedOption) {
-                    threadsAccountName = selectedOption.textContent;
-                }
-            }
-
             container.innerHTML = `
                 <div class="schedule-list">
                     ${schedules.map(schedule => {
@@ -3534,16 +3510,22 @@
                                 <div class="schedule-info-item">
                                     <strong>發文時間:</strong> ${formatDateTime(schedule.scheduled_time)}
                                 </div>
-                                <div class="schedule-info-item">
-                                    <strong>使用模板:</strong> ${escapeHtml(schedule.template_name || '未知')}
-                                </div>
-                                <div class="schedule-info-item">
-                                    <strong>UCB 分數:</strong> ${schedule.ucb_score ? parseFloat(schedule.ucb_score).toFixed(4) : '—'}
-                                </div>
-                                <div class="schedule-info-item">
-                                    <strong>時段:</strong> ${escapeHtml(schedule.time_slot_name || '未知')}
-                                </div>
                             </div>
+
+                            ${schedule.generation_plan ? `
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+                                    ${schedule.generation_plan.moduleName ? `<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">📦 ${escapeHtml(schedule.generation_plan.moduleName)}</span>` : ''}
+                                    ${schedule.generation_plan.angleName ? `<span style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🎬 ${escapeHtml(schedule.generation_plan.angleName)}</span>` : ''}
+                                    ${schedule.generation_plan.outletName ? `<span style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">💡 ${escapeHtml(schedule.generation_plan.outletName)}</span>` : ''}
+                                    ${schedule.generation_plan.toneBiasName ? `<span style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🗣️ ${escapeHtml(schedule.generation_plan.toneBiasName)}</span>` : ''}
+                                    ${schedule.generation_plan.endingStyleName ? `<span style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🔚 ${escapeHtml(schedule.generation_plan.endingStyleName)}</span>` : ''}
+                                    ${schedule.generation_plan.lengthTarget ? `<span style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">📏 ${escapeHtml(schedule.generation_plan.lengthTarget)}字</span>` : ''}
+                                </div>
+                            ` : `
+                                <div style="margin-top: 10px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; font-size: 12px; color: #6b7280;">
+                                    AI 自動發文（單一提示詞）
+                                </div>
+                            `}
 
                             ${schedule.selection_reason ? `
                                 <div class="schedule-reason">
