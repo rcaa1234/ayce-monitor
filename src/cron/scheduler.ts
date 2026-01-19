@@ -579,10 +579,9 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
 
     // 查詢已審核通過且排程時間已到達的自動排程
     const [schedules] = await pool.execute<RowDataPacket[]>(
-      `SELECT das.*, p.id as post_id, ct.name as template_name
+      `SELECT das.*, p.id as post_id
        FROM daily_auto_schedule das
        JOIN posts p ON das.post_id = p.id
-       JOIN content_templates ct ON das.selected_template_id = ct.id
        WHERE das.status = 'APPROVED'
          AND das.scheduled_time <= NOW()
        ORDER BY das.scheduled_time ASC
@@ -625,27 +624,22 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
           [schedule.id]
         );
 
-        // 記錄到 post_performance_log
+        // 記錄到 post_performance_log（簡化版，不需要模板和時段）
         const logId = generateUUID();
         const scheduledTime = new Date(schedule.scheduled_time);
         await pool.execute(
           `INSERT INTO post_performance_log
-           (id, post_id, template_id, time_slot_id, posted_at, posted_hour, posted_minute, day_of_week,
-            ucb_score, was_exploration, selection_reason, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+           (id, post_id, posted_at, posted_hour, posted_minute, day_of_week, selection_reason, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
            ON DUPLICATE KEY UPDATE updated_at = NOW()`,
           [
             logId,
             schedule.post_id,
-            schedule.selected_template_id,
-            schedule.selected_time_slot_id,
             schedule.scheduled_time,
             scheduledTime.getHours(),
             scheduledTime.getMinutes(),
             scheduledTime.getDay(),
-            schedule.ucb_score,
-            schedule.selection_reason?.includes('探索') ? true : false,
-            schedule.selection_reason
+            schedule.selection_reason || 'AI 自動發文'
           ]
         );
 
