@@ -126,10 +126,10 @@ router.put('/posts/:id', authenticate, async (req: Request, res: Response): Prom
       );
       const newRevNo = (revisions[0]?.max_rev || 0) + 1;
 
-      // 插入新 revision
+      // 插入新 revision (engine_used 是必填欄位)
       await pool.execute(
-        'INSERT INTO post_revisions (id, post_id, revision_no, content) VALUES (UUID(), ?, ?, ?)',
-        [id, newRevNo, content]
+        'INSERT INTO post_revisions (id, post_id, revision_no, content, engine_used) VALUES (UUID(), ?, ?, ?, ?)',
+        [id, newRevNo, content, 'manual_edit']
       );
     }
 
