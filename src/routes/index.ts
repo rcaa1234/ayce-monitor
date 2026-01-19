@@ -136,7 +136,8 @@ router.put('/posts/:id', authenticate, async (req: Request, res: Response): Prom
     const updatedPost = await PostModel.findById(id);
     res.json({ success: true, post: updatedPost });
   } catch (error: any) {
-    res.status(500).json({ error: 'Update failed', message: error.message });
+    logger.error('PUT /posts/:id error:', error);
+    res.status(500).json({ error: 'Update failed', message: error.message, code: error.code });
   }
 });
 
