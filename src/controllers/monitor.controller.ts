@@ -334,7 +334,8 @@ class MonitorController {
                 values.push(sentiment);
             }
 
-            const offset = (Number(page) - 1) * Number(limit);
+            const limitNum = Number(limit);
+            const offsetNum = (Number(page) - 1) * limitNum;
 
             const [rows] = await pool.execute<RowDataPacket[]>(
                 `SELECT 
@@ -348,8 +349,8 @@ class MonitorController {
          INNER JOIN monitor_sources ms ON mm.source_id = ms.id
          ${whereClause}
          ORDER BY mm.discovered_at DESC
-         LIMIT ? OFFSET ?`,
-                [...values, Number(limit), offset]
+         LIMIT ${limitNum} OFFSET ${offsetNum}`,
+                values
             );
 
             // 取得總數
@@ -553,14 +554,16 @@ class MonitorController {
                 values.push(source_id);
             }
 
+            const limitNum = Number(limit);
+
             const [rows] = await pool.execute<RowDataPacket[]>(
                 `SELECT mcl.*, ms.name as source_name
          FROM monitor_crawl_logs mcl
          INNER JOIN monitor_sources ms ON mcl.source_id = ms.id
          ${whereClause}
          ORDER BY mcl.started_at DESC
-         LIMIT ?`,
-                [...values, Number(limit)]
+         LIMIT ${limitNum}`,
+                values
             );
 
             res.json({ success: true, data: rows });
