@@ -64,7 +64,7 @@ class MonitorController {
           keywords, exclude_keywords, notify_enabled, display_color
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    id, name, short_name, description, brand_type,
+                    id, name, short_name || null, description || null, brand_type,
                     JSON.stringify(keywords),
                     exclude_keywords ? JSON.stringify(exclude_keywords) : null,
                     notify_enabled, display_color,
