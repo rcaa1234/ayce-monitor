@@ -100,6 +100,46 @@ router.patch('/posts/:id', authenticate, async (req: Request, res: Response): Pr
   }
 });
 
+// PUT 方法也支持更新（與 PATCH 相同功能）
+router.put('/posts/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    const { PostModel } = await import('../models/post.model');
+    const post = await PostModel.findById(id);
+
+    if (!post) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+
+    // 如果提供了 content，創建新的 revision
+    if (content) {
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 獲取當前最大 revision_no
+      const [revisions] = await pool.execute<RowDataPacket[]>(
+        'SELECT MAX(revision_no) as max_rev FROM post_revisions WHERE post_id = ?',
+        [id]
+      );
+      const newRevNo = (revisions[0]?.max_rev || 0) + 1;
+
+      // 插入新 revision
+      await pool.execute(
+        'INSERT INTO post_revisions (id, post_id, revision_no, content) VALUES (UUID(), ?, ?, ?)',
+        [id, newRevNo, content]
+      );
+    }
+
+    const updatedPost = await PostModel.findById(id);
+    res.json({ success: true, post: updatedPost });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Update failed', message: error.message });
+  }
+});
+
 router.delete('/posts/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
