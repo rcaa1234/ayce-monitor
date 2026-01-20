@@ -199,7 +199,7 @@ class MonitorController {
           id, name, url, platform, platform_category, 
           check_interval_hours, use_puppeteer
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, name, url, platform, platform_category, check_interval_hours, use_puppeteer]
+                [id, name, url, platform, platform_category || null, check_interval_hours, use_puppeteer]
             );
 
             // 建立品牌關聯
