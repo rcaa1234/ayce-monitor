@@ -1108,6 +1108,17 @@
                         <div id="statsTemplatesList" style="display: grid; gap: 15px;">
                             <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
                         </div>
+
+                        <!-- 維度使用統計區塊 -->
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                            <h4 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🎯 AI 發文維度統計</h4>
+                            <p style="color: #666; margin-bottom: 15px; font-size: 13px;">
+                                分析最近 30 天 AI 發文使用的六種維度分佈
+                            </p>
+                            <div id="dimension-stats-overview" style="display: grid; gap: 15px;">
+                                <p style="color: #999; text-align: center; padding: 20px 0;">載入中...</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Statistics Timeslots Sub-tab -->
@@ -5008,7 +5019,7 @@
                 }
             }
 
-            // 渲染統計資料
+            // 渲染統計資料 - 顯示所有六種維度
             function renderDimensionStats(stats) {
                 const container = document.getElementById('dimension-stats');
                 if (!container) return;
@@ -5017,34 +5028,83 @@
                 const total = Object.values(moduleStats).reduce((a, b) => a + b, 0);
 
                 if (total === 0) {
-                    container.innerHTML = '<p style="color: #999;">尚無統計資料</p>';
+                    container.innerHTML = '<p style="color: #999;">尚無統計資料（需有已發布的 AI 貼文）</p>';
                     return;
                 }
 
-                const moduleNames = {
-                    pleasure_relief: '爽與解壓',
-                    practical: '務實處理',
-                    uncomfortable_truth: '不舒服真實',
-                    controversial: '爭議提問'
+                // 維度名稱對照表
+                const dimensionMeta = {
+                    module: {
+                        title: '📦 內容模組', color: '#667eea', names: {
+                            pleasure_relief: '爽與解壓', practical: '務實處理',
+                            uncomfortable_truth: '不舒服真實', controversial: '爭議提問'
+                        }
+                    },
+                    angle: {
+                        title: '🎬 情境切角', color: '#f093fb', names: {
+                            morning_wake: '早晨提問', late_night: '隨便做', confession_anon: '不好意思問',
+                            work_break: '午休時間', before_sleep: '睡前發問'
+                        }
+                    },
+                    outlet: {
+                        title: '💡 處理出口', color: '#4facfe', names: {
+                            solo_quick: '自慰-快戰速決', solo_slow: '自慰-慢慢享受',
+                            partner_simple: '有對象-輕量選項', partner_full: '有對象-完整方案',
+                            mindset_shift: '心態轉換'
+                        }
+                    },
+                    tone_bias: {
+                        title: '🗣️ 語氣偏壓', color: '#fa709a', names: {
+                            blunt_raw: '直白粗暴', playful_mean: '調皮嘴賤',
+                            cold_practical: '冷淡務實', warm_body: '溫暖肉體派'
+                        }
+                    },
+                    ending_style: {
+                        title: '🔚 收尾意圖', color: '#a8edea', names: {
+                            done_sleep: '收工型', question_back: '反問懸念型', tease_more: '挑逗延續型',
+                            reader_agency: '讀者決定型', self_call: '自我喊話型',
+                            relief_done: '解放完成', no_wait: '不用等型'
+                        }
+                    },
+                    length_target: {
+                        title: '📏 字數目標', color: '#30cfd0', names: {
+                            '50-70': '短狠 (50-70字)', '70-95': '中等 (70-95字)', '95-120': '慢慢戳 (95-120字)'
+                        }
+                    }
                 };
 
-                let html = '<div style="display: grid; gap: 8px;">';
+                let html = '<div style="display: grid; gap: 20px;">';
 
-                for (const [code, count] of Object.entries(moduleStats)) {
-                    const percent = Math.round((count / total) * 100);
-                    const name = moduleNames[code] || code;
+                for (const [dimKey, dimInfo] of Object.entries(dimensionMeta)) {
+                    const dimStats = stats[dimKey] || {};
+                    const dimTotal = Object.values(dimStats).reduce((a, b) => a + b, 0);
 
-                    html += `
-                    <div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                            <span>${name}</span>
-                            <span>${count} 篇 (${percent}%)</span>
-                        </div>
-                        <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
-                            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #667eea, #764ba2);"></div>
-                        </div>
-                    </div>
-                `;
+                    html += `<div>
+                        <h5 style="margin-bottom: 8px; font-size: 13px; color: #374151;">${dimInfo.title}</h5>
+                        <div style="display: grid; gap: 4px;">`;
+
+                    if (dimTotal === 0) {
+                        html += `<p style="color: #999; font-size: 12px;">尚無資料</p>`;
+                    } else {
+                        for (const [code, count] of Object.entries(dimStats)) {
+                            const percent = Math.round((count / dimTotal) * 100);
+                            const name = dimInfo.names[code] || code;
+
+                            html += `
+                            <div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 12px;">
+                                    <span>${escapeHtml(name)}</span>
+                                    <span>${count} 篇 (${percent}%)</span>
+                                </div>
+                                <div style="height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+                                    <div style="width: ${percent}%; height: 100%; background: ${dimInfo.color};"></div>
+                                </div>
+                            </div>
+                            `;
+                        }
+                    }
+
+                    html += '</div></div>';
                 }
 
                 html += '</div>';
@@ -5246,10 +5306,126 @@
 
                     container.innerHTML = html;
 
+                    // 同時載入維度統計
+                    loadOverviewDimensionStats();
+
                 } catch (error) {
                     console.error('Failed to load template statistics:', error);
                     container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
                 }
+            }
+
+            // 載入總覽中的維度統計
+            async function loadOverviewDimensionStats() {
+                const container = document.getElementById('dimension-stats-overview');
+                if (!container) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/generation/stats`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        container.innerHTML = '<p style="color: #999;">無法載入維度統計</p>';
+                        return;
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        renderDimensionStatsOverview(result.data, container);
+                    }
+                } catch (error) {
+                    console.error('Failed to load overview dimension stats:', error);
+                    container.innerHTML = '<p style="color: #999;">載入失敗</p>';
+                }
+            }
+
+            // 渲染總覽中的維度統計
+            function renderDimensionStatsOverview(stats, container) {
+                const moduleStats = stats.module || {};
+                const total = Object.values(moduleStats).reduce((a, b) => a + b, 0);
+
+                if (total === 0) {
+                    container.innerHTML = '<p style="color: #999;">尚無 AI 發文統計資料</p>';
+                    return;
+                }
+
+                const dimensionMeta = {
+                    module: {
+                        title: '📦 內容模組', color: '#667eea', names: {
+                            pleasure_relief: '爽與解壓', practical: '務實處理',
+                            uncomfortable_truth: '不舒服真實', controversial: '爭議提問'
+                        }
+                    },
+                    angle: {
+                        title: '🎬 情境切角', color: '#f093fb', names: {
+                            morning_wake: '早晨提問', late_night: '隨便做', confession_anon: '不好意思問',
+                            work_break: '午休時間', before_sleep: '睡前發問'
+                        }
+                    },
+                    outlet: {
+                        title: '💡 處理出口', color: '#4facfe', names: {
+                            solo_quick: '自慰-快戰速決', solo_slow: '自慰-慢慢享受',
+                            partner_simple: '有對象-輕量選項', partner_full: '有對象-完整方案',
+                            mindset_shift: '心態轉換'
+                        }
+                    },
+                    tone_bias: {
+                        title: '🗣️ 語氣偏壓', color: '#fa709a', names: {
+                            blunt_raw: '直白粗暴', playful_mean: '調皮嘴賤',
+                            cold_practical: '冷淡務實', warm_body: '溫暖肉體派'
+                        }
+                    },
+                    ending_style: {
+                        title: '🔚 收尾意圖', color: '#43e97b', names: {
+                            done_sleep: '收工型', question_back: '反問懸念型', tease_more: '挑逗延續型',
+                            reader_agency: '讀者決定型', self_call: '自我喊話型',
+                            relief_done: '解放完成', no_wait: '不用等型'
+                        }
+                    },
+                    length_target: {
+                        title: '📏 字數目標', color: '#38f9d7', names: {
+                            '50-70': '短狠 (50-70字)', '70-95': '中等 (70-95字)', '95-120': '慢慢戳 (95-120字)'
+                        }
+                    }
+                };
+
+                let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">';
+
+                for (const [dimKey, dimInfo] of Object.entries(dimensionMeta)) {
+                    const dimStats = stats[dimKey] || {};
+                    const dimTotal = Object.values(dimStats).reduce((a, b) => a + b, 0);
+
+                    html += `<div style="background: white; padding: 12px; border-radius: 8px;">
+                        <h5 style="margin: 0 0 8px 0; font-size: 13px; color: #374151;">${dimInfo.title}</h5>
+                        <div style="display: grid; gap: 4px;">`;
+
+                    if (dimTotal === 0) {
+                        html += `<p style="color: #999; font-size: 11px; margin: 0;">尚無資料</p>`;
+                    } else {
+                        for (const [code, count] of Object.entries(dimStats)) {
+                            const percent = Math.round((count / dimTotal) * 100);
+                            const name = dimInfo.names[code] || code;
+
+                            html += `
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
+                                    <span>${escapeHtml(name)}</span>
+                                    <span>${percent}%</span>
+                                </div>
+                                <div style="height: 3px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
+                                    <div style="width: ${percent}%; height: 100%; background: ${dimInfo.color};"></div>
+                                </div>
+                            </div>
+                            `;
+                        }
+                    }
+
+                    html += '</div></div>';
+                }
+
+                html += '</div>';
+                container.innerHTML = html;
             }
 
             // Load timeslot statistics
