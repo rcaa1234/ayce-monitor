@@ -1649,30 +1649,107 @@
 
             <!-- Brands Sub-tab -->
             <div id="monitorBrandsTab" class="sub-tab-content" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>品牌/監控目標</h3>
-                    <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增品牌</button>
+                <!-- 新增品牌表單區塊 -->
+                <div
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">➕ 新增監控品牌</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+                        <div>
+                            <label style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">品牌名稱
+                                *</label>
+                            <input type="text" id="newBrandName" placeholder="例：AYCE"
+                                style="width: 100%; padding: 10px 12px; border: none; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">關鍵字（逗號分隔）*</label>
+                            <input type="text" id="newBrandKeywords" placeholder="例：AYCE, 愛司"
+                                style="width: 100%; padding: 10px 12px; border: none; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <button onclick="createBrandFromForm()"
+                            style="padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap;">
+                            新增品牌
+                        </button>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <label style="font-size: 12px; opacity: 0.9; margin-right: 15px;">
+                            <input type="radio" name="brandType" value="own" checked style="margin-right: 5px;"> 自有品牌
+                        </label>
+                        <label style="font-size: 12px; opacity: 0.9;">
+                            <input type="radio" name="brandType" value="competitor" style="margin-right: 5px;"> 競品
+                        </label>
+                    </div>
                 </div>
 
+                <!-- 品牌列表 -->
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">📋 已設定品牌</h3>
                 <div id="brandsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
             </div>
 
+
             <!-- Sources Sub-tab -->
             <div id="monitorSourcesTab" class="sub-tab-content" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>監控來源</h3>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="showSourceTemplates()">📋 預設來源</button>
-                        <button class="btn btn-primary" onclick="showAddSourceModal()">➕ 新增來源</button>
+                <!-- 預設來源多選區塊 -->
+                <div
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">📋 從預設來源新增</h4>
+                    <div id="sourceTemplatesList"
+                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
+                        <p style="color: rgba(255,255,255,0.7); grid-column: span 2; text-align: center; margin: 0;">
+                            載入中...</p>
+                    </div>
+                    <button onclick="addSelectedSources()"
+                        style="margin-top: 12px; padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        ➕ 新增選取的來源
+                    </button>
+                </div>
+
+                <!-- 手動新增來源表單 -->
+                <div
+                    style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e5e7eb;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px; color: #374151;">✏️ 手動新增來源</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 12px; align-items: end;">
+                        <div>
+                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">名稱
+                                *</label>
+                            <input type="text" id="newSourceName" placeholder="例：Dcard 西斯版"
+                                style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">網址
+                                *</label>
+                            <input type="text" id="newSourceUrl" placeholder="https://..."
+                                style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <button onclick="createSourceFromForm()"
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap;">
+                            新增
+                        </button>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <label style="font-size: 12px; color: #666; margin-right: 10px;">平台：</label>
+                        <select id="newSourcePlatform"
+                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            <option value="dcard">Dcard</option>
+                            <option value="ptt">PTT</option>
+                            <option value="threads">Threads</option>
+                            <option value="forum">論壇</option>
+                            <option value="blog">部落格</option>
+                            <option value="news">新聞</option>
+                            <option value="other" selected>其他</option>
+                        </select>
                     </div>
                 </div>
 
+                <!-- 來源列表 -->
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🌐 已設定來源</h3>
                 <div id="sourcesList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
             </div>
+
 
             <!-- Stats Sub-tab -->
             <div id="monitorStatsTab" class="sub-tab-content" style="display: none;">
@@ -5695,6 +5772,7 @@
                 } else if (tabName === 'sources') {
                     document.getElementById('monitorSourcesTab').style.display = 'block';
                     loadSources();
+                    loadSourceTemplates(); // 載入預設來源多選
                 } else if (tabName === 'stats') {
                     document.getElementById('monitorStatsTab').style.display = 'block';
                     loadMonitorStats();
@@ -5932,16 +6010,29 @@
                 }
             }
 
+            // 從表單創建品牌
+            async function createBrandFromForm() {
+                const name = document.getElementById('newBrandName').value.trim();
+                const keywordsStr = document.getElementById('newBrandKeywords').value.trim();
+                const brandType = document.querySelector('input[name="brandType"]:checked').value;
+
+                if (!name || !keywordsStr) {
+                    showAlert('dashboardAlert', '請填寫品牌名稱和關鍵字', 'warning');
+                    return;
+                }
+
+                const keywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k);
+                await createBrand(name, keywords, brandType);
+
+                // 清空表單
+                document.getElementById('newBrandName').value = '';
+                document.getElementById('newBrandKeywords').value = '';
+            }
+
+            // 保留舊函數以兼容（但不再使用）
             function showAddBrandModal() {
-                const keywords = prompt('請輸入品牌名稱和監控關鍵字（用逗號分隔）：\n例如：我的品牌, 品牌A, 產品名');
-                if (!keywords) return;
-
-                const name = prompt('請輸入品牌顯示名稱：');
-                if (!name) return;
-
-                const brandType = confirm('這是您的自有品牌嗎？\n\n按「確定」= 自有品牌\n按「取消」= 競品') ? 'own' : 'competitor';
-
-                createBrand(name, keywords.split(',').map(k => k.trim()), brandType);
+                // 滾動到品牌表單
+                document.getElementById('newBrandName').focus();
             }
 
             async function createBrand(name, keywords, brandType) {
@@ -5979,7 +6070,11 @@
                 }
             }
 
-            async function showSourceTemplates() {
+            // 載入預設來源模板（多選）
+            async function loadSourceTemplates() {
+                const container = document.getElementById('sourceTemplatesList');
+                if (!container) return;
+
                 try {
                     const response = await fetch(`${API_BASE}/monitor/templates`, {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -5988,31 +6083,71 @@
                     const result = await response.json();
                     const templates = result.data || [];
 
-                    const options = templates.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
-                    const choice = prompt(`請選擇要新增的來源（輸入編號）：\n\n${options}`);
-
-                    if (!choice) return;
-
-                    const idx = parseInt(choice) - 1;
-                    if (idx >= 0 && idx < templates.length) {
-                        const template = templates[idx];
-                        await createSource(template.name, template.url, template.platform);
+                    if (templates.length === 0) {
+                        container.innerHTML = '<p style="color: rgba(255,255,255,0.7); grid-column: span 2; text-align: center; margin: 0;">尚無預設來源</p>';
+                        return;
                     }
+
+                    container.innerHTML = templates.map(t => `
+                        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" value="${t.id}" data-name="${escapeHtml(t.name)}" data-url="${escapeHtml(t.url)}" data-platform="${t.platform}" style="width: 16px; height: 16px;">
+                            <span>${escapeHtml(t.name)}</span>
+                        </label>
+                    `).join('');
                 } catch (error) {
-                    showAlert('dashboardAlert', '載入預設來源失敗', 'danger');
+                    container.innerHTML = '<p style="color: #ff6b6b; grid-column: span 2; text-align: center; margin: 0;">載入失敗</p>';
                 }
             }
 
+            // 新增選取的預設來源（可多選）
+            async function addSelectedSources() {
+                const checkboxes = document.querySelectorAll('#sourceTemplatesList input[type="checkbox"]:checked');
+
+                if (checkboxes.length === 0) {
+                    showAlert('dashboardAlert', '請先勾選要新增的來源', 'warning');
+                    return;
+                }
+
+                let successCount = 0;
+                for (const checkbox of checkboxes) {
+                    try {
+                        await createSource(checkbox.dataset.name, checkbox.dataset.url, checkbox.dataset.platform);
+                        successCount++;
+                        checkbox.checked = false; // 取消勾選
+                    } catch (error) {
+                        console.error('Failed to add source:', error);
+                    }
+                }
+
+                showAlert('dashboardAlert', `成功新增 ${successCount} 個來源`, 'success');
+                loadSources();
+            }
+
+            // 表單創建來源
+            async function createSourceFromForm() {
+                const name = document.getElementById('newSourceName').value.trim();
+                const url = document.getElementById('newSourceUrl').value.trim();
+                const platform = document.getElementById('newSourcePlatform').value;
+
+                if (!name || !url) {
+                    showAlert('dashboardAlert', '請填寫名稱和網址', 'warning');
+                    return;
+                }
+
+                await createSource(name, url, platform);
+
+                // 清空表單
+                document.getElementById('newSourceName').value = '';
+                document.getElementById('newSourceUrl').value = '';
+            }
+
+            // 保留舊函數（但改為呼叫新函數）
+            async function showSourceTemplates() {
+                loadSourceTemplates();
+            }
+
             function showAddSourceModal() {
-                const name = prompt('請輸入來源名稱：');
-                if (!name) return;
-
-                const url = prompt('請輸入監控網址：');
-                if (!url) return;
-
-                const platform = prompt('請選擇平台類型：\ndcard, ptt, facebook, instagram, youtube, threads, news, blog, forum, other') || 'other';
-
-                createSource(name, url, platform);
+                document.getElementById('newSourceName').focus();
             }
 
             async function createSource(name, url, platform) {
