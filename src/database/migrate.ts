@@ -1093,6 +1093,18 @@ const migrations = [
   (UUID(), 'length_target', '70-95', '中等', '70-95字 標準長度', 0.40, 2),
   (UUID(), 'length_target', '95-120', '慢慢戳', '95-120字 較長描述', 0.25, 3);
   `,
+
+  // Migration 48: 修復 daily_auto_schedule status ENUM，添加 PUBLISHING 狀態
+  // 影響：讓排程可以有「發布中」的過渡狀態
+  `
+  ALTER TABLE daily_auto_schedule
+  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED') DEFAULT 'PENDING';
+  `,
+
+  // Migration 49: 修復 2026-01-19 排程狀態（如果存在且狀態為 FAILED 但實際已發文）
+  `
+  UPDATE daily_auto_schedule SET status = 'POSTED' WHERE schedule_date = '2026-01-19' AND status = 'FAILED';
+  `,
 ];
 
 async function runMigrations() {
