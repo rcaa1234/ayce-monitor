@@ -5809,7 +5809,7 @@
                                         ${b.brand_type === 'own' ? '自有品牌' : '競品'}
                                     </span>
                                 </h4>
-                                <p style="color: #666; font-size: 13px;">關鍵字：${JSON.parse(b.keywords || '[]').join(', ')}</p>
+                                <p style="color: #666; font-size: 13px;">關鍵字：${Array.isArray(b.keywords) ? b.keywords.join(', ') : (typeof b.keywords === 'string' ? JSON.parse(b.keywords).join(', ') : '')}</p>
                             </div>
                             <div style="display: flex; gap: 10px;">
                                 <span style="color: ${b.is_active ? '#10b981' : '#dc3545'}; font-size: 12px;">${b.is_active ? '✓ 啟用中' : '⊘ 停用'}</span>
