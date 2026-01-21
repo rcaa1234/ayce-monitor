@@ -194,12 +194,15 @@ class MonitorController {
             const pool = getPool();
             const id = generateUUID();
 
+            // Dcard 需要使用 Puppeteer 繞過 Cloudflare
+            const needsPuppeteer = platform === 'dcard' || use_puppeteer;
+
             await pool.execute(
                 `INSERT INTO monitor_sources (
           id, name, url, platform, platform_category, 
           check_interval_hours, use_puppeteer
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [id, name, url, platform, platform_category || null, check_interval_hours, use_puppeteer]
+                [id, name, url, platform, platform_category || null, check_interval_hours, needsPuppeteer]
             );
 
             // 建立品牌關聯
@@ -699,6 +702,49 @@ class MonitorController {
             res.json({ success: true, data: related });
         } catch (error: any) {
             logger.error('Failed to get related queries:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    // ========================================
+    // 爬蟲控制 API
+    // ========================================
+
+    /**
+     * POST /api/monitor/crawl/run - 手動觸發爬蟲
+     */
+    async runCrawl(req: Request, res: Response): Promise<void> {
+        try {
+            const { source_id } = req.body;
+            const pool = getPool();
+
+            if (source_id) {
+                // 爬取特定來源
+                const [sources] = await pool.execute<RowDataPacket[]>(
+                    `SELECT * FROM monitor_sources WHERE id = ? AND is_active = true`,
+                    [source_id]
+                );
+
+                if (sources.length === 0) {
+                    res.status(404).json({ success: false, error: '找不到該來源' });
+                    return;
+                }
+
+                const result = await monitorService.crawlSource(sources[0] as any);
+                res.json({
+                    success: true,
+                    data: {
+                        source: sources[0].name,
+                        ...result,
+                    },
+                });
+            } else {
+                // 爬取所有到期來源
+                await monitorService.runScheduledCrawls();
+                res.json({ success: true, message: '已觸發排程爬蟲' });
+            }
+        } catch (error: any) {
+            logger.error('Failed to run crawl:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }

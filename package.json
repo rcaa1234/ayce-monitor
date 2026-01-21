@@ -70,6 +70,9 @@
     "mysql2": "^3.6.5",
     "node-cron": "^3.0.3",
     "openai": "^4.20.1",
+    "puppeteer": "^24.35.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "uuid": "^9.0.1",
     "winston": "^3.11.0"
   },

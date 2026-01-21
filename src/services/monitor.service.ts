@@ -98,8 +98,52 @@ class MonitorService {
      */
     async fetchPageContent(url: string, usePuppeteer: boolean = false): Promise<string> {
         if (usePuppeteer) {
-            // TODO: Puppeteer implementation for JavaScript-rendered pages
-            throw new Error('Puppeteer not implemented yet');
+            // 使用 Puppeteer 處理需要 JavaScript 渲染的頁面
+            const puppeteer = await import('puppeteer');
+
+            const browser = await puppeteer.default.launch({
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                ],
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+            });
+
+            try {
+                const page = await browser.newPage();
+
+                await page.setUserAgent(
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                );
+                await page.setViewport({ width: 1920, height: 1080 });
+
+                logger.info(`[Puppeteer] Navigating to ${url}`);
+                await page.goto(url, {
+                    waitUntil: 'networkidle2',
+                    timeout: 60000,
+                });
+
+                // 等待 Cloudflare 驗證通過（如果有）
+                await page.waitForSelector('article, [data-key], .r-ent', { timeout: 30000 }).catch(() => {
+                    logger.warn('[Puppeteer] Content selector not found, continuing anyway...');
+                });
+
+                // 額外等待確保內容載入
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                const html = await page.content();
+                await page.close();
+
+                return html;
+            } finally {
+                await browser.close();
+            }
         }
 
         const response = await fetch(url, {
