@@ -1617,11 +1617,23 @@
             <h2 style="margin-bottom: 20px;">🔔 聲量監控</h2>
 
             <!-- Monitor Sub-tabs -->
-            <div class="tabs" style="margin-bottom: 20px;">
-                <button class="tab active" onclick="switchMonitorTab('mentions')">📋 提及列表</button>
-                <button class="tab" onclick="switchMonitorTab('brands')">🏷️ 品牌管理</button>
-                <button class="tab" onclick="switchMonitorTab('sources')">🌐 來源管理</button>
-                <button class="tab" onclick="switchMonitorTab('stats')">📊 聲量統計</button>
+            <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
+                <button class="monitor-sub-tab active" onclick="switchMonitorTab('mentions')"
+                    style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    📋 提及列表
+                </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('brands')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    🏷️ 品牌管理
+                </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('sources')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    🌐 來源管理
+                </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('stats')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    📊 聲量統計
+                </button>
             </div>
 
             <!-- Mentions Sub-tab -->
@@ -5751,10 +5763,14 @@
                 currentMonitorTab = tabName;
 
                 // 更新 sub-tab 按鈕樣式
-                document.querySelectorAll('#monitorTab .tabs .tab').forEach(btn => {
+                document.querySelectorAll('#monitorTab .monitor-sub-tab').forEach(btn => {
                     btn.classList.remove('active');
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#333';
                 });
                 event.target.classList.add('active');
+                event.target.style.background = '#667eea';
+                event.target.style.color = 'white';
 
                 // 隱藏所有 sub-tab 內容
                 document.getElementById('monitorMentionsTab').style.display = 'none';
