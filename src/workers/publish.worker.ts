@@ -81,7 +81,7 @@ export const publishWorker = new Worker(
         threads_media_id: publishResult.id, // Store the Threads Media ID for insights
       });
 
-      // Update daily_auto_schedule status to COMPLETED (if this post was from UCB)
+      // Update daily_auto_schedule status to COMPLETED (if this post was from auto-scheduling)
       try {
         const { getPool } = await import('../database/connection');
         const pool = getPool();
@@ -94,7 +94,7 @@ export const publishWorker = new Worker(
         logger.warn(`Failed to update schedule status for post ${postId}:`, scheduleError);
       }
 
-      // Immediately update template usage stats (for UCB ranking)
+      // Immediately update template usage stats
       try {
         const { getPool } = await import('../database/connection');
         const pool = getPool();

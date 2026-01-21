@@ -3399,7 +3399,7 @@
 
             async function loadUCBConfig() {
                 try {
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -3459,7 +3459,7 @@
                 };
 
                 try {
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -3494,7 +3494,7 @@
 
                 // 先檢查 AI 提示詞是否已設定
                 try {
-                    const configRes = await fetch(`${API_BASE}/ucb-config`, {
+                    const configRes = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     const configData = await configRes.json();
@@ -4675,7 +4675,7 @@
             // 載入 AI 發文配置
             async function loadAIConfig() {
                 try {
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -4720,7 +4720,7 @@
                         active_days: activeDays
                     };
 
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -4747,7 +4747,7 @@
             // 載入 AI 提示詞設定
             async function loadAIPrompt() {
                 try {
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -4780,7 +4780,7 @@
                     }
 
                     // 先取得現有配置
-                    const configResponse = await fetch(`${API_BASE}/ucb-config`, {
+                    const configResponse = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     let currentConfig = {};
@@ -4790,7 +4790,7 @@
                     }
 
                     // 更新配置
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -5276,7 +5276,7 @@
                     const lineUserId = document.getElementById('ucbLineNotifyUserId')?.value || '';
 
                     // 取得現有的 UCB 配置
-                    const configResponse = await fetch(`${API_BASE}/ucb-config`, {
+                    const configResponse = await fetch(`${API_BASE}/schedule-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
@@ -5287,7 +5287,7 @@
                     }
 
                     // 更新配置（使用 PUT 方法）
-                    const response = await fetch(`${API_BASE}/ucb-config`, {
+                    const response = await fetch(`${API_BASE}/schedule-config`, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `Bearer ${token}`,

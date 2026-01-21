@@ -331,20 +331,18 @@ export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
  * 用途：每天自動建立排程，使用提示詞設定中的單一提示詞生成內容
  * 執行時間：每天 00:00 或由 dailyAutoScheduler 觸發
  * 影響：使用 smart_schedule_config 中的 ai_prompt 和 ai_engine
- * 
- * 修改說明：已簡化為使用單一提示詞，移除 UCB 多模板選擇邏輯
  */
 export async function createDailyAutoSchedule() {
   logger.info('Creating daily auto schedule using single prompt...');
 
   try {
     const pool = getPool();
-    const { ucbService } = await import('../services/ucb.service');
+    const scheduleConfigService = (await import('../services/schedule-config.service')).default;
     const { generateUUID } = await import('../utils/uuid');
     const { PostModel } = await import('../models/post.model');
 
     // 取得配置（含提示詞、引擎、時間範圍等）
-    const aiConfig = await ucbService.getConfig();
+    const aiConfig = await scheduleConfigService.getConfig();
 
     // 檢查是否有設定提示詞
     if (!aiConfig.ai_prompt) {
@@ -510,21 +508,21 @@ export async function createDailyAutoSchedule() {
 const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
   try {
     const pool = getPool();
-    const { ucbService } = await import('../services/ucb.service');
+    const scheduleConfigService = (await import('../services/schedule-config.service')).default;
 
     // 檢查配置
-    const config = await ucbService.getConfig();
-    logger.info(`[AI Scheduler] Checking AI auto-schedule config`);
+    const config = await scheduleConfigService.getConfig();
+    logger.info(`[Auto Scheduler] Checking auto-schedule config`);
 
     // ⚠️ 檢查是否啟用自動排程
     if (!config.auto_schedule_enabled) {
-      logger.info('[AI Scheduler] Auto-schedule is DISABLED, skipping');
+      logger.info('[Auto Scheduler] Auto-schedule is DISABLED, skipping');
       return;
     }
 
     // ⚠️ 檢查是否有設定 AI 提示詞
     if (!config.ai_prompt || config.ai_prompt.trim() === '') {
-      logger.info('[AI Scheduler] No AI prompt configured, skipping');
+      logger.info('[Auto Scheduler] No AI prompt configured, skipping');
       return;
     }
 
@@ -536,7 +534,7 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
     // 檢查 active_days 設定
     const activeDays = config.active_days || [];
     if (activeDays.length > 0 && !activeDays.includes(dayOfWeek)) {
-      logger.info(`[AI Scheduler] Today (day ${dayOfWeek}) is not an active day, skipping`);
+      logger.info(`[Auto Scheduler] Today (day ${dayOfWeek}) is not an active day, skipping`);
       return;
     }
 
@@ -546,10 +544,10 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
       [todayStr]
     );
 
-    logger.info(`[AI Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
+    logger.info(`[Auto Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
 
     if (existing.length > 0) {
-      logger.info('[AI Scheduler] Schedule already exists for today, skipping');
+      logger.info('[Auto Scheduler] Schedule already exists for today, skipping');
       return; // 已有排程,不重複建立
     }
 
@@ -783,11 +781,11 @@ export async function startSchedulers() {
     logger.info('[Scheduler] Starting executeScheduledPosts (every minute)...');
     executeScheduledPosts.start();
 
-    // Start UCB auto-scheduling
-    logger.info('[UCB Scheduler] Starting dailyAutoScheduler (every 10 minutes)...');
+    // Start auto-scheduling
+    logger.info('[Auto Scheduler] Starting dailyAutoScheduler (every 10 minutes)...');
     dailyAutoScheduler.start();
 
-    logger.info('[UCB Scheduler] Starting executeAutoScheduledPosts (every minute)...');
+    logger.info('[Auto Scheduler] Starting executeAutoScheduledPosts (every 5 minutes)...');
     executeAutoScheduledPosts.start();
 
     // Start Monitor scheduler
@@ -800,7 +798,7 @@ export async function startSchedulers() {
 
     logger.info('✓ All schedulers started successfully');
     logger.info('  - Fixed schedulers: 6 jobs');
-    logger.info('  - UCB schedulers: 2 jobs');
+    logger.info('  - Auto schedulers: 2 jobs');
     logger.info('  - Monitor schedulers: 2 jobs');
     logger.info('  - Total: 10 cron jobs running');
   } catch (error) {
@@ -821,7 +819,7 @@ export function stopSchedulers() {
   cleanupOldInsights.stop();
   executeScheduledPosts.stop();
 
-  // Stop UCB auto-scheduling
+  // Stop auto-scheduling
   dailyAutoScheduler.stop();
   executeAutoScheduledPosts.stop();
 

@@ -2075,344 +2075,34 @@ router.get('/review/test-regenerate', async (req: Request, res: Response): Promi
   }
 });
 
-// ==================== UCB 智能排程系統 API ====================
-// 用途：提供模板管理、時段配置、UCB 配置等完整功能
-// 影響：新增路由，不影響現有功能
+// ==================== AI 自動發文配置 API ====================
 
 /**
- * GET /api/templates
- * 用途：取得所有內容模板
- * 回傳：模板列表（包含統計數據）
+ * GET /api/schedule-config
+ * 用途：取得自動發文配置
  */
-router.get('/templates', authenticate, async (req: Request, res: Response): Promise<void> => {
+router.get('/schedule-config', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    const [templates] = await pool.execute<RowDataPacket[]>(
-      `SELECT id, name, prompt, description, enabled,
-              total_uses, total_views, total_engagement, avg_engagement_rate,
-              created_at, updated_at
-       FROM content_templates
-       ORDER BY avg_engagement_rate DESC, name ASC`
-    );
-
-    res.json({
-      success: true,
-      templates,
-    });
-  } catch (error: any) {
-    logger.error('Failed to get templates:', error);
-    res.status(500).json({ error: '無法取得模板列表', message: error.message });
-  }
-});
-
-/**
- * POST /api/templates
- * 用途：建立新的內容模板
- * 請求：{ name, prompt, description }
- */
-router.post('/templates', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { name, prompt, description, preferred_engine } = req.body;
-
-    if (!name || !prompt) {
-      res.status(400).json({ error: '模板名稱和提示詞為必填欄位' });
-      return;
-    }
-
-    const { getPool } = await import('../database/connection');
-    const { generateUUID } = await import('../utils/uuid');
-    const pool = getPool();
-
-    const id = generateUUID();
-
-    await pool.execute(
-      `INSERT INTO content_templates (id, name, prompt, description, preferred_engine, enabled)
-       VALUES (?, ?, ?, ?, ?, true)`,
-      [id, name, prompt, description || null, preferred_engine || 'GPT5_2']
-    );
-
-    logger.info(`Created template: ${name} (${id}) with engine: ${preferred_engine || 'GPT5_2'}`);
-
-    res.json({
-      success: true,
-      template: {
-        id,
-        name,
-        prompt,
-        description,
-        preferred_engine: preferred_engine || 'GPT5_2',
-        enabled: true,
-        total_uses: 0,
-        avg_engagement_rate: 0,
-      },
-    });
-  } catch (error: any) {
-    logger.error('Failed to create template:', error);
-    res.status(500).json({ error: '無法建立模板', message: error.message });
-  }
-});
-
-/**
- * PUT /api/templates/:id
- * 用途：更新模板
- * 請求：{ name, prompt, description, enabled }
- */
-router.put('/templates/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { name, prompt, description, preferred_engine, enabled } = req.body;
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    // 檢查模板是否存在
-    const [existing] = await pool.execute<RowDataPacket[]>('SELECT id FROM content_templates WHERE id = ?', [id]);
-
-    if ((existing as any[]).length === 0) {
-      res.status(404).json({ error: '模板不存在' });
-      return;
-    }
-
-    // 更新模板
-    await pool.execute(
-      `UPDATE content_templates
-       SET name = ?, prompt = ?, description = ?, preferred_engine = ?, enabled = ?
-       WHERE id = ?`,
-      [name, prompt, description || null, preferred_engine || 'GPT5_2', enabled !== undefined ? enabled : true, id]
-    );
-
-    logger.info(`Updated template: ${id} with engine: ${preferred_engine || 'GPT5_2'}`);
-
-    res.json({
-      success: true,
-      message: '模板已更新',
-    });
-  } catch (error: any) {
-    logger.error('Failed to update template:', error);
-    res.status(500).json({ error: '無法更新模板', message: error.message });
-  }
-});
-
-/**
- * DELETE /api/templates/:id
- * 用途：刪除模板
- */
-router.delete('/templates/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    // 檢查是否有使用中的排程
-    const [schedules] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM daily_auto_schedule WHERE selected_template_id = ? AND status = "PENDING"',
-      [id]
-    );
-
-    if ((schedules as any[]).length > 0) {
-      res.status(400).json({ error: '無法刪除：該模板有待執行的排程' });
-      return;
-    }
-
-    // 刪除模板
-    await pool.execute('DELETE FROM content_templates WHERE id = ?', [id]);
-
-    logger.info(`Deleted template: ${id}`);
-
-    res.json({
-      success: true,
-      message: '模板已刪除',
-    });
-  } catch (error: any) {
-    logger.error('Failed to delete template:', error);
-    res.status(500).json({ error: '無法刪除模板', message: error.message });
-  }
-});
-
-/**
- * GET /api/time-slots
- * 用途：取得所有時段配置
- */
-router.get('/time-slots', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    const [slots] = await pool.execute<RowDataPacket[]>(
-      `SELECT id, name, start_hour, start_minute, end_hour, end_minute,
-              allowed_template_ids, active_days, enabled, priority,
-              created_at, updated_at
-       FROM schedule_time_slots
-       ORDER BY priority DESC, start_hour ASC`
-    );
-
-    // 解析 JSON 欄位
-    const parsedSlots = (slots as any[]).map((slot) => ({
-      ...slot,
-      allowed_template_ids: JSON.parse(slot.allowed_template_ids),
-      active_days: JSON.parse(slot.active_days),
-    }));
-
-    res.json({
-      success: true,
-      timeSlots: parsedSlots,
-    });
-  } catch (error: any) {
-    logger.error('Failed to get time slots:', error);
-    res.status(500).json({ error: '無法取得時段列表', message: error.message });
-  }
-});
-
-/**
- * POST /api/time-slots
- * 用途：建立新的時段配置
- */
-router.post('/time-slots', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { name, start_hour, start_minute, end_hour, end_minute, allowed_template_ids, active_days, priority } =
-      req.body;
-
-    if (!name || start_hour === undefined || end_hour === undefined) {
-      res.status(400).json({ error: '必填欄位不完整' });
-      return;
-    }
-
-    const { getPool } = await import('../database/connection');
-    const { generateUUID } = await import('../utils/uuid');
-    const pool = getPool();
-
-    const id = generateUUID();
-
-    await pool.execute(
-      `INSERT INTO schedule_time_slots
-       (id, name, start_hour, start_minute, end_hour, end_minute,
-        allowed_template_ids, active_days, enabled, priority)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, ?)`,
-      [
-        id,
-        name,
-        start_hour,
-        start_minute || 0,
-        end_hour,
-        end_minute || 0,
-        JSON.stringify(allowed_template_ids || []),
-        JSON.stringify(active_days || [1, 2, 3, 4, 5, 6, 7]),
-        priority || 0,
-      ]
-    );
-
-    logger.info(`Created time slot: ${name} (${id})`);
-
-    res.json({
-      success: true,
-      timeSlot: { id, name },
-    });
-  } catch (error: any) {
-    logger.error('Failed to create time slot:', error);
-    res.status(500).json({ error: '無法建立時段', message: error.message });
-  }
-});
-
-/**
- * PUT /api/time-slots/:id
- * 用途：更新時段配置
- */
-router.put('/time-slots/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { name, start_hour, start_minute, end_hour, end_minute, allowed_template_ids, active_days, enabled, priority } =
-      req.body;
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    await pool.execute(
-      `UPDATE schedule_time_slots
-       SET name = ?, start_hour = ?, start_minute = ?, end_hour = ?, end_minute = ?,
-           allowed_template_ids = ?, active_days = ?, enabled = ?, priority = ?
-       WHERE id = ?`,
-      [
-        name,
-        start_hour,
-        start_minute,
-        end_hour,
-        end_minute,
-        JSON.stringify(allowed_template_ids),
-        JSON.stringify(active_days),
-        enabled !== undefined ? enabled : true,
-        priority || 0,
-        id,
-      ]
-    );
-
-    logger.info(`Updated time slot: ${id}`);
-
-    res.json({
-      success: true,
-      message: '時段已更新',
-    });
-  } catch (error: any) {
-    logger.error('Failed to update time slot:', error);
-    res.status(500).json({ error: '無法更新時段', message: error.message });
-  }
-});
-
-/**
- * DELETE /api/time-slots/:id
- * 用途：刪除時段配置
- */
-router.delete('/time-slots/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    await pool.execute('DELETE FROM schedule_time_slots WHERE id = ?', [id]);
-
-    logger.info(`Deleted time slot: ${id}`);
-
-    res.json({
-      success: true,
-      message: '時段已刪除',
-    });
-  } catch (error: any) {
-    logger.error('Failed to delete time slot:', error);
-    res.status(500).json({ error: '無法刪除時段', message: error.message });
-  }
-});
-
-/**
- * GET /api/ucb-config
- * 用途：取得 UCB 配置
- */
-router.get('/ucb-config', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { ucbService } = await import('../services/ucb.service');
-    const config = await ucbService.getConfig();
+    const scheduleConfigService = (await import('../services/schedule-config.service')).default;
+    const config = await scheduleConfigService.getConfig();
 
     res.json({
       success: true,
       config,
     });
   } catch (error: any) {
-    logger.error('Failed to get UCB config:', error);
+    logger.error('Failed to get schedule config:', error);
     res.status(500).json({ error: '無法取得配置', message: error.message });
   }
 });
 
 /**
- * PUT /api/ucb-config
- * 用途：更新 UCB 配置
+ * PUT /api/schedule-config
+ * 用途：更新自動發文配置
  */
-router.put('/ucb-config', authenticate, async (req: Request, res: Response): Promise<void> => {
+router.put('/schedule-config', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      exploration_factor,
-      min_trials_per_template,
       posts_per_day,
       auto_schedule_enabled,
       threads_account_id,
@@ -2436,13 +2126,11 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       const id = generateUUID();
       await pool.execute(
         `INSERT INTO smart_schedule_config
-         (id, exploration_factor, min_trials_per_template, posts_per_day, auto_schedule_enabled,
+         (id, posts_per_day, auto_schedule_enabled,
           threads_account_id, line_user_id, time_range_start, time_range_end, active_days, ai_prompt, ai_engine, enabled)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
         [
           id,
-          exploration_factor || 1.5,
-          min_trials_per_template || 5,
           posts_per_day || 1,
           auto_schedule_enabled !== false,
           threads_account_id || null,
@@ -2458,9 +2146,7 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       // 更新現有配置
       await pool.execute(
         `UPDATE smart_schedule_config
-         SET exploration_factor = ?,
-             min_trials_per_template = ?,
-             posts_per_day = ?,
+         SET posts_per_day = ?,
              auto_schedule_enabled = ?,
              threads_account_id = ?,
              line_user_id = ?,
@@ -2471,8 +2157,6 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
              ai_engine = COALESCE(?, ai_engine)
          WHERE enabled = true`,
         [
-          exploration_factor || 1.5,
-          min_trials_per_template || 5,
           posts_per_day || 1,
           auto_schedule_enabled !== false,
           threads_account_id || null,
@@ -2486,8 +2170,7 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       );
     }
 
-    // 同步更新使用者的 LINE User ID (關鍵修正!)
-    // 當設定了 line_user_id 時,找到對應的使用者並更新其 line_user_id 欄位
+    // 同步更新使用者的 LINE User ID
     if (line_user_id) {
       const [users] = await pool.execute<RowDataPacket[]>(
         `SELECT id FROM users WHERE line_user_id = ? OR email = ? LIMIT 1`,
@@ -2495,14 +2178,12 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       );
 
       if (users.length > 0) {
-        // 使用者已存在,更新 LINE User ID
         await pool.execute(
           `UPDATE users SET line_user_id = ? WHERE id = ?`,
           [line_user_id, users[0].id]
         );
         logger.info(`Updated LINE User ID for user ${users[0].id}`);
       } else {
-        // 預設更新 admin 帳號
         await pool.execute(
           `UPDATE users SET line_user_id = ? WHERE email = ?`,
           [line_user_id, 'admin@example.com']
@@ -2511,14 +2192,14 @@ router.put('/ucb-config', authenticate, async (req: Request, res: Response): Pro
       }
     }
 
-    logger.info('Updated UCB config with account and notification settings');
+    logger.info('Updated schedule config');
 
     res.json({
       success: true,
-      message: 'UCB 配置已更新',
+      message: '配置已更新',
     });
   } catch (error: any) {
-    logger.error('Failed to update UCB config:', error);
+    logger.error('Failed to update schedule config:', error);
     res.status(500).json({ error: '無法更新配置', message: error.message });
   }
 });
@@ -2722,7 +2403,7 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
 
 /**
  * DELETE /api/auto-schedules/:id
- * 用途：刪除 UCB 自動排程，同時刪除關聯的待審核貼文
+ * 用途：刪除自動排程，同時刪除關聯的待審核貼文
  */
 router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -2836,7 +2517,7 @@ router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Reque
     );
 
     if (configs.length === 0 || !configs[0].line_user_id) {
-      res.status(400).json({ error: '請先在 UCB 設定中設定 LINE User ID' });
+      res.status(400).json({ error: '請先在提示詞設定中設定 LINE User ID' });
       return;
     }
 

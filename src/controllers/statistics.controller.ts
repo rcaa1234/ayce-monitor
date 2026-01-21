@@ -494,7 +494,7 @@ export class StatisticsController {
             // 已存在，更新 media_type（總是更新）和 template_id（僅當為 NULL 時）
             const existingPostId = (existing as any)[0].id;
 
-            // 更新 media_type，但使用 COALESCE 保護 UCB 發文的 template_id
+            // 更新 media_type，使用 COALESCE 保護已有的 template_id
             await pool.execute(
               `UPDATE posts SET media_type = ?, template_id = COALESCE(template_id, ?) WHERE id = ?`,
               [dbMediaType, templateId, existingPostId]
@@ -650,7 +650,7 @@ export class StatisticsController {
 
   /**
    * POST /api/statistics/reclassify-templates
-   * 重新分類所有沒有模板的貼文（不影響 UCB 發文）
+   * 重新分類所有沒有模板的貼文
    */
   async reclassifyTemplates(req: Request, res: Response): Promise<void> {
     try {
@@ -785,7 +785,7 @@ export class StatisticsController {
 
   /**
    * GET /api/statistics/debug-performance-log
-   * 除錯用：查看 UCB 表現記錄
+   * 除錯用：查看表現記錄
    */
   async debugPerformanceLog(req: Request, res: Response): Promise<void> {
     try {
@@ -821,12 +821,18 @@ export class StatisticsController {
         logs = [];
       }
 
-      // 查詢 content_templates 的 UCB 統計
-      const [templates] = await pool.execute(
-        `SELECT id, name, total_uses, avg_engagement_rate, enabled
-         FROM content_templates
-         ORDER BY total_uses DESC`
-      );
+      // 查詢 content_templates 統計（如果表存在）
+      let templates: any[] = [];
+      try {
+        const [templateRows] = await pool.execute(
+          `SELECT id, name, total_uses, avg_engagement_rate, enabled
+           FROM content_templates
+           ORDER BY total_uses DESC`
+        );
+        templates = templateRows as any[];
+      } catch (templateError: any) {
+        logger.warn('content_templates query failed (table may not exist):', templateError.message);
+      }
 
       res.json({
         success: true,

@@ -116,7 +116,7 @@ class PlannerService {
 
     /**
      * 根據權重和使用統計選擇一個選項
-     * 使用 UCB-like 公式：weight + exploration_bonus - usage_penalty
+     * 公式：weight + exploration_bonus - usage_penalty
      */
     selectByWeightedRandom(
         options: DimensionOption[],

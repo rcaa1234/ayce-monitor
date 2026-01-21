@@ -57,7 +57,7 @@ router.delete('/clear-scheduled', statisticsController.clearScheduledPosts.bind(
 // GET /api/statistics/posts-by-hour - 查詢指定時段的貼文
 router.get('/posts-by-hour', statisticsController.getPostsByHour.bind(statisticsController));
 
-// GET /api/statistics/debug-performance-log - 除錯：查看 UCB 表現記錄
+// GET /api/statistics/debug-performance-log - 除錯：查看表現記錄
 router.get('/debug-performance-log', statisticsController.debugPerformanceLog.bind(statisticsController));
 
 export default router;

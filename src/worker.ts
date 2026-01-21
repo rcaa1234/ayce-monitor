@@ -20,7 +20,7 @@ async function startWorkers() {
     await createDatabasePool();
     logger.info('✓ Database connected');
 
-    // Start cron schedulers (including UCB auto-scheduling)
+    // Start cron schedulers (including auto-scheduling)
     logger.info('Starting cron schedulers...');
     await startSchedulers();
     logger.info('✓ All cron schedulers started successfully');

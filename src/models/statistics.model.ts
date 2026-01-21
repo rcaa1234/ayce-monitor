@@ -2,10 +2,9 @@
  * Statistics Model
  * 提供統計數據的資料庫查詢方法
  *
- * 數據來源：所有已發布的貼文（不限於UCB排程）
+ * 數據來源：所有已發布的貼文
  * - 基於 posts 表（status = 'POSTED'）
  * - LEFT JOIN post_insights 獲取互動數據
- * - LEFT JOIN content_templates 和 schedule_time_slots 獲取關聯資訊
  */
 
 import { getPool } from '../database/connection';
