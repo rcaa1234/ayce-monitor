@@ -1624,7 +1624,7 @@
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('brands')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    🏷️ 品牌管理
+                    🏷️ 關鍵字組
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('sources')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
@@ -1642,7 +1642,7 @@
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <select id="mentionBrandFilter" onchange="loadMentions()"
                             style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                            <option value="">全部品牌</option>
+                            <option value="">全部關鍵字組</option>
                         </select>
                         <select id="mentionReadFilter" onchange="loadMentions()"
                             style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
@@ -1661,31 +1661,30 @@
 
             <!-- Brands Sub-tab -->
             <div id="monitorBrandsTab" class="sub-tab-content" style="display: none;">
-                <!-- 新增品牌表單區塊 -->
+                <!-- 新增關鍵字組表單區塊 -->
                 <div
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">➕ 新增監控品牌</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end;">
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">➕ 新增關鍵字組</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 12px; align-items: end;">
                         <div>
-                            <label style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">品牌名稱
-                                *</label>
-                            <input type="text" id="newBrandName" placeholder="例：AYCE"
+                            <label style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">主題名稱 *</label>
+                            <input type="text" id="newBrandName" placeholder="例：我的品牌"
                                 style="width: 100%; padding: 10px 12px; border: none; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                         </div>
                         <div>
                             <label
-                                style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">關鍵字（逗號分隔）*</label>
-                            <input type="text" id="newBrandKeywords" placeholder="例：AYCE, 愛司"
+                                style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">監控關鍵字（逗號分隔）*</label>
+                            <input type="text" id="newBrandKeywords" placeholder="例：品牌A, 品牌B, 相關詞"
                                 style="width: 100%; padding: 10px 12px; border: none; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                         </div>
                         <button onclick="createBrandFromForm()"
                             style="padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap;">
-                            新增品牌
+                            新增
                         </button>
                     </div>
                     <div style="margin-top: 12px;">
                         <label style="font-size: 12px; opacity: 0.9; margin-right: 15px;">
-                            <input type="radio" name="brandType" value="own" checked style="margin-right: 5px;"> 自有品牌
+                            <input type="radio" name="brandType" value="own" checked style="margin-right: 5px;"> 自有
                         </label>
                         <label style="font-size: 12px; opacity: 0.9;">
                             <input type="radio" name="brandType" value="competitor" style="margin-right: 5px;"> 競品
@@ -1693,8 +1692,8 @@
                     </div>
                 </div>
 
-                <!-- 品牌列表 -->
-                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">📋 已設定品牌</h3>
+                <!-- 關鍵字組列表 -->
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">📋 已設定關鍵字組</h3>
                 <div id="brandsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
@@ -1724,14 +1723,12 @@
                     <h4 style="margin: 0 0 15px 0; font-size: 16px; color: #374151;">✏️ 手動新增來源</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 12px; align-items: end;">
                         <div>
-                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">名稱
-                                *</label>
+                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">名稱 *</label>
                             <input type="text" id="newSourceName" placeholder="例：Dcard 西斯版"
                                 style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                         </div>
                         <div>
-                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">網址
-                                *</label>
+                            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">網址 *</label>
                             <input type="text" id="newSourceUrl" placeholder="https://..."
                                 style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                         </div>
@@ -1740,18 +1737,31 @@
                             新增
                         </button>
                     </div>
-                    <div style="margin-top: 12px;">
-                        <label style="font-size: 12px; color: #666; margin-right: 10px;">平台：</label>
-                        <select id="newSourcePlatform"
-                            style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
-                            <option value="dcard">Dcard</option>
-                            <option value="ptt">PTT</option>
-                            <option value="threads">Threads</option>
-                            <option value="forum">論壇</option>
-                            <option value="blog">部落格</option>
-                            <option value="news">新聞</option>
-                            <option value="other" selected>其他</option>
-                        </select>
+                    <div style="margin-top: 12px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-right: 8px;">平台：</label>
+                            <select id="newSourcePlatform"
+                                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                                <option value="dcard">Dcard</option>
+                                <option value="ptt">PTT</option>
+                                <option value="threads">Threads</option>
+                                <option value="forum">論壇</option>
+                                <option value="blog">部落格</option>
+                                <option value="news">新聞</option>
+                                <option value="other" selected>其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #666; margin-right: 8px;">檢查間隔：</label>
+                            <select id="newSourceInterval"
+                                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;">
+                                <option value="1">每小時</option>
+                                <option value="2">每 2 小時</option>
+                                <option value="6">每 6 小時</option>
+                                <option value="12">每 12 小時</option>
+                                <option value="24" selected>每天</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -5879,16 +5889,16 @@
 
                     const brands = result.data || [];
 
-                    // 更新品牌過濾下拉選單
+                    // 更新關鍵字組過濾下拉選單
                     const brandFilter = document.getElementById('mentionBrandFilter');
-                    brandFilter.innerHTML = '<option value="">全部品牌</option>' +
+                    brandFilter.innerHTML = '<option value="">全部關鍵字組</option>' +
                         brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 
                     if (brands.length === 0) {
                         container.innerHTML = `
                         <div style="text-align: center; padding: 40px 0;">
-                            <p style="color: #999; margin-bottom: 20px;">尚未設定監控品牌</p>
-                            <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增第一個品牌</button>
+                            <p style="color: #999; margin-bottom: 20px;">尚未設定關鍵字組</p>
+                            <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增關鍵字組</button>
                         </div>
                     `;
                         return;
@@ -5898,9 +5908,9 @@
                     <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${b.display_color || '#667eea'};">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <h4 style="margin-bottom: 5px;">${b.name} 
+                                <h4 style="margin-bottom: 5px;">${b.name}
                                     <span style="background: ${b.brand_type === 'own' ? '#10b981' : '#f59e0b'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">
-                                        ${b.brand_type === 'own' ? '自有品牌' : '競品'}
+                                        ${b.brand_type === 'own' ? '自有' : '競品'}
                                     </span>
                                 </h4>
                                 <p style="color: #666; font-size: 13px;">關鍵字：${Array.isArray(b.keywords) ? b.keywords.join(', ') : (typeof b.keywords === 'string' ? JSON.parse(b.keywords).join(', ') : '')}</p>
@@ -6026,14 +6036,14 @@
                 }
             }
 
-            // 從表單創建品牌
+            // 從表單創建關鍵字組
             async function createBrandFromForm() {
                 const name = document.getElementById('newBrandName').value.trim();
                 const keywordsStr = document.getElementById('newBrandKeywords').value.trim();
                 const brandType = document.querySelector('input[name="brandType"]:checked').value;
 
                 if (!name || !keywordsStr) {
-                    showAlert('dashboardAlert', '請填寫品牌名稱和關鍵字', 'warning');
+                    showAlert('dashboardAlert', '請填寫主題名稱和關鍵字', 'warning');
                     return;
                 }
 
@@ -6047,7 +6057,6 @@
 
             // 保留舊函數以兼容（但不再使用）
             function showAddBrandModal() {
-                // 滾動到品牌表單
                 document.getElementById('newBrandName').focus();
             }
 
@@ -6065,7 +6074,7 @@
                     const result = await response.json();
                     if (!result.success) throw new Error(result.error);
 
-                    showAlert('dashboardAlert', '品牌已建立', 'success');
+                    showAlert('dashboardAlert', '關鍵字組已建立', 'success');
                     loadBrands();
                 } catch (error) {
                     showAlert('dashboardAlert', '建立失敗: ' + error.message, 'danger');
@@ -6073,7 +6082,7 @@
             }
 
             async function deleteBrand(brandId) {
-                if (!confirm('確定要刪除此品牌嗎？所有相關的提及記錄也會被刪除。')) return;
+                if (!confirm('確定要刪除此關鍵字組嗎？所有相關的提及記錄也會被刪除。')) return;
 
                 try {
                     await fetch(`${API_BASE}/monitor/brands/${brandId}`, {
@@ -6144,17 +6153,19 @@
                 const name = document.getElementById('newSourceName').value.trim();
                 const url = document.getElementById('newSourceUrl').value.trim();
                 const platform = document.getElementById('newSourcePlatform').value;
+                const checkInterval = parseInt(document.getElementById('newSourceInterval').value) || 24;
 
                 if (!name || !url) {
                     showAlert('dashboardAlert', '請填寫名稱和網址', 'warning');
                     return;
                 }
 
-                await createSource(name, url, platform);
+                await createSource(name, url, platform, checkInterval);
 
                 // 清空表單
                 document.getElementById('newSourceName').value = '';
                 document.getElementById('newSourceUrl').value = '';
+                document.getElementById('newSourceInterval').value = '24';
             }
 
             // 保留舊函數（但改為呼叫新函數）
@@ -6166,9 +6177,9 @@
                 document.getElementById('newSourceName').focus();
             }
 
-            async function createSource(name, url, platform) {
+            async function createSource(name, url, platform, checkInterval = 24) {
                 try {
-                    // 取得所有品牌 ID
+                    // 取得所有關鍵字組 ID
                     const brandsRes = await fetch(`${API_BASE}/monitor/brands`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -6181,7 +6192,13 @@
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ name, url, platform, brand_ids: brandIds })
+                        body: JSON.stringify({
+                            name,
+                            url,
+                            platform,
+                            brand_ids: brandIds,
+                            check_interval_hours: checkInterval
+                        })
                     });
 
                     const result = await response.json();
