@@ -5904,24 +5904,73 @@
                         return;
                     }
 
-                    container.innerHTML = brands.map(b => `
-                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${b.display_color || '#667eea'};">
+                    // 儲存品牌資料供編輯使用
+                    window.brandsData = {};
+                    brands.forEach(b => {
+                        const kw = Array.isArray(b.keywords) ? b.keywords : (typeof b.keywords === 'string' ? JSON.parse(b.keywords) : []);
+                        window.brandsData[b.id] = { ...b, keywords: kw };
+                    });
+
+                    container.innerHTML = brands.map(b => {
+                        const keywords = Array.isArray(b.keywords) ? b.keywords : (typeof b.keywords === 'string' ? JSON.parse(b.keywords) : []);
+                        return `
+                    <div id="brand-card-${b.id}" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${b.display_color || '#667eea'};">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
+                            <div style="flex: 1;">
                                 <h4 style="margin-bottom: 5px;">${b.name}
                                     <span style="background: ${b.brand_type === 'own' ? '#10b981' : '#f59e0b'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">
                                         ${b.brand_type === 'own' ? '自有' : '競品'}
                                     </span>
+                                    <span style="background: ${b.is_active ? '#d1fae5' : '#fee2e2'}; color: ${b.is_active ? '#065f46' : '#991b1b'}; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 5px;">
+                                        ${b.is_active ? '啟用' : '停用'}
+                                    </span>
                                 </h4>
-                                <p style="color: #666; font-size: 13px;">關鍵字：${Array.isArray(b.keywords) ? b.keywords.join(', ') : (typeof b.keywords === 'string' ? JSON.parse(b.keywords).join(', ') : '')}</p>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                                    ${keywords.map(kw => `<span style="background: #e5e7eb; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${kw}</span>`).join('')}
+                                </div>
                             </div>
-                            <div style="display: flex; gap: 10px;">
-                                <span style="color: ${b.is_active ? '#10b981' : '#dc3545'}; font-size: 12px;">${b.is_active ? '✓ 啟用中' : '⊘ 停用'}</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleBrandEdit('${b.id}')">✏️ 編輯</button>
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteBrand('${b.id}')">刪除</button>
                             </div>
                         </div>
+                        <!-- 編輯區域 (預設隱藏) -->
+                        <div id="brand-edit-${b.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 8px;">關鍵字（點擊 × 可刪除）</label>
+                                <div id="brand-keywords-${b.id}" style="display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; padding: 10px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                    ${keywords.map(kw => `
+                                        <span style="background: #667eea; color: white; padding: 4px 10px; border-radius: 15px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                                            ${kw}
+                                            <button onclick="removeKeyword('${b.id}', '${kw.replace(/'/g, "\\'")}')" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0; line-height: 1;">×</button>
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                                <input type="text" id="brand-new-keyword-${b.id}" placeholder="輸入新關鍵字後按 Enter 或點擊新增"
+                                    style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;"
+                                    onkeypress="if(event.key==='Enter'){addKeyword('${b.id}');event.preventDefault();}">
+                                <button onclick="addKeyword('${b.id}')" style="padding: 8px 16px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                    ＋ 新增
+                                </button>
+                            </div>
+                            <div style="display: flex; gap: 15px; align-items: center;">
+                                <div>
+                                    <label style="font-size: 12px; color: #666; margin-right: 8px;">狀態：</label>
+                                    <select id="brand-active-${b.id}" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px;">
+                                        <option value="true" ${b.is_active ? 'selected' : ''}>啟用</option>
+                                        <option value="false" ${!b.is_active ? 'selected' : ''}>停用</option>
+                                    </select>
+                                </div>
+                                <button onclick="saveBrandEdit('${b.id}')" style="padding: 8px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                                    💾 儲存變更
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                `).join('');
+                    `;
+                    }).join('');
 
                 } catch (error) {
                     console.error('Failed to load brands:', error);
@@ -5961,23 +6010,54 @@
                     };
 
                     container.innerHTML = sources.map(s => `
-                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div id="source-card-${s.id}" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
+                            <div style="flex: 1;">
                                 <h4 style="margin-bottom: 5px;">
                                     <span style="color: ${healthColors[s.health_status] || '#999'};">●</span>
                                     ${s.name}
                                     <span style="background: #e5e7eb; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">${s.platform}</span>
+                                    <span style="background: ${s.is_active ? '#d1fae5' : '#fee2e2'}; color: ${s.is_active ? '#065f46' : '#991b1b'}; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 5px;">
+                                        ${s.is_active ? '啟用' : '停用'}
+                                    </span>
                                 </h4>
                                 <p style="color: #666; font-size: 12px; word-break: break-all;">${s.url}</p>
                                 <p style="color: #888; font-size: 11px; margin-top: 5px;">
-                                    檢查間隔: ${s.check_interval_hours} 小時 · 
+                                    檢查間隔: ${s.check_interval_hours} 小時 ·
                                     上次檢查: ${s.last_checked_at ? new Date(s.last_checked_at).toLocaleString('zh-TW') : '從未'}
                                 </p>
                             </div>
-                            <div style="display: flex; gap: 10px;">
-                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 立即爬取</button>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleSourceEdit('${s.id}')">⚙️ 編輯</button>
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 爬取</button>
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteSource('${s.id}')">刪除</button>
+                            </div>
+                        </div>
+                        <!-- 編輯區域 (預設隱藏) -->
+                        <div id="source-edit-${s.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
+                                <div>
+                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">檢查間隔</label>
+                                    <select id="source-interval-${s.id}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                        <option value="1" ${s.check_interval_hours == 1 ? 'selected' : ''}>每小時</option>
+                                        <option value="2" ${s.check_interval_hours == 2 ? 'selected' : ''}>每 2 小時</option>
+                                        <option value="6" ${s.check_interval_hours == 6 ? 'selected' : ''}>每 6 小時</option>
+                                        <option value="12" ${s.check_interval_hours == 12 ? 'selected' : ''}>每 12 小時</option>
+                                        <option value="24" ${s.check_interval_hours == 24 ? 'selected' : ''}>每天</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">狀態</label>
+                                    <select id="source-active-${s.id}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                        <option value="true" ${s.is_active ? 'selected' : ''}>啟用</option>
+                                        <option value="false" ${!s.is_active ? 'selected' : ''}>停用</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <button onclick="saveSourceEdit('${s.id}')" style="width: 100%; padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                                        💾 儲存
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6092,6 +6172,91 @@
                     loadBrands();
                 } catch (error) {
                     showAlert('dashboardAlert', '刪除失敗', 'danger');
+                }
+            }
+
+            // 切換關鍵字組編輯區域
+            function toggleBrandEdit(brandId) {
+                const editDiv = document.getElementById(`brand-edit-${brandId}`);
+                if (editDiv) {
+                    editDiv.style.display = editDiv.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+
+            // 移除單一關鍵字
+            function removeKeyword(brandId, keyword) {
+                const brand = window.brandsData[brandId];
+                if (!brand) return;
+
+                brand.keywords = brand.keywords.filter(k => k !== keyword);
+                renderBrandKeywords(brandId);
+            }
+
+            // 新增關鍵字
+            function addKeyword(brandId) {
+                const input = document.getElementById(`brand-new-keyword-${brandId}`);
+                const keyword = input.value.trim();
+
+                if (!keyword) return;
+
+                const brand = window.brandsData[brandId];
+                if (!brand) return;
+
+                if (!brand.keywords.includes(keyword)) {
+                    brand.keywords.push(keyword);
+                    renderBrandKeywords(brandId);
+                }
+
+                input.value = '';
+                input.focus();
+            }
+
+            // 重新渲染關鍵字標籤
+            function renderBrandKeywords(brandId) {
+                const container = document.getElementById(`brand-keywords-${brandId}`);
+                const brand = window.brandsData[brandId];
+                if (!container || !brand) return;
+
+                container.innerHTML = brand.keywords.map(kw => `
+                    <span style="background: #667eea; color: white; padding: 4px 10px; border-radius: 15px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                        ${escapeHtml(kw)}
+                        <button onclick="removeKeyword('${brandId}', '${kw.replace(/'/g, "\\'")}')" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0; line-height: 1;">×</button>
+                    </span>
+                `).join('');
+            }
+
+            // 儲存關鍵字組編輯
+            async function saveBrandEdit(brandId) {
+                const brand = window.brandsData[brandId];
+                if (!brand) return;
+
+                if (brand.keywords.length === 0) {
+                    showAlert('dashboardAlert', '至少需要一個關鍵字', 'warning');
+                    return;
+                }
+
+                const isActive = document.getElementById(`brand-active-${brandId}`).value === 'true';
+
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/brands/${brandId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            keywords: brand.keywords,
+                            is_active: isActive
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    showAlert('dashboardAlert', '關鍵字組已更新', 'success');
+                    loadBrands();
+                } catch (error) {
+                    showAlert('dashboardAlert', '更新失敗: ' + error.message, 'danger');
                 }
             }
 
@@ -6222,6 +6387,42 @@
                     loadSources();
                 } catch (error) {
                     showAlert('dashboardAlert', '刪除失敗', 'danger');
+                }
+            }
+
+            // 切換來源編輯區域
+            function toggleSourceEdit(sourceId) {
+                const editDiv = document.getElementById(`source-edit-${sourceId}`);
+                if (editDiv) {
+                    editDiv.style.display = editDiv.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+
+            // 儲存來源編輯
+            async function saveSourceEdit(sourceId) {
+                const interval = parseInt(document.getElementById(`source-interval-${sourceId}`).value);
+                const isActive = document.getElementById(`source-active-${sourceId}`).value === 'true';
+
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/sources/${sourceId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            check_interval_hours: interval,
+                            is_active: isActive
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    showAlert('dashboardAlert', '來源設定已更新', 'success');
+                    loadSources();
+                } catch (error) {
+                    showAlert('dashboardAlert', '更新失敗: ' + error.message, 'danger');
                 }
             }
 
