@@ -20,7 +20,6 @@ interface Rule {
   name: string;
   pattern: string;
   flags: string;
-  require_context: boolean;
 }
 
 interface Topic {
@@ -46,7 +45,6 @@ export interface ClassificationHit {
   topic: string;
   rule_id: string;
   rule_name: string;
-  strength: 'strong' | 'weak';
   matched_text: string;
   start: number;
   end: number;
@@ -57,14 +55,12 @@ export interface ClassificationResult {
   topics: string[];
   primary_topic: string;
   hits: ClassificationHit[];
-  has_strong_hit: boolean;
   version: string;
 }
 
 class ClassifierService {
   private config: TopicsConfig | null = null;
   private compiledPatterns: Map<string, RegExp> = new Map();
-  private compiledContextPatterns: RegExp[] = [];
   private compiledExcludePatterns: RegExp[] = [];
   private stripSymbolsRegex: RegExp | null = null;
 
@@ -95,7 +91,6 @@ class ClassifierService {
    */
   reloadConfig(): void {
     this.compiledPatterns.clear();
-    this.compiledContextPatterns = [];
     this.compiledExcludePatterns = [];
     this.loadConfig();
   }
@@ -105,15 +100,6 @@ class ClassifierService {
    */
   private compilePatterns(): void {
     if (!this.config) return;
-
-    // 編譯 context patterns
-    for (const pattern of this.config.global_context_regex) {
-      try {
-        this.compiledContextPatterns.push(new RegExp(pattern, 'iu'));
-      } catch (error) {
-        logger.error(`[Classifier] Invalid context pattern: ${pattern}`, error);
-      }
-    }
 
     // 編譯 exclude patterns
     for (const pattern of this.config.exclude_patterns) {
@@ -187,18 +173,6 @@ class ClassifierService {
   }
 
   /**
-   * 檢查是否有 context（情趣相關詞）
-   */
-  private hasContext(text: string): boolean {
-    for (const regex of this.compiledContextPatterns) {
-      if (regex.test(text)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * 檢查是否應該排除
    */
   private shouldExclude(text: string): boolean {
@@ -218,7 +192,6 @@ class ClassifierService {
       topics: [],
       primary_topic: 'other',
       hits: [],
-      has_strong_hit: false,
       version: this.config?.version || 'unknown',
     };
 
@@ -239,12 +212,8 @@ class ClassifierService {
       return emptyResult;
     }
 
-    // 檢查 context
-    const contextPresent = this.hasContext(normalizedText);
-
     const topicsSet = new Set<string>();
     const hits: ClassificationHit[] = [];
-    let hasStrongHit = false;
 
     // 遍歷所有 topics 和 rules
     for (const [topicName, topic] of Object.entries(this.config.topics)) {
@@ -262,20 +231,12 @@ class ClassifierService {
         while ((match = regex.exec(normalizedText)) !== null) {
           if (matchCount >= this.config.max_matches_per_rule) break;
 
-          const strength: 'strong' | 'weak' =
-            (!rule.require_context || contextPresent) ? 'strong' : 'weak';
-
-          if (strength === 'strong') {
-            hasStrongHit = true;
-          }
-
           topicsSet.add(topicName);
 
           hits.push({
             topic: topicName,
             rule_id: rule.id,
             rule_name: rule.name,
-            strength,
             matched_text: match[0],
             start: match.index,
             end: match.index + match[0].length,
@@ -302,7 +263,6 @@ class ClassifierService {
       topics: Array.from(topicsSet),
       primary_topic: primaryTopic,
       hits,
-      has_strong_hit: hasStrongHit,
       version: this.config.version,
     };
   }
@@ -366,17 +326,6 @@ class ClassifierService {
       logger.error('[Classifier] Failed to save config:', error);
       throw error;
     }
-  }
-
-  /**
-   * 更新情境詞（context patterns）
-   */
-  updateContextPatterns(patterns: string[]): void {
-    if (!this.config) return;
-
-    this.config.global_context_regex = patterns;
-    this.saveConfig();
-    this.reloadConfig();
   }
 
   /**

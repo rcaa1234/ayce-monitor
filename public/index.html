@@ -1758,23 +1758,9 @@
                             <li><strong>內容分類</strong>：用下方的「分類規則」標記文章類型（痛點/情境）</li>
                         </ol>
                         <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">
-                            💡 <strong>強命中</strong> = 符合分類規則 + 包含情境詞 → 痛點類會發 LINE 通知
+                            💡 符合「產品痛點」的文章會自動發送 LINE 通知
                         </p>
                     </div>
-                </div>
-
-                <!-- 情境詞設定 -->
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">🎯 情境詞</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                        包含這些詞的文章才會被標記為「強命中」。用 <code>|</code> 分隔，支援正則語法。
-                    </p>
-                    <textarea id="contextPatternsInput" rows="2"
-                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
-                        placeholder="(情趣|成人|私密|跳蛋|按摩棒|震動|玩具)"></textarea>
-                    <button onclick="saveContextPatterns()" class="btn btn-primary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;">
-                        💾 儲存
-                    </button>
                 </div>
 
                 <!-- 排除詞設定 -->
@@ -6086,12 +6072,6 @@
                     const versionEl = document.getElementById('classifierVersion');
                     if (versionEl) versionEl.textContent = `版本: ${classifierConfig.version}`;
 
-                    // 填入情境詞
-                    const contextInput = document.getElementById('contextPatternsInput');
-                    if (contextInput && classifierConfig.global_context_regex) {
-                        contextInput.value = classifierConfig.global_context_regex.join('\n');
-                    }
-
                     // 填入排除詞
                     const excludeInput = document.getElementById('excludePatternsInput');
                     if (excludeInput && classifierConfig.exclude_patterns) {
@@ -6146,30 +6126,6 @@
                 return div.innerHTML;
             }
 
-            async function saveContextPatterns() {
-                const input = document.getElementById('contextPatternsInput').value.trim();
-                const patterns = input.split('\n').map(p => p.trim()).filter(p => p);
-
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/classifier-config`, {
-                        method: 'PUT',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ global_context_regex: patterns })
-                    });
-
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-
-                    showAlert('dashboardAlert', '情境詞已儲存', 'success');
-                    loadClassifierConfig();
-                } catch (error) {
-                    showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
-                }
-            }
-
             async function saveExcludePatterns() {
                 const input = document.getElementById('excludePatternsInput').value.trim();
                 const patterns = input.split('\n').map(p => p.trim()).filter(p => p);
@@ -6201,12 +6157,10 @@
                 const rulePattern = prompt('請輸入正則表達式（如：(太\\s*吵|很\\s*吵|噪\\s*音)）');
                 if (!rulePattern) return;
 
-                const requireContext = confirm('是否需要情境詞才算強命中？\n\n按「確定」= 需要情境詞\n按「取消」= 不需要');
-
-                addRule(topicName, ruleName, rulePattern, requireContext);
+                addRule(topicName, ruleName, rulePattern);
             }
 
-            async function addRule(topicName, name, pattern, requireContext) {
+            async function addRule(topicName, name, pattern) {
                 // 產生規則 ID
                 const prefix = topicName === 'pain_point' ? 'PP' : 'NC';
                 const existingRules = classifierConfig?.topics?.[topicName]?.rules || [];
@@ -6226,8 +6180,7 @@
                                 id: ruleId,
                                 name: name,
                                 pattern: pattern,
-                                flags: 'iu',
-                                require_context: requireContext
+                                flags: 'iu'
                             }
                         })
                     });
@@ -6253,12 +6206,9 @@
                 const newPattern = prompt('正則表達式:', rule.pattern);
                 if (newPattern === null) return;
 
-                const requireContext = confirm('是否需要情境詞才算強命中？\n\n按「確定」= 需要情境詞\n按「取消」= 不需要');
-
                 updateRule(topicName, ruleId, {
                     name: newName || rule.name,
-                    pattern: newPattern || rule.pattern,
-                    require_context: requireContext
+                    pattern: newPattern || rule.pattern
                 });
             }
 

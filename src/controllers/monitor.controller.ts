@@ -793,7 +793,7 @@ class MonitorController {
                         JSON.stringify(classification.topics),
                         JSON.stringify(classification.hits),
                         classification.version,
-                        classification.has_strong_hit,
+                        classification.hits.length > 0, // All hits are now direct hits
                         mention.id,
                     ]
                 );
@@ -852,10 +852,6 @@ class MonitorController {
             const updates = req.body;
 
             // 支援部分更新
-            if (updates.global_context_regex) {
-                classifierService.updateContextPatterns(updates.global_context_regex);
-            }
-
             if (updates.exclude_patterns) {
                 classifierService.updateExcludePatterns(updates.exclude_patterns);
             }
@@ -865,9 +861,6 @@ class MonitorController {
                 const currentConfig = classifierService.getFullConfig();
                 if (currentConfig) {
                     currentConfig.topics = updates.topics;
-                    if (updates.global_context_regex) {
-                        currentConfig.global_context_regex = updates.global_context_regex;
-                    }
                     if (updates.exclude_patterns) {
                         currentConfig.exclude_patterns = updates.exclude_patterns;
                     }

@@ -404,7 +404,7 @@ class MonitorService {
                 JSON.stringify(classification.topics),
                 JSON.stringify(classification.hits),
                 classification.version,
-                classification.has_strong_hit,
+                classification.hits.length > 0, // All hits are now direct hits
             ]
         );
 
@@ -573,8 +573,8 @@ class MonitorService {
 
                         logger.info(`New mention found: "${article.title?.substring(0, 50)}..." matched keywords: ${matchResult.keywords.join(', ')}, topic: ${classification.primary_topic}`);
 
-                        // 如果是 pain_point 強命中，立即發送 LINE 通知
-                        if (classification.primary_topic === 'pain_point' && classification.has_strong_hit) {
+                        // 如果是 pain_point 命中，立即發送 LINE 通知
+                        if (classification.primary_topic === 'pain_point') {
                             await this.sendPainPointAlert(mentionId, article, brand, classification);
                         }
                     }
@@ -710,7 +710,7 @@ class MonitorService {
 
             // 取得命中的痛點詳情
             const painPointHits = classification.hits
-                .filter(h => h.topic === 'pain_point' && h.strength === 'strong')
+                .filter(h => h.topic === 'pain_point')
                 .map(h => h.rule_name)
                 .filter((v, i, a) => a.indexOf(v) === i); // 去重
 
