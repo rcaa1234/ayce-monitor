@@ -60,4 +60,13 @@ router.get('/trends/related/:keyword', monitorController.getRelatedQueries.bind(
 router.get('/trends/:brandId', monitorController.getBrandTrends.bind(monitorController));
 router.post('/trends/fetch', monitorController.fetchTrends.bind(monitorController));
 
+// ========================================
+// 分類設定
+// ========================================
+router.get('/classifier-config', monitorController.getClassifierConfig.bind(monitorController));
+router.put('/classifier-config', monitorController.updateClassifierConfig.bind(monitorController));
+router.post('/classifier-rules', monitorController.addClassifierRule.bind(monitorController));
+router.put('/classifier-rules/:topic/:ruleId', monitorController.updateClassifierRule.bind(monitorController));
+router.delete('/classifier-rules/:topic/:ruleId', monitorController.deleteClassifierRule.bind(monitorController));
+
 export default router;

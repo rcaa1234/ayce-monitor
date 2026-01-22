@@ -532,7 +532,10 @@ class MonitorController {
                 const result = await monitorService.crawlSource(sources[0] as any);
                 res.json({
                     success: true,
-                    data: result,
+                    data: {
+                        ...result,
+                        source: sources[0].name,
+                    },
                     message: `爬取完成，發現 ${result.newMentions} 筆新提及`,
                 });
             } else {
@@ -809,6 +812,141 @@ class MonitorController {
             });
         } catch (error: any) {
             logger.error('Failed to reclassify mentions:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    // ========================================
+    // 分類設定 API
+    // ========================================
+
+    /**
+     * GET /api/monitor/classifier-config - 取得分類設定
+     */
+    async getClassifierConfig(req: Request, res: Response): Promise<void> {
+        try {
+            const classifierService = (await import('../services/classifier.service')).default;
+            const config = classifierService.getFullConfig();
+
+            if (!config) {
+                res.status(404).json({ success: false, error: '設定檔案不存在' });
+                return;
+            }
+
+            res.json({
+                success: true,
+                data: config,
+            });
+        } catch (error: any) {
+            logger.error('Failed to get classifier config:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * PUT /api/monitor/classifier-config - 更新分類設定
+     */
+    async updateClassifierConfig(req: Request, res: Response): Promise<void> {
+        try {
+            const classifierService = (await import('../services/classifier.service')).default;
+            const updates = req.body;
+
+            // 支援部分更新
+            if (updates.global_context_regex) {
+                classifierService.updateContextPatterns(updates.global_context_regex);
+            }
+
+            if (updates.exclude_patterns) {
+                classifierService.updateExcludePatterns(updates.exclude_patterns);
+            }
+
+            // 如果是完整更新
+            if (updates.topics) {
+                const currentConfig = classifierService.getFullConfig();
+                if (currentConfig) {
+                    currentConfig.topics = updates.topics;
+                    if (updates.global_context_regex) {
+                        currentConfig.global_context_regex = updates.global_context_regex;
+                    }
+                    if (updates.exclude_patterns) {
+                        currentConfig.exclude_patterns = updates.exclude_patterns;
+                    }
+                    classifierService.updateFullConfig(currentConfig);
+                }
+            }
+
+            res.json({
+                success: true,
+                message: '分類設定已更新',
+            });
+        } catch (error: any) {
+            logger.error('Failed to update classifier config:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/classifier-rules - 新增分類規則
+     */
+    async addClassifierRule(req: Request, res: Response): Promise<void> {
+        try {
+            const classifierService = (await import('../services/classifier.service')).default;
+            const { topic, rule } = req.body;
+
+            if (!topic || !rule || !rule.id || !rule.name || !rule.pattern) {
+                res.status(400).json({ success: false, error: '缺少必要欄位' });
+                return;
+            }
+
+            classifierService.addRule(topic, rule);
+
+            res.json({
+                success: true,
+                message: '規則已新增',
+            });
+        } catch (error: any) {
+            logger.error('Failed to add classifier rule:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * PUT /api/monitor/classifier-rules/:topic/:ruleId - 更新分類規則
+     */
+    async updateClassifierRule(req: Request, res: Response): Promise<void> {
+        try {
+            const classifierService = (await import('../services/classifier.service')).default;
+            const { topic, ruleId } = req.params;
+            const updates = req.body;
+
+            classifierService.updateRule(topic, ruleId, updates);
+
+            res.json({
+                success: true,
+                message: '規則已更新',
+            });
+        } catch (error: any) {
+            logger.error('Failed to update classifier rule:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * DELETE /api/monitor/classifier-rules/:topic/:ruleId - 刪除分類規則
+     */
+    async deleteClassifierRule(req: Request, res: Response): Promise<void> {
+        try {
+            const classifierService = (await import('../services/classifier.service')).default;
+            const { topic, ruleId } = req.params;
+
+            classifierService.deleteRule(topic, ruleId);
+
+            res.json({
+                success: true,
+                message: '規則已刪除',
+            });
+        } catch (error: any) {
+            logger.error('Failed to delete classifier rule:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }

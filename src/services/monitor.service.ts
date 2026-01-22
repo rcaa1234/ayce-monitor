@@ -513,6 +513,9 @@ class MonitorService {
     async crawlSource(source: MonitorSource): Promise<{
         success: boolean;
         newMentions: number;
+        articlesFound?: number;
+        brandsChecked?: number;
+        duplicateSkipped?: number;
         error?: string;
     }> {
         const crawlLogId = await this.createCrawlLog(source.id);
@@ -525,7 +528,7 @@ class MonitorService {
             if (brands.length === 0) {
                 logger.warn(`No brands associated with source: ${source.name}`);
                 await this.updateCrawlLog(crawlLogId, { status: 'skipped' });
-                return { success: true, newMentions: 0 };
+                return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
             }
 
             // 抓取頁面
@@ -597,7 +600,13 @@ class MonitorService {
 
             logger.info(`Crawl completed for ${source.name}: ${newMentions} new mentions`);
 
-            return { success: true, newMentions };
+            return {
+                success: true,
+                newMentions,
+                articlesFound: articles.length,
+                brandsChecked: brands.length,
+                duplicateSkipped,
+            };
 
         } catch (error: any) {
             logger.error(`Crawl failed for ${source.name}:`, error);

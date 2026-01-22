@@ -344,6 +344,111 @@ class ClassifierService {
     }
     return result;
   }
+
+  /**
+   * 取得完整設定（供 API 使用）
+   */
+  getFullConfig(): TopicsConfig | null {
+    return this.config;
+  }
+
+  /**
+   * 儲存設定到檔案
+   */
+  private saveConfig(): void {
+    if (!this.config) return;
+
+    try {
+      const configPath = path.join(__dirname, '../config/topics_regex.json');
+      fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2), 'utf-8');
+      logger.info('[Classifier] Config saved successfully');
+    } catch (error) {
+      logger.error('[Classifier] Failed to save config:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新情境詞（context patterns）
+   */
+  updateContextPatterns(patterns: string[]): void {
+    if (!this.config) return;
+
+    this.config.global_context_regex = patterns;
+    this.saveConfig();
+    this.reloadConfig();
+  }
+
+  /**
+   * 更新排除詞
+   */
+  updateExcludePatterns(patterns: string[]): void {
+    if (!this.config) return;
+
+    this.config.exclude_patterns = patterns;
+    this.saveConfig();
+    this.reloadConfig();
+  }
+
+  /**
+   * 新增規則到指定 topic
+   */
+  addRule(topicName: string, rule: Rule): void {
+    if (!this.config || !this.config.topics[topicName]) return;
+
+    this.config.topics[topicName].rules.push(rule);
+    this.config.version = this.incrementVersion(this.config.version);
+    this.saveConfig();
+    this.reloadConfig();
+  }
+
+  /**
+   * 更新規則
+   */
+  updateRule(topicName: string, ruleId: string, updates: Partial<Rule>): void {
+    if (!this.config || !this.config.topics[topicName]) return;
+
+    const ruleIndex = this.config.topics[topicName].rules.findIndex(r => r.id === ruleId);
+    if (ruleIndex === -1) return;
+
+    this.config.topics[topicName].rules[ruleIndex] = {
+      ...this.config.topics[topicName].rules[ruleIndex],
+      ...updates,
+    };
+    this.config.version = this.incrementVersion(this.config.version);
+    this.saveConfig();
+    this.reloadConfig();
+  }
+
+  /**
+   * 刪除規則
+   */
+  deleteRule(topicName: string, ruleId: string): void {
+    if (!this.config || !this.config.topics[topicName]) return;
+
+    this.config.topics[topicName].rules = this.config.topics[topicName].rules.filter(r => r.id !== ruleId);
+    this.config.version = this.incrementVersion(this.config.version);
+    this.saveConfig();
+    this.reloadConfig();
+  }
+
+  /**
+   * 遞增版本號
+   */
+  private incrementVersion(version: string): string {
+    const parts = version.split('.');
+    const patch = parseInt(parts[2] || '0', 10) + 1;
+    return `${parts[0]}.${parts[1]}.${patch}`;
+  }
+
+  /**
+   * 更新完整設定
+   */
+  updateFullConfig(newConfig: TopicsConfig): void {
+    this.config = newConfig;
+    this.saveConfig();
+    this.reloadConfig();
+  }
 }
 
 // 單例
