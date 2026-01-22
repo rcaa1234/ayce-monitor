@@ -23,3 +23,7 @@ function copyFolderSync(from, to) {
 console.log('📦 Copying public folder to dist...');
 copyFolderSync('public', 'dist/public');
 console.log('✅ Public folder copied successfully');
+
+console.log('📦 Copying config folder to dist...');
+copyFolderSync('src/config', 'dist/config');
+console.log('✅ Config folder copied successfully');

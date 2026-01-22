@@ -6065,22 +6065,38 @@
             let classifierConfig = null;
 
             async function loadClassifierConfig() {
+                const painPointContainer = document.getElementById('painPointRulesList');
+                const needContextContainer = document.getElementById('needContextRulesList');
+
                 try {
                     const response = await fetch(`${API_BASE}/monitor/classifier-config`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
                     const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
+                    if (!result.success) throw new Error(result.error || '未知錯誤');
 
                     classifierConfig = result.data;
-                    document.getElementById('classifierVersion').textContent = `版本: ${classifierConfig.version}`;
+
+                    // 更新版本
+                    const versionEl = document.getElementById('classifierVersion');
+                    if (versionEl) versionEl.textContent = `版本: ${classifierConfig.version}`;
 
                     // 填入情境詞
-                    document.getElementById('contextPatternsInput').value = classifierConfig.global_context_regex.join('\n');
+                    const contextInput = document.getElementById('contextPatternsInput');
+                    if (contextInput && classifierConfig.global_context_regex) {
+                        contextInput.value = classifierConfig.global_context_regex.join('\n');
+                    }
 
                     // 填入排除詞
-                    document.getElementById('excludePatternsInput').value = classifierConfig.exclude_patterns.join('\n');
+                    const excludeInput = document.getElementById('excludePatternsInput');
+                    if (excludeInput && classifierConfig.exclude_patterns) {
+                        excludeInput.value = classifierConfig.exclude_patterns.join('\n');
+                    }
 
                     // 顯示痛點規則
                     renderRulesList('pain_point', 'painPointRulesList');
@@ -6090,7 +6106,14 @@
 
                 } catch (error) {
                     console.error('Failed to load classifier config:', error);
-                    showAlert('dashboardAlert', '載入分類設定失敗: ' + error.message, 'danger');
+
+                    // 顯示錯誤訊息在規則列表中
+                    if (painPointContainer) {
+                        painPointContainer.innerHTML = `<p style="color: #dc3545; text-align: center; font-size: 12px;">載入失敗: ${error.message}</p>`;
+                    }
+                    if (needContextContainer) {
+                        needContextContainer.innerHTML = `<p style="color: #dc3545; text-align: center; font-size: 12px;">載入失敗: ${error.message}</p>`;
+                    }
                 }
             }
 
