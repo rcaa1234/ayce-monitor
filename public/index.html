@@ -1664,6 +1664,27 @@
                     </div>
                 </div>
 
+                <!-- 分類說明 -->
+                <div id="classificationHelp" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📊 自動分類說明</h4>
+                    <p style="font-size: 13px; color: #0c4a6e; margin: 0 0 10px 0;">系統會自動分析提及內容，辨識以下類型：</p>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px;">
+                        <div>
+                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px;">🔴 產品痛點</span>
+                            <span style="color: #666; margin-left: 5px;">噪音、不適、故障、續航等負面體驗</span>
+                        </div>
+                        <div>
+                            <span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px;">🔵 需求情境</span>
+                            <span style="color: #666; margin-left: 5px;">新手詢問、購買考量、使用情境等</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 11px; color: #64748b; margin: 10px 0 0 0;">
+                        💡 <strong>強命中</strong>：內容同時包含情趣相關詞時，分類更準確。痛點強命中會自動發送 LINE 警示。
+                    </p>
+                    <button onclick="document.getElementById('classificationHelp').style.display='none'" style="position: absolute; top: 10px; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8;">✕</button>
+                </div>
+                <button onclick="document.getElementById('classificationHelp').style.display='block'" style="margin-bottom: 15px; padding: 5px 10px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 5px; color: #0369a1; cursor: pointer; font-size: 12px;">ℹ️ 分類說明</button>
+
                 <div id="mentionsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
@@ -1671,6 +1692,17 @@
 
             <!-- Brands Sub-tab -->
             <div id="monitorBrandsTab" class="sub-tab-content" style="display: none;">
+                <!-- 關鍵字設定說明 -->
+                <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; font-size: 12px; color: #92400e;">
+                    <strong>💡 關鍵字設定說明：</strong>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                        <li>用<strong>逗號</strong>分隔多個關鍵字，例如：<code>品牌A, 品牌B, 簡稱</code></li>
+                        <li>爬蟲會在來源頁面搜尋這些關鍵字，找到就會建立提及記錄</li>
+                        <li>關鍵字不分大小寫，支援中英文</li>
+                        <li>建議加入品牌的各種寫法、暱稱、常見錯字</li>
+                    </ul>
+                </div>
+
                 <!-- 新增關鍵字組表單區塊 -->
                 <div
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
@@ -1712,6 +1744,18 @@
 
             <!-- Sources Sub-tab -->
             <div id="monitorSourcesTab" class="sub-tab-content" style="display: none;">
+                <!-- 爬蟲運作說明 -->
+                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; font-size: 12px; color: #166534;">
+                    <strong>🕷️ 爬蟲運作方式：</strong>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                        <li><strong>自動爬取</strong>：系統每 30 分鐘檢查一次，對「已到期」的來源執行爬取</li>
+                        <li><strong>到期判定</strong>：根據每個來源設定的「檢查間隔」決定</li>
+                        <li><strong>爬取範圍</strong>：抓取來源頁面上的文章列表（最多 50 篇），並用關鍵字組進行比對</li>
+                        <li><strong>平台支援</strong>：Dcard、PTT 有專屬解析器，其他平台使用通用 HTML 解析</li>
+                        <li><strong>手動爬取</strong>：點擊「🔄 爬取」可立即執行，會顯示結果統計</li>
+                    </ul>
+                </div>
+
                 <!-- 預設來源多選區塊 -->
                 <div
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
@@ -6486,7 +6530,7 @@
 
             async function triggerCrawl(sourceId) {
                 try {
-                    showAlert('dashboardAlert', '正在爬取...', 'info');
+                    showAlert('dashboardAlert', '正在爬取，請稍候...', 'info');
 
                     const response = await fetch(`${API_BASE}/monitor/crawl`, {
                         method: 'POST',
@@ -6500,8 +6544,19 @@
                     const result = await response.json();
                     if (!result.success) throw new Error(result.error);
 
-                    showAlert('dashboardAlert', result.message, 'success');
+                    // 顯示詳細結果
+                    const data = result.data || {};
+                    const msg = data.newMentions > 0
+                        ? `✅ 爬取完成：${data.source}\n新增 ${data.newMentions} 筆提及`
+                        : `✅ 爬取完成：${data.source}\n無新增提及（可能已存在或無匹配）`;
+
+                    showAlert('dashboardAlert', msg, 'success');
                     loadSources();
+
+                    // 如果有新提及，也重新載入提及列表
+                    if (data.newMentions > 0) {
+                        loadMentions();
+                    }
                 } catch (error) {
                     showAlert('dashboardAlert', '爬取失敗: ' + error.message, 'danger');
                 }
