@@ -42,6 +42,11 @@ router.post('/crawl', monitorController.triggerCrawl.bind(monitorController));
 router.get('/crawl-logs', monitorController.getCrawlLogs.bind(monitorController));
 
 // ========================================
+// 分類操作
+// ========================================
+router.post('/reclassify', monitorController.reclassifyMentions.bind(monitorController));
+
+// ========================================
 // 模板
 // ========================================
 router.get('/templates', monitorController.getSourceTemplates.bind(monitorController));

@@ -8,6 +8,7 @@ import { RowDataPacket } from 'mysql2';
 import { createHash } from 'crypto';
 import logger from '../utils/logger';
 import { generateUUID } from '../utils/uuid';
+import classifierService, { ClassificationResult } from './classifier.service';
 
 // Cheerio for HTML parsing
 import * as cheerio from 'cheerio';
@@ -366,7 +367,7 @@ class MonitorService {
         brand: MonitorBrand,
         matchResult: { keywords: string[]; location: string; count: number },
         crawlLogId: string
-    ): Promise<string> {
+    ): Promise<{ id: string; classification: ClassificationResult }> {
         const pool = getPool();
         const id = generateUUID();
         const contentHash = this.calculateContentHash(article);
@@ -378,15 +379,20 @@ class MonitorService {
             (article.shares_count || 0) * 3;
         const isHighEngagement = engagementScore >= brand.engagement_threshold;
 
+        // 執行分類
+        const textToClassify = `${article.title || ''} ${article.content || ''}`;
+        const classification = classifierService.classify(textToClassify);
+
         await pool.execute(
             `INSERT INTO monitor_mentions (
         id, source_id, brand_id, crawl_log_id,
-        external_id, url, title, content, content_preview, 
+        external_id, url, title, content, content_preview,
         content_length, content_hash,
         author_name, matched_keywords, keyword_count, match_location,
         likes_count, comments_count, engagement_score, is_high_engagement,
-        published_at, discovered_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        published_at, discovered_at,
+        primary_topic, topics, classification_hits, classification_version, has_strong_hit
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)`,
             [
                 id, source.id, brand.id, crawlLogId,
                 article.external_id, article.url, article.title, article.content, contentPreview,
@@ -394,10 +400,15 @@ class MonitorService {
                 article.author_name, JSON.stringify(matchResult.keywords), matchResult.count, matchResult.location,
                 article.likes_count, article.comments_count, engagementScore, isHighEngagement,
                 article.published_at,
+                classification.primary_topic,
+                JSON.stringify(classification.topics),
+                JSON.stringify(classification.hits),
+                classification.version,
+                classification.has_strong_hit,
             ]
         );
 
-        return id;
+        return { id, classification };
     }
 
     /**
@@ -553,11 +564,16 @@ class MonitorService {
                             continue;
                         }
 
-                        // 儲存提及記錄
-                        await this.saveMention(article, source, brand, matchResult, crawlLogId);
+                        // 儲存提及記錄（含分類）
+                        const { id: mentionId, classification } = await this.saveMention(article, source, brand, matchResult, crawlLogId);
                         newMentions++;
 
-                        logger.info(`New mention found: "${article.title?.substring(0, 50)}..." matched keywords: ${matchResult.keywords.join(', ')}`);
+                        logger.info(`New mention found: "${article.title?.substring(0, 50)}..." matched keywords: ${matchResult.keywords.join(', ')}, topic: ${classification.primary_topic}`);
+
+                        // 如果是 pain_point 強命中，立即發送 LINE 通知
+                        if (classification.primary_topic === 'pain_point' && classification.has_strong_hit) {
+                            await this.sendPainPointAlert(mentionId, article, brand, classification);
+                        }
                     }
                 }
 
@@ -651,11 +667,71 @@ class MonitorService {
         const placeholders = mentionIds.map(() => '?').join(',');
 
         await pool.execute(
-            `UPDATE monitor_mentions 
+            `UPDATE monitor_mentions
        SET is_notified = true, notified_at = NOW(), notification_id = ?
        WHERE id IN (${placeholders})`,
             [notificationId, ...mentionIds]
         );
+    }
+
+    /**
+     * 發送 pain_point 強命中警示通知
+     */
+    async sendPainPointAlert(
+        mentionId: string,
+        article: CrawledArticle,
+        brand: MonitorBrand,
+        classification: ClassificationResult
+    ): Promise<void> {
+        try {
+            const lineService = (await import('./line.service')).default;
+            const pool = getPool();
+
+            // 取得管理員的 LINE User ID
+            const [admins] = await pool.execute<RowDataPacket[]>(
+                `SELECT line_user_id FROM users WHERE line_user_id IS NOT NULL LIMIT 1`
+            );
+
+            if (admins.length === 0) {
+                logger.warn('[Monitor] No LINE user found for pain point alert');
+                return;
+            }
+
+            const lineUserId = admins[0].line_user_id;
+
+            // 取得命中的痛點詳情
+            const painPointHits = classification.hits
+                .filter(h => h.topic === 'pain_point' && h.strength === 'strong')
+                .map(h => h.rule_name)
+                .filter((v, i, a) => a.indexOf(v) === i); // 去重
+
+            const topicInfo = classifierService.getTopicInfo('pain_point');
+
+            const message = `🚨 產品痛點警報\n\n` +
+                `📍 關鍵字組：${brand.name}\n` +
+                `🔴 痛點類型：${painPointHits.join('、')}\n\n` +
+                `📝 ${article.title?.substring(0, 50) || '(無標題)'}${article.title && article.title.length > 50 ? '...' : ''}\n\n` +
+                `💬 ${article.content?.substring(0, 100) || ''}${article.content && article.content.length > 100 ? '...' : ''}\n\n` +
+                `🔗 ${article.url}`;
+
+            await lineService.sendNotification(lineUserId, message);
+
+            // 標記已通知
+            const { generateUUID: genId } = await import('../utils/uuid');
+            const notificationId = genId();
+
+            await pool.execute(
+                `UPDATE monitor_mentions
+                 SET is_notified = true, notified_at = NOW(), notification_id = ?
+                 WHERE id = ?`,
+                [notificationId, mentionId]
+            );
+
+            logger.info(`[Monitor] Sent pain point alert for mention ${mentionId}: ${painPointHits.join(', ')}`);
+
+        } catch (error) {
+            logger.error('[Monitor] Failed to send pain point alert:', error);
+        }
     }
 }
 

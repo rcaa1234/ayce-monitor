@@ -1638,11 +1638,18 @@
 
             <!-- Mentions Sub-tab -->
             <div id="monitorMentionsTab" class="sub-tab-content active">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <select id="mentionBrandFilter" onchange="loadMentions()"
                             style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
                             <option value="">全部關鍵字組</option>
+                        </select>
+                        <select id="mentionTopicFilter" onchange="loadMentions()"
+                            style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="">全部分類</option>
+                            <option value="pain_point">🔴 產品痛點</option>
+                            <option value="need_context">🔵 需求情境</option>
+                            <option value="other">其他</option>
                         </select>
                         <select id="mentionReadFilter" onchange="loadMentions()"
                             style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
@@ -1651,7 +1658,10 @@
                             <option value="true">已讀</option>
                         </select>
                     </div>
-                    <button class="btn btn-secondary" onclick="loadMentions()">🔄 重新整理</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="loadMentions()">🔄 重新整理</button>
+                        <button class="btn btn-secondary" onclick="reclassifyAll()" title="重新分類所有提及">🔄 重分類</button>
+                    </div>
                 </div>
 
                 <div id="mentionsList" style="display: grid; gap: 15px;">
@@ -5811,10 +5821,12 @@
 
                 try {
                     const brandId = document.getElementById('mentionBrandFilter').value;
+                    const topicFilter = document.getElementById('mentionTopicFilter').value;
                     const isRead = document.getElementById('mentionReadFilter').value;
 
                     let url = `${API_BASE}/monitor/mentions?limit=20`;
                     if (brandId) url += `&brand_id=${brandId}`;
+                    if (topicFilter) url += `&primary_topic=${topicFilter}`;
                     if (isRead) url += `&is_read=${isRead}`;
 
                     const response = await fetch(url, {
@@ -5831,18 +5843,42 @@
                         return;
                     }
 
-                    container.innerHTML = mentions.map(m => `
-                    <div style="background: ${m.is_read ? '#f8f9fa' : 'white'}; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${m.brand_color || '#667eea'};">
+                    container.innerHTML = mentions.map(m => {
+                        // 分類標籤
+                        const topicLabels = {
+                            'pain_point': { label: '產品痛點', color: '#ef4444', icon: '🔴' },
+                            'need_context': { label: '需求情境', color: '#3b82f6', icon: '🔵' },
+                            'other': { label: '', color: '', icon: '' }
+                        };
+                        const topic = topicLabels[m.primary_topic] || topicLabels.other;
+                        const hasStrongHit = m.has_strong_hit;
+
+                        // 解析命中詳情
+                        let hitDetails = '';
+                        if (m.classification_hits) {
+                            try {
+                                const hits = JSON.parse(m.classification_hits);
+                                const strongHits = hits.filter(h => h.strength === 'strong').map(h => h.rule_name);
+                                if (strongHits.length > 0) {
+                                    hitDetails = strongHits.filter((v, i, a) => a.indexOf(v) === i).join('、');
+                                }
+                            } catch(e) {}
+                        }
+
+                        return `
+                    <div style="background: ${m.is_read ? '#f8f9fa' : 'white'}; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${topic.color || m.brand_color || '#667eea'};">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                            <div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
                                 <span style="background: ${m.brand_color || '#667eea'}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px;">${m.brand_name}</span>
-                                <span style="margin-left: 10px; color: #666; font-size: 12px;">${m.source_name}</span>
+                                ${topic.label ? `<span style="background: ${topic.color}; color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px;">${topic.icon} ${topic.label}${hasStrongHit ? ' (強)' : ''}</span>` : ''}
+                                <span style="color: #666; font-size: 12px;">${m.source_name}</span>
                             </div>
-                            <span style="color: #999; font-size: 12px;">${new Date(m.discovered_at).toLocaleString('zh-TW')}</span>
+                            <span style="color: #999; font-size: 12px; white-space: nowrap;">${new Date(m.discovered_at).toLocaleString('zh-TW')}</span>
                         </div>
                         <h4 style="margin-bottom: 10px; color: #333;">${m.title || '(無標題)'}</h4>
                         <p style="color: #666; font-size: 14px; margin-bottom: 10px;">${m.content_preview || ''}</p>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        ${hitDetails ? `<p style="font-size: 12px; color: ${topic.color}; margin-bottom: 10px;">📌 ${hitDetails}</p>` : ''}
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div style="font-size: 12px; color: #888;">
                                 🔑 ${JSON.parse(m.matched_keywords || '[]').join(', ')}
                                 ${m.likes_count ? ` · ❤️ ${m.likes_count}` : ''}
@@ -5854,7 +5890,8 @@
                             </div>
                         </div>
                     </div>
-                `).join('');
+                    `;
+                    }).join('');
 
                 } catch (error) {
                     console.error('Failed to load mentions:', error);
@@ -5872,6 +5909,27 @@
                     btn.remove();
                 } catch (error) {
                     console.error('Failed to mark as read:', error);
+                }
+            }
+
+            async function reclassifyAll() {
+                if (!confirm('確定要重新分類所有提及記錄嗎？這可能需要一些時間。')) return;
+
+                try {
+                    showAlert('dashboardAlert', '正在重新分類...', 'info');
+
+                    const response = await fetch(`${API_BASE}/monitor/reclassify`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    showAlert('dashboardAlert', `重新分類完成：${result.data.processed} 筆`, 'success');
+                    loadMentions();
+                } catch (error) {
+                    showAlert('dashboardAlert', '重新分類失敗: ' + error.message, 'danger');
                 }
             }
 

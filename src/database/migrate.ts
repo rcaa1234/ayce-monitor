@@ -1105,6 +1105,24 @@ const migrations = [
   `
   UPDATE daily_auto_schedule SET status = 'POSTED' WHERE schedule_date = '2026-01-19' AND status = 'FAILED';
   `,
+
+  // Migration 50: 分類系統欄位 - primary_topic
+  `ALTER TABLE monitor_mentions ADD COLUMN primary_topic VARCHAR(32) NULL COMMENT '主要分類(pain_point/need_context/other)'`,
+
+  // Migration 50b: 分類系統欄位 - classification_hits
+  `ALTER TABLE monitor_mentions ADD COLUMN classification_hits JSON NULL COMMENT '分類命中詳情'`,
+
+  // Migration 50c: 分類系統欄位 - classification_version
+  `ALTER TABLE monitor_mentions ADD COLUMN classification_version VARCHAR(32) NULL COMMENT '分類規則版本'`,
+
+  // Migration 50d: 分類系統欄位 - has_strong_hit
+  `ALTER TABLE monitor_mentions ADD COLUMN has_strong_hit BOOLEAN DEFAULT FALSE COMMENT '是否有強命中'`,
+
+  // Migration 50e: 分類系統索引
+  `ALTER TABLE monitor_mentions ADD INDEX idx_primary_topic (primary_topic)`,
+
+  // Migration 50f: 分類系統索引 - 強命中
+  `ALTER TABLE monitor_mentions ADD INDEX idx_strong_hit (has_strong_hit, primary_topic, discovered_at DESC)`,
 ];
 
 async function runMigrations() {

@@ -312,6 +312,7 @@ class MonitorController {
                 source_id,
                 is_read,
                 sentiment,
+                primary_topic,
                 page = 1,
                 limit = 20,
             } = req.query;
@@ -335,6 +336,10 @@ class MonitorController {
             if (sentiment) {
                 whereClause += ' AND mm.sentiment = ?';
                 values.push(sentiment);
+            }
+            if (primary_topic) {
+                whereClause += ' AND mm.primary_topic = ?';
+                values.push(primary_topic);
             }
 
             const limitNum = Number(limit);
@@ -745,6 +750,65 @@ class MonitorController {
             }
         } catch (error: any) {
             logger.error('Failed to run crawl:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/reclassify - 重新分類所有提及
+     */
+    async reclassifyMentions(req: Request, res: Response): Promise<void> {
+        try {
+            const pool = getPool();
+            const classifierService = (await import('../services/classifier.service')).default;
+
+            // 重新載入分類規則
+            classifierService.reloadConfig();
+            const version = classifierService.getVersion();
+
+            // 取得所有提及（或可加上條件篩選）
+            const [mentions] = await pool.execute<RowDataPacket[]>(
+                `SELECT id, title, content FROM monitor_mentions`
+            );
+
+            let processed = 0;
+
+            for (const mention of mentions) {
+                const textToClassify = `${mention.title || ''} ${mention.content || ''}`;
+                const classification = classifierService.classify(textToClassify);
+
+                await pool.execute(
+                    `UPDATE monitor_mentions SET
+                        primary_topic = ?,
+                        topics = ?,
+                        classification_hits = ?,
+                        classification_version = ?,
+                        has_strong_hit = ?
+                     WHERE id = ?`,
+                    [
+                        classification.primary_topic,
+                        JSON.stringify(classification.topics),
+                        JSON.stringify(classification.hits),
+                        classification.version,
+                        classification.has_strong_hit,
+                        mention.id,
+                    ]
+                );
+                processed++;
+            }
+
+            logger.info(`[Monitor] Reclassified ${processed} mentions with version ${version}`);
+
+            res.json({
+                success: true,
+                data: {
+                    processed,
+                    version,
+                },
+                message: `已重新分類 ${processed} 筆提及`,
+            });
+        } catch (error: any) {
+            logger.error('Failed to reclassify mentions:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }

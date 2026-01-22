@@ -1,0 +1,139 @@
+{
+  "version": "1.0.0",
+  "normalization": {
+    "lowercase": true,
+    "fullwidth_to_halfwidth": true,
+    "collapse_whitespace": true,
+    "strip_symbols_regex": "[•·・_|｜\\-]+"
+  },
+  "global_context_regex": [
+    "(情趣|成人|私密|跳蛋|按摩棒|震動|玩具|吸吮|潤滑|情趣用品|成人玩具|自慰|飛機杯|av棒|女優|女u|名器)"
+  ],
+  "exclude_patterns": [
+    "(廣告|業配|團購|抽獎|贈品)"
+  ],
+  "min_content_length": 10,
+  "max_matches_per_rule": 5,
+  "topics": {
+    "need_context": {
+      "priority": 2,
+      "label": "需求/情境",
+      "color": "#3b82f6",
+      "rules": [
+        {
+          "id": "NC001",
+          "name": "性慾低落",
+          "pattern": "(性慾\\s*低落|沒\\s*性慾|性\\s*冷感)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "NC002",
+          "name": "高潮困難",
+          "pattern": "(無法\\s*高潮|很難\\s*高潮|沒.*高潮過)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "NC003",
+          "name": "生理階段",
+          "pattern": "(更年期|產後|生完\\s*小孩|懷孕|月經)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "NC004",
+          "name": "關係狀態",
+          "pattern": "(夫妻|伴侶|分房|遠距離|沒\\s*性生活|單身)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "NC005",
+          "name": "新手詢問",
+          "pattern": "(新手.{0,5}(推薦|選|買)|第一次.{0,5}(買|用|試)|求\\s*推薦|推薦.{0,3}(嗎|？|\\?))",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "NC006",
+          "name": "預算考量",
+          "pattern": "(預算|便宜|平價|cp值|cp\\s*值|划算|省錢)",
+          "flags": "iu",
+          "require_context": true
+        }
+      ]
+    },
+    "pain_point": {
+      "priority": 1,
+      "label": "產品痛點",
+      "color": "#ef4444",
+      "rules": [
+        {
+          "id": "PP001",
+          "name": "噪音問題",
+          "pattern": "(太\\s*吵|很\\s*吵|噪\\s*音|聲音\\s*大|馬達\\s*聲)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP002",
+          "name": "不適感",
+          "pattern": "(刺\\s*痛|會\\s*痛|疼|麻|不\\s*舒\\s*服|過敏|紅腫)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP003",
+          "name": "強度問題",
+          "pattern": "(太\\s*強|太\\s*弱|沒\\s*感\\s*覺|無\\s*感|沒\\s*fu|力道)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP004",
+          "name": "耐用問題",
+          "pattern": "(故\\s*障|壞\\s*掉|容易\\s*壞|不\\s*耐\\s*用|維\\s*修|用沒多久)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP005",
+          "name": "電池續航",
+          "pattern": "(充\\s*電|電\\s*池|沒\\s*電|續\\s*航|充\\s*不\\s*進|電量)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP006",
+          "name": "防水問題",
+          "pattern": "(不\\s*防\\s*水|漏\\s*水|進\\s*水|防水.{0,3}差)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP007",
+          "name": "異味問題",
+          "pattern": "(異\\s*味|塑\\s*膠\\s*味|味\\s*道\\s*很\\s*重|臭|怪味)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP008",
+          "name": "清潔困難",
+          "pattern": "(難\\s*清|不好\\s*洗|清潔\\s*困難|藏污納垢)",
+          "flags": "iu",
+          "require_context": true
+        },
+        {
+          "id": "PP009",
+          "name": "退換問題",
+          "pattern": "(退貨|退款|換貨|客服\\s*差|不理人|不回)",
+          "flags": "iu",
+          "require_context": true
+        }
+      ]
+    }
+  },
+  "primary_topic_rule": ["pain_point", "need_context"]
+}
