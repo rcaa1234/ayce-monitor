@@ -1634,10 +1634,6 @@
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     📊 聲量統計
                 </button>
-                <button class="monitor-sub-tab" onclick="switchMonitorTab('classifier')"
-                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    ⚙️ 分類設定
-                </button>
             </div>
 
             <!-- Mentions Sub-tab -->
@@ -1742,6 +1738,86 @@
                 <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">📋 已設定關鍵字組</h3>
                 <div id="brandsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
+                </div>
+
+                <!-- 分隔線 -->
+                <hr style="margin: 40px 0; border: none; border-top: 2px solid #e5e7eb;">
+
+                <!-- 分類設定區塊 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-size: 16px; color: #374151;">⚙️ 分類設定</h3>
+                    <span id="classifierVersion" style="color: #666; font-size: 12px;"></span>
+                </div>
+
+                <!-- 說明區塊 -->
+                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📖 分類流程說明</h4>
+                    <div style="font-size: 13px; color: #0c4a6e;">
+                        <ol style="margin: 0; padding-left: 20px;">
+                            <li><strong>關鍵字比對</strong>：用上方的「關鍵字組」找出相關文章</li>
+                            <li><strong>內容分類</strong>：用下方的「分類規則」標記文章類型（痛點/情境）</li>
+                        </ol>
+                        <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">
+                            💡 <strong>強命中</strong> = 符合分類規則 + 包含情境詞 → 痛點類會發 LINE 通知
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 情境詞設定 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">🎯 情境詞</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        包含這些詞的文章才會被標記為「強命中」。用 <code>|</code> 分隔，支援正則語法。
+                    </p>
+                    <textarea id="contextPatternsInput" rows="2"
+                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
+                        placeholder="(情趣|成人|私密|跳蛋|按摩棒|震動|玩具)"></textarea>
+                    <button onclick="saveContextPatterns()" class="btn btn-primary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;">
+                        💾 儲存
+                    </button>
+                </div>
+
+                <!-- 排除詞設定 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">🚫 排除詞</h4>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        符合這些詞的文章不會被分類（如廣告、業配）。用 <code>|</code> 分隔。
+                    </p>
+                    <textarea id="excludePatternsInput" rows="2"
+                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
+                        placeholder="(廣告|業配|團購|抽獎)"></textarea>
+                    <button onclick="saveExcludePatterns()" class="btn btn-primary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;">
+                        💾 儲存
+                    </button>
+                </div>
+
+                <!-- 分類規則 -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- 痛點規則 -->
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #ef4444;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="margin: 0; color: #374151; font-size: 14px;">🔴 產品痛點</h4>
+                            <button onclick="showAddRuleModal('pain_point')" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px;">
+                                ➕ 新增
+                            </button>
+                        </div>
+                        <div id="painPointRulesList" style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center; font-size: 12px;">載入中...</p>
+                        </div>
+                    </div>
+
+                    <!-- 需求情境規則 -->
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #3b82f6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="margin: 0; color: #374151; font-size: 14px;">🔵 需求情境</h4>
+                            <button onclick="showAddRuleModal('need_context')" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px;">
+                                ➕ 新增
+                            </button>
+                        </div>
+                        <div id="needContextRulesList" style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center; font-size: 12px;">載入中...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1903,87 +1979,6 @@
                 </div>
             </div>
         </div>
-
-            <!-- Classifier Settings Sub-tab -->
-            <div id="monitorClassifierTab" class="sub-tab-content" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3>⚙️ 分類設定</h3>
-                    <div style="display: flex; gap: 10px;">
-                        <span id="classifierVersion" style="color: #666; font-size: 13px;"></span>
-                        <button class="btn btn-secondary" onclick="loadClassifierConfig()">🔄 重新載入</button>
-                    </div>
-                </div>
-
-                <!-- 說明區塊 -->
-                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📖 分類系統運作方式</h4>
-                    <div style="font-size: 13px; color: #0c4a6e;">
-                        <p style="margin: 0 0 8px 0;"><strong>三層判斷架構：</strong></p>
-                        <ol style="margin: 0; padding-left: 20px;">
-                            <li><strong>關鍵字比對</strong>：先用「關鍵字組」找到相關文章</li>
-                            <li><strong>情境詞檢查</strong>：確認內容是否與情趣相關（強/弱命中）</li>
-                            <li><strong>分類規則</strong>：用 Regex 比對痛點或需求情境</li>
-                        </ol>
-                        <p style="margin: 8px 0 0 0; font-size: 12px; color: #64748b;">
-                            💡 <strong>強命中</strong> = 同時符合「情境詞」+「分類規則」→ 會發 LINE 通知（痛點類）
-                        </p>
-                    </div>
-                </div>
-
-                <!-- 情境詞設定 -->
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 15px 0; color: #374151;">🎯 情境詞（第二層判斷）</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                        當文章包含這些詞時，分類才會被標記為「強命中」。用 <code>|</code> 分隔多個詞，支援正則語法。
-                    </p>
-                    <textarea id="contextPatternsInput" rows="3"
-                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
-                        placeholder="(情趣|成人|私密|跳蛋|按摩棒|震動|玩具)"></textarea>
-                    <button onclick="saveContextPatterns()" class="btn btn-primary" style="margin-top: 10px;">
-                        💾 儲存情境詞
-                    </button>
-                </div>
-
-                <!-- 排除詞設定 -->
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 15px 0; color: #374151;">🚫 排除詞</h4>
-                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
-                        符合這些詞的文章將被排除，不進行分類（如廣告、業配）。用 <code>|</code> 分隔。
-                    </p>
-                    <textarea id="excludePatternsInput" rows="2"
-                        style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
-                        placeholder="(廣告|業配|團購|抽獎)"></textarea>
-                    <button onclick="saveExcludePatterns()" class="btn btn-primary" style="margin-top: 10px;">
-                        💾 儲存排除詞
-                    </button>
-                </div>
-
-                <!-- 痛點規則 -->
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 4px solid #ef4444;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="margin: 0; color: #374151;">🔴 產品痛點規則（第三層）</h4>
-                        <button onclick="showAddRuleModal('pain_point')" class="btn btn-primary" style="padding: 5px 15px; font-size: 12px;">
-                            ➕ 新增規則
-                        </button>
-                    </div>
-                    <div id="painPointRulesList" style="display: grid; gap: 10px;">
-                        <p style="color: #999; text-align: center;">載入中...</p>
-                    </div>
-                </div>
-
-                <!-- 需求情境規則 -->
-                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 4px solid #3b82f6;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="margin: 0; color: #374151;">🔵 需求情境規則（第三層）</h4>
-                        <button onclick="showAddRuleModal('need_context')" class="btn btn-primary" style="padding: 5px 15px; font-size: 12px;">
-                            ➕ 新增規則
-                        </button>
-                    </div>
-                    <div id="needContextRulesList" style="display: grid; gap: 10px;">
-                        <p style="color: #999; text-align: center;">載入中...</p>
-                    </div>
-                </div>
-            </div>
 
         <!-- Post Detail Modal -->
         <div id="postModal" class="modal">
@@ -5926,7 +5921,6 @@
                 document.getElementById('monitorBrandsTab').style.display = 'none';
                 document.getElementById('monitorSourcesTab').style.display = 'none';
                 document.getElementById('monitorStatsTab').style.display = 'none';
-                document.getElementById('monitorClassifierTab').style.display = 'none';
 
                 // 顯示選中的 sub-tab
                 if (tabName === 'mentions') {
@@ -5935,6 +5929,7 @@
                 } else if (tabName === 'brands') {
                     document.getElementById('monitorBrandsTab').style.display = 'block';
                     loadBrands();
+                    loadClassifierConfig(); // 同時載入分類設定
                 } else if (tabName === 'sources') {
                     document.getElementById('monitorSourcesTab').style.display = 'block';
                     loadSources();
@@ -5942,9 +5937,6 @@
                 } else if (tabName === 'stats') {
                     document.getElementById('monitorStatsTab').style.display = 'block';
                     loadMonitorStats();
-                } else if (tabName === 'classifier') {
-                    document.getElementById('monitorClassifierTab').style.display = 'block';
-                    loadClassifierConfig();
                 }
             }
 
@@ -6107,26 +6099,20 @@
                 const topic = classifierConfig?.topics?.[topicName];
 
                 if (!topic || !topic.rules || topic.rules.length === 0) {
-                    container.innerHTML = '<p style="color: #999; text-align: center;">尚無規則</p>';
+                    container.innerHTML = '<p style="color: #999; text-align: center; font-size: 12px;">尚無規則</p>';
                     return;
                 }
 
                 container.innerHTML = topic.rules.map(rule => `
-                    <div style="background: #f9fafb; padding: 12px 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="flex: 1;">
-                                <strong style="font-size: 14px;">${rule.name}</strong>
-                                <span style="background: #e5e7eb; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">${rule.id}</span>
-                                ${rule.require_context ? '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 5px;">需情境詞</span>' : ''}
-                            </div>
-                            <div style="display: flex; gap: 8px;">
-                                <button onclick="editRule('${topicName}', '${rule.id}')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;">✏️ 編輯</button>
-                                <button onclick="deleteRule('${topicName}', '${rule.id}')" class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;">刪除</button>
+                    <div style="background: #f9fafb; padding: 10px 12px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <strong style="font-size: 13px;">${rule.name}</strong>
+                            <div style="display: flex; gap: 5px;">
+                                <button onclick="editRule('${topicName}', '${rule.id}')" style="padding: 2px 8px; font-size: 10px; background: #e5e7eb; border: none; border-radius: 4px; cursor: pointer;">✏️</button>
+                                <button onclick="deleteRule('${topicName}', '${rule.id}')" style="padding: 2px 8px; font-size: 10px; background: #fee2e2; color: #991b1b; border: none; border-radius: 4px; cursor: pointer;">✕</button>
                             </div>
                         </div>
-                        <div style="margin-top: 8px; font-family: monospace; font-size: 12px; color: #666; background: #fff; padding: 8px; border-radius: 4px; word-break: break-all;">
-                            ${escapeHtml(rule.pattern)}
-                        </div>
+                        <code style="font-size: 11px; color: #666; word-break: break-all; display: block;">${escapeHtml(rule.pattern)}</code>
                     </div>
                 `).join('');
             }
