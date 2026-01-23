@@ -4,41 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Threads Bot - 管理介面</title>
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3B82F6',
-                        'primary-dark': '#2563EB',
-                        secondary: '#60A5FA',
-                        cta: '#F97316',
-                        'cta-dark': '#EA580C',
-                    },
-                    fontFamily: {
-                        heading: ['Fira Code', 'monospace'],
-                        body: ['Fira Sans', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-
+    <title>Threads 半自動發文系統 - 管理介面</title>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
     <style>
         * {
             margin: 0;
@@ -47,9 +15,10 @@
         }
 
         body {
-            font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #F1F5F9;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
         }
 
         .container {
@@ -867,31 +836,6 @@
             padding-top: 20px;
             border-top: 2px solid #f0f0f0;
         }
-
-        /* Lucide Icons */
-        .inline-icon {
-            width: 18px;
-            height: 18px;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 6px;
-            stroke-width: 2;
-        }
-
-        .icon-sm {
-            width: 16px;
-            height: 16px;
-        }
-
-        .icon-lg {
-            width: 24px;
-            height: 24px;
-        }
-
-        .icon-xl {
-            width: 32px;
-            height: 32px;
-        }
     </style>
 </head>
 
@@ -899,7 +843,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1 style="display: flex; align-items: center; gap: 12px;"><i data-lucide="rocket" class="icon-lg"></i> Threads Bot</h1>
+            <h1>🚀 Threads 半自動發文系統</h1>
             <p>AI 驅動的內容生成與發布管理平台</p>
             <div id="userInfo" class="user-info">
                 <p><strong>使用者:</strong> <span id="userName"></span></p>
@@ -930,11 +874,11 @@
         <div id="dashboard" class="dashboard">
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('overview')"><i data-lucide="bar-chart-2" class="inline-icon"></i> 總覽</button>
-                <button class="tab" onclick="switchTab('scheduling')"><i data-lucide="calendar" class="inline-icon"></i> 發文排程</button>
-                <button class="tab" onclick="switchTab('templates')"><i data-lucide="sparkles" class="inline-icon"></i> 提示詞設定</button>
-                <button class="tab" onclick="switchTab('accounts')"><i data-lucide="settings" class="inline-icon"></i> 帳號管理</button>
-                <button class="tab" onclick="switchTab('monitor')"><i data-lucide="bell" class="inline-icon"></i> 聲量監控</button>
+                <button class="tab active" onclick="switchTab('overview')">📊 總覽</button>
+                <button class="tab" onclick="switchTab('scheduling')">📅 發文排程</button>
+                <button class="tab" onclick="switchTab('templates')">✨ 提示詞設定</button>
+                <button class="tab" onclick="switchTab('accounts')">⚙️ 帳號管理</button>
+                <button class="tab" onclick="switchTab('monitor')">🔔 聲量監控</button>
             </div>
 
             <!-- Alert Area -->
@@ -980,19 +924,19 @@
                         style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
                         <button class="stats-sub-tab active" onclick="switchStatsTab('summary')"
                             style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                            <i data-lucide="bar-chart-2" class="icon-sm"></i> 摘要
+                            📊 摘要
                         </button>
                         <button class="stats-sub-tab" onclick="switchStatsTab('templates')"
                             style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                            <i data-lucide="bar-chart-2" class="icon-sm"></i> 類型
+                            📊 類型
                         </button>
                         <button class="stats-sub-tab" onclick="switchStatsTab('timeslots')"
                             style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                            <i data-lucide="clock" class="icon-sm"></i> 時段
+                            ⏰ 時段
                         </button>
                         <button class="stats-sub-tab" onclick="switchStatsTab('details')"
                             style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                            <i data-lucide="clipboard-list" class="icon-sm"></i> 明細
+                            📋 明細
                         </button>
                     </div>
 
@@ -1056,7 +1000,7 @@
                             </div>
                             <div
                                 style="margin-top: 10px; padding: 8px 12px; background: #f0f4f8; border-radius: 6px; font-size: 11px; color: #64748b;">
-                                <strong><i data-lucide="bar-chart-2" class="icon-sm"></i> 參與率計算公式：</strong>
+                                <strong>📊 參與率計算公式：</strong>
                                 <span
                                     style="font-family: monospace; background: #e2e8f0; padding: 2px 6px; border-radius: 3px; margin-left: 5px;">
                                     參與率 = (按讚 + 回覆 + 轉發) ÷ 觀看數 × 100%
@@ -1076,28 +1020,28 @@
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                                     <button onclick="syncThreadsPosts(true)"
                                         style="padding: 5px 12px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="package" class="icon-sm"></i> 完整匯入全部
+                                        📦 完整匯入全部
                                     </button>
                                     <button onclick="reclassifyTemplates()"
                                         style="padding: 5px 12px; background: #8b5cf6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="tag" class="icon-sm"></i> 重新分類模板
+                                        🏷️ 重新分類模板
                                     </button>
                                     <button onclick="triggerManualSync()"
                                         style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="refresh-cw" class="icon-sm"></i> 同步互動數據
+                                        🔄 同步互動數據
                                     </button>
                                     <button onclick="clearPendingPosts()"
                                         style="padding: 5px 12px; background: #ef4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="trash-2" class="icon-sm"></i> 清除待審核
+                                        🗑️ 清除待審核
                                     </button>
                                     <button onclick="clearScheduledPosts()"
                                         style="padding: 5px 12px; background: #f97316; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="trash-2" class="icon-sm"></i> 清除排程中
+                                        🗑️ 清除排程中
                                     </button>
                                 </div>
                             </div>
                             <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                                <i data-lucide="lightbulb" class="icon-sm"></i> 提示：「完整匯入全部」匯入所有歷史貼文，「重新分類模板」會為沒有模板的貼文自動分類。
+                                💡 提示：「完整匯入全部」匯入所有歷史貼文，「重新分類模板」會為沒有模板的貼文自動分類。
                             </p>
                         </div>
 
@@ -1120,7 +1064,7 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
                             <!-- Best Posting Hours -->
                             <div style="background: white; padding: 15px; border-radius: 8px;">
-                                <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;"><i data-lucide="clock-3" class="icon-sm"></i> 最佳發文時段</h4>
+                                <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">🕐 最佳發文時段</h4>
                                 <div id="bestHoursChart" style="min-height: 150px;">
                                     <p style="color: #999; text-align: center; padding: 40px 0; font-size: 12px;">載入中...
                                     </p>
@@ -1129,7 +1073,7 @@
 
                             <!-- Best Posting Days -->
                             <div style="background: white; padding: 15px; border-radius: 8px;">
-                                <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;"><i data-lucide="calendar" class="icon-sm"></i> 星期表現分析</h4>
+                                <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">📅 星期表現分析</h4>
                                 <div id="bestDaysChart" style="min-height: 150px;">
                                     <p style="color: #999; text-align: center; padding: 40px 0; font-size: 12px;">載入中...
                                     </p>
@@ -1139,7 +1083,7 @@
 
                         <!-- Top Performing Posts -->
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                            <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;"><i data-lucide="trophy" class="icon-sm"></i> Top 5 表現最佳貼文</h4>
+                            <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">🏆 Top 5 表現最佳貼文</h4>
                             <div id="topPostsList" style="max-height: 300px; overflow-y: auto;">
                                 <p style="color: #999; text-align: center; padding: 40px 0; font-size: 12px;">載入中...</p>
                             </div>
@@ -1147,7 +1091,7 @@
 
                         <!-- Content Length Analysis -->
                         <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                            <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;"><i data-lucide="ruler" class="icon-sm"></i> 內容長度分析</h4>
+                            <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">📏 內容長度分析</h4>
                             <div id="contentLengthAnalysis" style="min-height: 80px;">
                                 <p style="color: #999; text-align: center; padding: 20px 0; font-size: 12px;">載入中...</p>
                             </div>
@@ -1157,7 +1101,7 @@
                     <!-- Statistics Templates Sub-tab (改為發文類型分析) -->
                     <div id="statsTemplatesTab" class="stats-sub-content"
                         style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
-                        <h3 style="margin-bottom: 15px; font-size: 16px;"><i data-lucide="bar-chart-2" class="icon-sm"></i> 發文類型分析</h3>
+                        <h3 style="margin-bottom: 15px; font-size: 16px;">📊 發文類型分析</h3>
                         <p style="color: #666; margin-bottom: 20px; font-size: 13px;">
                             統計三種發文類型的表現：AI 發文、非 AI (含圖)、非 AI (無圖)
                         </p>
@@ -1167,7 +1111,7 @@
 
                         <!-- 維度使用統計區塊 -->
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                            <h4 style="margin-bottom: 15px; font-size: 16px; color: #374151;"><i data-lucide="target" class="icon-sm"></i> AI 發文維度統計</h4>
+                            <h4 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🎯 AI 發文維度統計</h4>
                             <p style="color: #666; margin-bottom: 15px; font-size: 13px;">
                                 分析最近 30 天 AI 發文使用的六種維度分佈
                             </p>
@@ -1220,10 +1164,10 @@
                         <option value="POSTED">已發布</option>
                         <option value="FAILED">失敗</option>
                     </select>
-                    <button class="btn btn-secondary btn-small" onclick="loadPosts()"><i data-lucide="refresh-cw" class="icon-sm"></i> 重新整理</button>
-                    <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()"><i data-lucide="check-square" class="icon-sm"></i> 全選/反選</button>
+                    <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
+                    <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
                     <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn"
-                        style="display: none;"><i data-lucide="trash-2" class="icon-sm"></i> 批次刪除</button>
+                        style="display: none;">🗑️ 批次刪除</button>
                 </div>
 
                 <div id="postsGrid" class="posts-grid"></div>
@@ -1236,9 +1180,9 @@
                 <!-- Internal Sub-tabs -->
                 <div class="sub-tabs"
                     style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
-                    <button class="sub-tab active" onclick="switchSchedulingSubTab('ai')"><i data-lucide="bot" class="icon-sm"></i> AI發文</button>
-                    <button class="sub-tab" onclick="switchSchedulingSubTab('manual')"><i data-lucide="file-text" class="icon-sm"></i> 預約發文</button>
-                    <button class="sub-tab" onclick="switchSchedulingSubTab('pending')"><i data-lucide="clipboard-list" class="icon-sm"></i> 排程中貼文</button>
+                    <button class="sub-tab active" onclick="switchSchedulingSubTab('ai')">🤖 AI發文</button>
+                    <button class="sub-tab" onclick="switchSchedulingSubTab('manual')">📝 預約發文</button>
+                    <button class="sub-tab" onclick="switchSchedulingSubTab('pending')">📋 排程中貼文</button>
                 </div>
 
                 <!-- AI Post Sub-tab -->
@@ -1329,7 +1273,7 @@
                                     <small>每天 00:00 自動建立排程並發送到 LINE 審核</small>
                                 </div>
 
-                                <button type="submit" class="btn btn-success" style="width: 100%;"><i data-lucide="save" class="icon-sm"></i> 儲存設定</button>
+                                <button type="submit" class="btn btn-success" style="width: 100%;">💾 儲存設定</button>
                             </form>
                         </div>
 
@@ -1339,7 +1283,7 @@
 
                             <div
                                 style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0ea5e9;">
-                                <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;"><i data-lucide="pin" class="icon-sm"></i> 使用說明</h4>
+                                <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📌 使用說明</h4>
                                 <ul
                                     style="margin: 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.8;">
                                     <li><strong>啟用自動發文</strong>：每天 00:00 自動建立發文排程</li>
@@ -1351,7 +1295,7 @@
 
                             <div
                                 style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
-                                <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;"><i data-lucide="alert-triangle" class="icon-sm"></i> 重要提醒</h4>
+                                <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">⚠️ 重要提醒</h4>
                                 <ul
                                     style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f; line-height: 1.8;">
                                     <li>請先在「提示詞設定」頁面設定 AI 生成提示詞</li>
@@ -1362,7 +1306,7 @@
 
                             <button class="btn btn-primary" onclick="triggerDailySchedule()"
                                 style="width: 100%; padding: 15px; font-size: 16px;">
-                                <i data-lucide="flask-conical" class="icon-sm"></i> 測試生成發文
+                                🧪 測試生成發文
                             </button>
                             <small
                                 style="display: block; margin-top: 10px; color: #6b7280; text-align: center; font-size: 12px;">
@@ -1393,7 +1337,7 @@
                     <!-- 發布帳號設定 -->
                     <div
                         style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
-                        <h3 style="margin-bottom: 15px; color: white;"><i data-lucide="smartphone" class="icon-sm"></i> AI 發文帳號</h3>
+                        <h3 style="margin-bottom: 15px; color: white;">📱 AI 發文帳號</h3>
                         <div class="form-group">
                             <label style="color: rgba(255,255,255,0.9);">選擇 Threads 帳號</label>
                             <select id="ucbThreadsAccount" class="form-control"
@@ -1406,14 +1350,14 @@
                         </div>
                         <button class="btn" onclick="saveAccountSettings()"
                             style="margin-top: 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); width: 100%;">
-                            <i data-lucide="save" class="icon-sm"></i> 儲存帳號設定
+                            💾 儲存帳號設定
                         </button>
                     </div>
 
                     <!-- LINE 通知設定 -->
                     <div
                         style="background: linear-gradient(135deg, #00c300 0%, #00a000 100%); padding: 20px; border-radius: 12px; color: white;">
-                        <h3 style="margin-bottom: 15px; color: white;"><i data-lucide="message-circle" class="icon-sm"></i> LINE 通知設定</h3>
+                        <h3 style="margin-bottom: 15px; color: white;">💬 LINE 通知設定</h3>
                         <div class="form-group">
                             <label style="color: rgba(255,255,255,0.9);">LINE User ID</label>
                             <input type="text" id="ucbLineNotifyUserId" class="form-control"
@@ -1431,7 +1375,7 @@
 
                 <!-- 新增 Threads 帳號 -->
                 <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h3 style="margin-bottom: 15px;"><i data-lucide="link" class="icon-sm"></i> 新增 Threads 帳號</h3>
+                    <h3 style="margin-bottom: 15px;">🔗 新增 Threads 帳號</h3>
                     <p style="color: #666; margin-bottom: 15px;">
                         由於 Threads API 需要 OAuth 授權,請按照以下步驟操作:
                     </p>
@@ -1444,13 +1388,13 @@
                         </li>
                         <li>點擊下方按鈕開始授權</li>
                     </ol>
-                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;"><i data-lucide="link" class="icon-sm"></i> 開始 Threads
+                    <button class="btn" onclick="startThreadsOAuth()" style="margin-top: 15px;">🔗 開始 Threads
                         授權</button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="margin: 0;">已連結的 Threads 帳號</h3>
-                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;"><i data-lucide="search" class="icon-sm"></i>
+                    <button class="btn" onclick="runDiagnostics()" style="background: #17a2b8; padding: 8px 16px;">🔍
                         診斷發布問題</button>
                 </div>
                 <div id="threadsAccountsList" class="posts-grid"></div>
@@ -1458,7 +1402,7 @@
                 <!-- Diagnostics Result -->
                 <div id="diagnosticsResult"
                     style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #17a2b8;">
-                    <h3 style="margin-bottom: 15px;"><i data-lucide="search" class="icon-sm"></i> 診斷結果</h3>
+                    <h3 style="margin-bottom: 15px;">🔍 診斷結果</h3>
                     <div id="diagnosticsContent"></div>
                 </div>
             </div>
@@ -1516,7 +1460,7 @@
                 <p style="color: #666; margin-bottom: 20px;">顯示已審核通過、等待發布的貼文</p>
 
                 <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button class="btn btn-secondary" onclick="loadPendingPosts()"><i data-lucide="refresh-cw" class="icon-sm"></i> 重新整理</button>
+                    <button class="btn btn-secondary" onclick="loadPendingPosts()">🔄 重新整理</button>
                 </div>
 
                 <div id="pendingPostsList" style="display: grid; gap: 15px;">
@@ -1557,17 +1501,17 @@
                         </div>
 
                         <div style="display: flex; gap: 15px; margin-top: 20px;">
-                            <button type="submit" class="btn btn-success" style="flex: 1; padding: 15px;"><i data-lucide="save" class="icon-sm"></i>
+                            <button type="submit" class="btn btn-success" style="flex: 1; padding: 15px;">💾
                                 儲存提示詞</button>
                             <button type="button" class="btn btn-primary" onclick="testAIPrompt()"
-                                style="flex: 1; padding: 15px;"><i data-lucide="flask-conical" class="icon-sm"></i> 測試生成</button>
+                                style="flex: 1; padding: 15px;">🧪 測試生成</button>
                         </div>
                     </form>
 
                     <!-- 測試生成結果 -->
                     <div id="ai-prompt-test-result"
                         style="display: none; margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-                        <h4 style="margin-bottom: 15px; color: #374151;"><i data-lucide="file-text" class="icon-sm"></i> 生成結果預覽</h4>
+                        <h4 style="margin-bottom: 15px; color: #374151;">📝 生成結果預覽</h4>
                         <div id="ai-prompt-test-content"
                             style="white-space: pre-wrap; line-height: 1.8; font-size: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
                         </div>
@@ -1585,7 +1529,7 @@
                         <div class="dimension-section" data-dimension="module">
                             <div class="dimension-header" onclick="toggleDimension('module')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="package" class="icon-sm"></i> 內容模組 (MODULE)</span>
+                                <span style="font-weight: 600;">📦 內容模組 (MODULE)</span>
                                 <span id="module-toggle">▼</span>
                             </div>
                             <div id="module-options" class="dimension-options" style="padding: 0 10px;">
@@ -1597,7 +1541,7 @@
                         <div class="dimension-section" data-dimension="angle" style="margin-top: 15px;">
                             <div class="dimension-header" onclick="toggleDimension('angle')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="clapperboard" class="icon-sm"></i> 情境切角 (ANGLE)</span>
+                                <span style="font-weight: 600;">🎬 情境切角 (ANGLE)</span>
                                 <span id="angle-toggle">▶</span>
                             </div>
                             <div id="angle-options" class="dimension-options" style="display: none; padding: 0 10px;">
@@ -1609,7 +1553,7 @@
                         <div class="dimension-section" data-dimension="outlet" style="margin-top: 15px;">
                             <div class="dimension-header" onclick="toggleDimension('outlet')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="lightbulb" class="icon-sm"></i> 處理出口 (OUTLET)</span>
+                                <span style="font-weight: 600;">💡 處理出口 (OUTLET)</span>
                                 <span id="outlet-toggle">▶</span>
                             </div>
                             <div id="outlet-options" class="dimension-options" style="display: none; padding: 0 10px;">
@@ -1621,7 +1565,7 @@
                         <div class="dimension-section" data-dimension="tone_bias" style="margin-top: 15px;">
                             <div class="dimension-header" onclick="toggleDimension('tone_bias')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="message-square" class="icon-sm"></i> 語氣偏壓 (TONE)</span>
+                                <span style="font-weight: 600;">🗣️ 語氣偏壓 (TONE)</span>
                                 <span id="tone_bias-toggle">▶</span>
                             </div>
                             <div id="tone_bias-options" class="dimension-options"
@@ -1634,7 +1578,7 @@
                         <div class="dimension-section" data-dimension="ending_style" style="margin-top: 15px;">
                             <div class="dimension-header" onclick="toggleDimension('ending_style')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="arrow-right-to-line" class="icon-sm"></i> 收尾意圖 (ENDING)</span>
+                                <span style="font-weight: 600;">🔚 收尾意圖 (ENDING)</span>
                                 <span id="ending_style-toggle">▶</span>
                             </div>
                             <div id="ending_style-options" class="dimension-options"
@@ -1647,7 +1591,7 @@
                         <div class="dimension-section" data-dimension="length_target" style="margin-top: 15px;">
                             <div class="dimension-header" onclick="toggleDimension('length_target')"
                                 style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; border-radius: 8px; cursor: pointer; margin-bottom: 10px;">
-                                <span style="font-weight: 600;"><i data-lucide="ruler" class="icon-sm"></i> 字數目標 (LENGTH)</span>
+                                <span style="font-weight: 600;">📏 字數目標 (LENGTH)</span>
                                 <span id="length_target-toggle">▶</span>
                             </div>
                             <div id="length_target-options" class="dimension-options"
@@ -1659,7 +1603,7 @@
 
                     <!-- 統計區塊 -->
                     <div style="margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
-                        <h4 style="margin-bottom: 10px; color: #374151; font-size: 14px;"><i data-lucide="bar-chart-2" class="icon-sm"></i> 最近 30 天使用統計</h4>
+                        <h4 style="margin-bottom: 10px; color: #374151; font-size: 14px;">📊 最近 30 天使用統計</h4>
                         <div id="dimension-stats" style="font-size: 13px; color: #666;">
                             <p>載入中...</p>
                         </div>
@@ -1676,19 +1620,19 @@
             <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
                 <button class="monitor-sub-tab active" onclick="switchMonitorTab('mentions')"
                     style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    <i data-lucide="clipboard-list" class="icon-sm"></i> 提及列表
+                    📋 提及列表
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('brands')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    <i data-lucide="tag" class="icon-sm"></i> 關鍵字組
+                    🏷️ 關鍵字組
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('sources')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    <i data-lucide="globe" class="icon-sm"></i> 來源管理
+                    🌐 來源管理
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('stats')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    <i data-lucide="bar-chart-2" class="icon-sm"></i> 聲量統計
+                    📊 聲量統計
                 </button>
             </div>
 
@@ -1703,8 +1647,8 @@
                         <select id="mentionTopicFilter" onchange="loadMentions()"
                             style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
                             <option value="">全部分類</option>
-                            <option value="pain_point"><i data-lucide="circle" class="icon-sm" style="color: #ef4444;"></i> 產品痛點</option>
-                            <option value="need_context"><i data-lucide="circle" class="icon-sm" style="color: #3b82f6;"></i> 需求情境</option>
+                            <option value="pain_point">🔴 產品痛點</option>
+                            <option value="need_context">🔵 需求情境</option>
                             <option value="other">其他</option>
                         </select>
                         <select id="mentionReadFilter" onchange="loadMentions()"
@@ -1715,27 +1659,27 @@
                         </select>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="loadMentions()"><i data-lucide="refresh-cw" class="icon-sm"></i> 重新整理</button>
-                        <button class="btn btn-secondary" onclick="reclassifyAll()" title="重新分類所有提及"><i data-lucide="refresh-cw" class="icon-sm"></i> 重分類</button>
+                        <button class="btn btn-secondary" onclick="loadMentions()">🔄 重新整理</button>
+                        <button class="btn btn-secondary" onclick="reclassifyAll()" title="重新分類所有提及">🔄 重分類</button>
                     </div>
                 </div>
 
                 <!-- 分類說明 -->
                 <div id="classificationHelp" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;"><i data-lucide="bar-chart-2" class="icon-sm"></i> 自動分類說明</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📊 自動分類說明</h4>
                     <p style="font-size: 13px; color: #0c4a6e; margin: 0 0 10px 0;">系統會自動分析提及內容，辨識以下類型：</p>
                     <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px;">
                         <div>
-                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px;"><i data-lucide="circle" class="icon-sm" style="color: #ef4444;"></i> 產品痛點</span>
+                            <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px;">🔴 產品痛點</span>
                             <span style="color: #666; margin-left: 5px;">噪音、不適、故障、續航等負面體驗</span>
                         </div>
                         <div>
-                            <span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px;"><i data-lucide="circle" class="icon-sm" style="color: #3b82f6;"></i> 需求情境</span>
+                            <span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px;">🔵 需求情境</span>
                             <span style="color: #666; margin-left: 5px;">新手詢問、購買考量、使用情境等</span>
                         </div>
                     </div>
                     <p style="font-size: 11px; color: #64748b; margin: 10px 0 0 0;">
-                        <i data-lucide="lightbulb" class="icon-sm"></i> <strong>強命中</strong>：內容同時包含情趣相關詞時，分類更準確。痛點強命中會自動發送 LINE 警示。
+                        💡 <strong>強命中</strong>：內容同時包含情趣相關詞時，分類更準確。痛點強命中會自動發送 LINE 警示。
                     </p>
                     <button onclick="document.getElementById('classificationHelp').style.display='none'" style="position: absolute; top: 10px; right: 10px; background: none; border: none; cursor: pointer; color: #94a3b8;">✕</button>
                 </div>
@@ -1750,7 +1694,7 @@
             <div id="monitorBrandsTab" class="sub-tab-content" style="display: none;">
                 <!-- 關鍵字設定說明 -->
                 <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; font-size: 12px; color: #92400e;">
-                    <strong><i data-lucide="lightbulb" class="icon-sm"></i> 關鍵字設定說明：</strong>
+                    <strong>💡 關鍵字設定說明：</strong>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">
                         <li>用<strong>逗號</strong>分隔多個關鍵字，例如：<code>品牌A, 品牌B, 簡稱</code></li>
                         <li>爬蟲會在來源頁面搜尋這些關鍵字，找到就會建立提及記錄</li>
@@ -1762,7 +1706,7 @@
                 <!-- 新增關鍵字組表單區塊 -->
                 <div
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 16px;"><i data-lucide="plus" class="icon-sm"></i> 新增關鍵字組</h4>
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">➕ 新增關鍵字組</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 12px; align-items: end;">
                         <div>
                             <label style="font-size: 12px; opacity: 0.9; display: block; margin-bottom: 5px;">主題名稱 *</label>
@@ -1791,7 +1735,7 @@
                 </div>
 
                 <!-- 關鍵字組列表 -->
-                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;"><i data-lucide="clipboard-list" class="icon-sm"></i> 已設定關鍵字組</h3>
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">📋 已設定關鍵字組</h3>
                 <div id="brandsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
@@ -1807,21 +1751,21 @@
 
                 <!-- 說明區塊 -->
                 <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;"><i data-lucide="book-open" class="icon-sm"></i> 分類流程說明</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #0369a1; font-size: 14px;">📖 分類流程說明</h4>
                     <div style="font-size: 13px; color: #0c4a6e;">
                         <ol style="margin: 0; padding-left: 20px;">
                             <li><strong>關鍵字比對</strong>：用上方的「關鍵字組」找出相關文章</li>
                             <li><strong>內容分類</strong>：用下方的「分類規則」標記文章類型（痛點/情境）</li>
                         </ol>
                         <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">
-                            <i data-lucide="lightbulb" class="icon-sm"></i> 符合「產品痛點」的文章會自動發送 LINE 通知
+                            💡 符合「產品痛點」的文章會自動發送 LINE 通知
                         </p>
                     </div>
                 </div>
 
                 <!-- 排除詞設定 -->
                 <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px;"><i data-lucide="ban" class="icon-sm"></i> 排除詞</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">🚫 排除詞</h4>
                     <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
                         符合這些詞的文章不會被分類（如廣告、業配）。用 <code>|</code> 分隔。
                     </p>
@@ -1829,7 +1773,7 @@
                         style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: monospace; font-size: 13px; box-sizing: border-box;"
                         placeholder="(廣告|業配|團購|抽獎)"></textarea>
                     <button onclick="saveExcludePatterns()" class="btn btn-primary" style="margin-top: 10px; padding: 8px 16px; font-size: 13px;">
-                        <i data-lucide="save" class="icon-sm"></i> 儲存
+                        💾 儲存
                     </button>
                 </div>
 
@@ -1838,9 +1782,9 @@
                     <!-- 痛點規則 -->
                     <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #ef4444;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h4 style="margin: 0; color: #374151; font-size: 14px;"><i data-lucide="circle" class="icon-sm" style="color: #ef4444;"></i> 產品痛點</h4>
+                            <h4 style="margin: 0; color: #374151; font-size: 14px;">🔴 產品痛點</h4>
                             <button onclick="showAddRuleModal('pain_point')" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px;">
-                                <i data-lucide="plus" class="icon-sm"></i> 新增
+                                ➕ 新增
                             </button>
                         </div>
                         <div id="painPointRulesList" style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
@@ -1851,9 +1795,9 @@
                     <!-- 需求情境規則 -->
                     <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #3b82f6;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h4 style="margin: 0; color: #374151; font-size: 14px;"><i data-lucide="circle" class="icon-sm" style="color: #3b82f6;"></i> 需求情境</h4>
+                            <h4 style="margin: 0; color: #374151; font-size: 14px;">🔵 需求情境</h4>
                             <button onclick="showAddRuleModal('need_context')" class="btn btn-secondary" style="padding: 4px 12px; font-size: 11px;">
-                                <i data-lucide="plus" class="icon-sm"></i> 新增
+                                ➕ 新增
                             </button>
                         </div>
                         <div id="needContextRulesList" style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
@@ -1868,20 +1812,20 @@
             <div id="monitorSourcesTab" class="sub-tab-content" style="display: none;">
                 <!-- 爬蟲運作說明 -->
                 <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; font-size: 12px; color: #166534;">
-                    <strong><i data-lucide="bug" class="icon-sm"></i> 爬蟲運作方式：</strong>
+                    <strong>🕷️ 爬蟲運作方式：</strong>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">
                         <li><strong>自動爬取</strong>：系統每 30 分鐘檢查一次，對「已到期」的來源執行爬取</li>
                         <li><strong>到期判定</strong>：根據每個來源設定的「檢查間隔」決定</li>
                         <li><strong>爬取範圍</strong>：抓取來源頁面上的文章列表（最多 50 篇），並用關鍵字組進行比對</li>
                         <li><strong>平台支援</strong>：Dcard、PTT 有專屬解析器，其他平台使用通用 HTML 解析</li>
-                        <li><strong>手動爬取</strong>：點擊「<i data-lucide="refresh-cw" class="icon-sm"></i> 爬取」可立即執行，會顯示結果統計</li>
+                        <li><strong>手動爬取</strong>：點擊「🔄 爬取」可立即執行，會顯示結果統計</li>
                     </ul>
                 </div>
 
                 <!-- 預設來源多選區塊 -->
                 <div
                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 16px;"><i data-lucide="clipboard-list" class="icon-sm"></i> 從預設來源新增</h4>
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">📋 從預設來源新增</h4>
                     <div id="sourceTemplatesList"
                         style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
                         <p style="color: rgba(255,255,255,0.7); grid-column: span 2; text-align: center; margin: 0;">
@@ -1889,14 +1833,14 @@
                     </div>
                     <button onclick="addSelectedSources()"
                         style="margin-top: 12px; padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                        <i data-lucide="plus" class="icon-sm"></i> 新增選取的來源
+                        ➕ 新增選取的來源
                     </button>
                 </div>
 
                 <!-- 手動新增來源表單 -->
                 <div
                     style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e5e7eb;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 16px; color: #374151;"><i data-lucide="pencil" class="icon-sm"></i> 手動新增來源</h4>
+                    <h4 style="margin: 0 0 15px 0; font-size: 16px; color: #374151;">✏️ 手動新增來源</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1.5fr auto; gap: 12px; align-items: end;">
                         <div>
                             <label style="font-size: 12px; color: #666; display: block; margin-bottom: 5px;">名稱 *</label>
@@ -1942,7 +1886,7 @@
                 </div>
 
                 <!-- 來源列表 -->
-                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;"><i data-lucide="globe" class="icon-sm"></i> 已設定來源</h3>
+                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🌐 已設定來源</h3>
                 <div id="sourcesList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
@@ -1982,12 +1926,12 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div
                         style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h4 style="margin-bottom: 15px;"><i data-lucide="bar-chart-2" class="icon-sm"></i> 各品牌提及數</h4>
+                        <h4 style="margin-bottom: 15px;">📊 各品牌提及數</h4>
                         <div id="monitorBrandStats"></div>
                     </div>
                     <div
                         style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h4 style="margin-bottom: 15px;"><i data-lucide="globe" class="icon-sm"></i> 各來源提及數</h4>
+                        <h4 style="margin-bottom: 15px;">🌐 各來源提及數</h4>
                         <div id="monitorSourceStats"></div>
                     </div>
                 </div>
@@ -1999,7 +1943,7 @@
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h4 style="margin: 0;">📈 Google 搜尋趨勢</h4>
                         <button class="btn btn-secondary" onclick="fetchGoogleTrends()"
-                            style="padding: 8px 15px; font-size: 12px;"><i data-lucide="refresh-cw" class="icon-sm"></i> 抓取最新趨勢</button>
+                            style="padding: 8px 15px; font-size: 12px;">🔄 抓取最新趨勢</button>
                     </div>
                     <div id="googleTrendsChart" style="min-height: 200px;">
                         <p style="color: #999; text-align: center; padding: 40px 0;">點擊「抓取最新趨勢」按鈕開始收集數據</p>
@@ -2013,7 +1957,7 @@
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h4 style="margin: 0;">🔥 台灣即時熱門搜尋</h4>
                         <button class="btn btn-secondary" onclick="loadDailyTrends()"
-                            style="padding: 8px 15px; font-size: 12px;"><i data-lucide="refresh-cw" class="icon-sm"></i> 重新整理</button>
+                            style="padding: 8px 15px; font-size: 12px;">🔄 重新整理</button>
                     </div>
                     <div id="dailyTrendsList" style="display: grid; gap: 10px;">
                         <p style="color: #999; text-align: center; padding: 20px 0;">按下「重新整理」載入即時熱門搜尋</p>
@@ -2079,7 +2023,7 @@
 
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeTemplateModal()">取消</button>
-                        <button type="button" class="btn btn-test" onclick="testCurrentTemplate()"><i data-lucide="flask-conical" class="icon-sm"></i> 測試生成</button>
+                        <button type="button" class="btn btn-test" onclick="testCurrentTemplate()">🧪 測試生成</button>
                         <button type="submit" class="btn btn-primary">儲存</button>
                     </div>
                 </form>
@@ -2090,14 +2034,14 @@
         <div id="previewModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2><i data-lucide="file-text" class="icon-sm"></i> 內容預覽</h2>
+                    <h2>📝 內容預覽</h2>
                     <button class="close-modal" onclick="closePreviewModal()">×</button>
                 </div>
 
                 <div id="preview-result"></div>
                 <div class="modal-actions">
                     <button class="btn btn-secondary" onclick="closePreviewModal()">關閉</button>
-                    <button class="btn btn-primary" onclick="regeneratePreview()"><i data-lucide="refresh-cw" class="icon-sm"></i> 重新生成</button>
+                    <button class="btn btn-primary" onclick="regeneratePreview()">🔄 重新生成</button>
                 </div>
             </div>
         </div>
@@ -2106,7 +2050,7 @@
         <div id="editPostModal" class="modal">
             <div class="modal-content" style="max-width: 700px;">
                 <div class="modal-header">
-                    <h2><i data-lucide="pencil" class="icon-sm"></i> 編輯貼文內容</h2>
+                    <h2>✏️ 編輯貼文內容</h2>
                     <button class="close-modal" onclick="closeEditPostModal()">×</button>
                 </div>
                 <form id="editPostForm" onsubmit="saveEditedPost(event)">
@@ -2122,7 +2066,7 @@
                     </div>
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeEditPostModal()">取消</button>
-                        <button type="submit" class="btn btn-primary"><i data-lucide="save" class="icon-sm"></i> 儲存變更</button>
+                        <button type="submit" class="btn btn-primary">💾 儲存變更</button>
                     </div>
                 </form>
             </div>
@@ -2612,7 +2556,7 @@
                 if (batchBtn) {
                     if (checkedBoxes.length > 0) {
                         batchBtn.style.display = 'inline-block';
-                        batchBtn.textContent = `<i data-lucide="trash-2" class="icon-sm"></i> 批次刪除 (${checkedBoxes.length})`;
+                        batchBtn.textContent = `🗑️ 批次刪除 (${checkedBoxes.length})`;
                     } else {
                         batchBtn.style.display = 'none';
                     }
@@ -2809,7 +2753,7 @@
                     });
 
                     if (response.ok) {
-                        showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 已設為預設帳號', 'success');
+                        showAlert('dashboardAlert', '✅ 已設為預設帳號', 'success');
                         loadThreadsAccountsList();
                         // Reload UCB config to refresh account selector
                         if (typeof loadUcbConfig === 'function') {
@@ -2851,7 +2795,7 @@
 
                 // Show loading
                 resultDiv.style.display = 'block';
-                contentDiv.innerHTML = '<p style="color: #666;"><i data-lucide="refresh-cw" class="icon-sm"></i> 診斷中...</p>';
+                contentDiv.innerHTML = '<p style="color: #666;">🔄 診斷中...</p>';
 
                 try {
                     const response = await fetch(`${API_BASE}/diagnose`, {
@@ -2869,14 +2813,14 @@
 
                     // Threads Accounts
                     html += '<div style="margin-bottom: 20px;">';
-                    html += '<h4 style="margin-bottom: 10px;"><i data-lucide="smartphone" class="icon-sm"></i> Threads 帳號狀態</h4>';
+                    html += '<h4 style="margin-bottom: 10px;">📱 Threads 帳號狀態</h4>';
                     if (data.checks.threadsAccounts.total === 0) {
-                        html += '<p style="color: #dc3545;"><i data-lucide="x-circle" class="icon-sm"></i> 找不到任何 Threads 帳號</p>';
+                        html += '<p style="color: #dc3545;">❌ 找不到任何 Threads 帳號</p>';
                     } else {
                         data.checks.threadsAccounts.accounts.forEach((acc, i) => {
                             html += `<div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${acc.issues.length > 0 ? '#ffc107' : '#28a745'}">`;
                             html += `<p style="margin: 5px 0;"><strong>帳號 ${i + 1}:</strong> ${acc.username}</p>`;
-                            html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">Account ID: ${acc.accountId || '<i data-lucide="x-circle" class="icon-sm"></i> 未設定'}</p>`;
+                            html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">Account ID: ${acc.accountId || '❌ 未設定'}</p>`;
                             html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">狀態: ${acc.status}</p>`;
                             html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">預設帳號: ${acc.isDefault ? '✓ 是' : '否'}</p>`;
                             html += `<p style="margin: 5px 0; font-size: 13px; color: #666;">Token 狀態: ${acc.tokenStatus || '無'}</p>`;
@@ -2894,7 +2838,7 @@
 
                     // Recent Posts
                     html += '<div style="margin-bottom: 20px;">';
-                    html += '<h4 style="margin-bottom: 10px;"><i data-lucide="file-text" class="icon-sm"></i> 最近的文章</h4>';
+                    html += '<h4 style="margin-bottom: 10px;">📝 最近的文章</h4>';
                     if (data.checks.recentPosts.total === 0) {
                         html += '<p style="color: #666;">目前沒有文章</p>';
                     } else {
@@ -2934,9 +2878,9 @@
 
                     // Analysis & Recommendations
                     html += '<div style="background: white; padding: 15px; border-radius: 8px;">';
-                    html += '<h4 style="margin-bottom: 10px;"><i data-lucide="lightbulb" class="icon-sm"></i> 診斷建議</h4>';
+                    html += '<h4 style="margin-bottom: 10px;">💡 診斷建議</h4>';
                     if (data.analysis.recommendations.length === 0) {
-                        html += '<p style="color: #28a745;"><i data-lucide="check-circle" class="icon-sm"></i> 所有設定看起來正常</p>';
+                        html += '<p style="color: #28a745;">✅ 所有設定看起來正常</p>';
                     } else {
                         html += '<ul style="margin: 0; padding-left: 20px;">';
                         data.analysis.recommendations.forEach(rec => {
@@ -2949,7 +2893,7 @@
                     contentDiv.innerHTML = html;
 
                 } catch (error) {
-                    contentDiv.innerHTML = `<p style="color: #dc3545;"><i data-lucide="x-circle" class="icon-sm"></i> 診斷失敗: ${error.message}</p>`;
+                    contentDiv.innerHTML = `<p style="color: #dc3545;">❌ 診斷失敗: ${error.message}</p>`;
                 }
             }
 
@@ -3083,7 +3027,7 @@
 
                     if (!response.ok) throw new Error('儲存設定失敗');
 
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 所有設定已成功儲存', 'success');
+                    showAlert('dashboardAlert', '✅ 所有設定已成功儲存', 'success');
                 } catch (error) {
                     showAlert('dashboardAlert', '儲存設定失敗: ' + error.message, 'error');
                 } finally {
@@ -3108,9 +3052,9 @@
                         throw new Error(error.error || '測試通知失敗');
                     }
 
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 測試通知已發送到 LINE！請檢查您的 LINE 訊息。', 'success');
+                    showAlert('dashboardAlert', '✅ 測試通知已發送到 LINE！請檢查您的 LINE 訊息。', 'success');
                 } catch (error) {
-                    showAlert('dashboardAlert', '<i data-lucide="x-circle" class="icon-sm"></i> 發送失敗: ' + error.message, 'error');
+                    showAlert('dashboardAlert', '❌ 發送失敗: ' + error.message, 'error');
                 } finally {
                     showLoading(false);
                 }
@@ -3149,32 +3093,32 @@
                     // Display success message with content preview
                     const resultHtml = `
                     <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #1DB446;">
-                        <h4 style="margin: 0 0 15px 0; color: #1DB446;"><i data-lucide="check-circle" class="icon-sm"></i> 測試文章已生成！</h4>
+                        <h4 style="margin: 0 0 15px 0; color: #1DB446;">✅ 測試文章已生成！</h4>
 
                         <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                            <p style="margin: 0 0 10px 0;"><strong><i data-lucide="bar-chart-2" class="icon-sm"></i> 生成資訊：</strong></p>
-                            <p style="margin: 5px 0;"><i data-lucide="bot" class="icon-sm"></i> 引擎：${data.engine}</p>
+                            <p style="margin: 0 0 10px 0;"><strong>📊 生成資訊：</strong></p>
+                            <p style="margin: 5px 0;">🤖 引擎：${data.engine}</p>
                             <p style="margin: 5px 0;">📈 相似度：${(data.similarity * 100).toFixed(1)}%</p>
                             <p style="margin: 5px 0; color: ${data.similarity > 0.86 ? '#ff0000' : '#4CAF50'};">
-                                ${data.similarity > 0.86 ? '<i data-lucide="alert-triangle" class="icon-sm"></i> 相似度較高，建議重新生成' : '<i data-lucide="check-circle" class="icon-sm"></i> 相似度正常'}
+                                ${data.similarity > 0.86 ? '⚠️ 相似度較高，建議重新生成' : '✅ 相似度正常'}
                             </p>
                         </div>
 
                         <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
-                            <p style="margin: 0 0 10px 0;"><strong><i data-lucide="file-text" class="icon-sm"></i> 文章內容預覽：</strong></p>
+                            <p style="margin: 0 0 10px 0;"><strong>📝 文章內容預覽：</strong></p>
                             <p style="white-space: pre-wrap; margin: 0; line-height: 1.6; color: #333;">
                                 ${data.content.substring(0, 200)}${data.content.length > 200 ? '...' : ''}
                             </p>
                         </div>
 
                         <div style="background: #e8f5e9; padding: 15px; border-radius: 6px;">
-                            <p style="margin: 0; font-weight: bold; color: #2e7d32;"><i data-lucide="smartphone" class="icon-sm"></i> 下一步：</p>
+                            <p style="margin: 0; font-weight: bold; color: #2e7d32;">📱 下一步：</p>
                             <p style="margin: 10px 0 0 0; line-height: 1.8; color: #333;">
                                 測試文章已發送到您的 LINE！<br>
                                 請到 LINE 查看完整內容並進行審核：<br>
-                                • <i data-lucide="check-circle" class="icon-sm"></i> 確認發文 → 發布到 Threads<br>
-                                • <i data-lucide="refresh-cw" class="icon-sm"></i> 重新生成 → 產生新文章<br>
-                                • <i data-lucide="pencil" class="icon-sm"></i> 修改內容 → 編輯後發布
+                                • ✅ 確認發文 → 發布到 Threads<br>
+                                • 🔄 重新生成 → 產生新文章<br>
+                                • ✏️ 修改內容 → 編輯後發布
                             </p>
                         </div>
                     </div>
@@ -3183,15 +3127,15 @@
                     document.getElementById('testResultsContent').innerHTML = resultHtml;
                     document.getElementById('testResults').style.display = 'block';
 
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 測試文章已生成並發送到 LINE！請到 LINE 查看。', 'success');
+                    showAlert('dashboardAlert', '✅ 測試文章已生成並發送到 LINE！請到 LINE 查看。', 'success');
                 } catch (error) {
                     const errorHtml = `
                     <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #f44336;">
-                        <h4 style="margin: 0 0 10px 0; color: #f44336;"><i data-lucide="x-circle" class="icon-sm"></i> 測試失敗</h4>
+                        <h4 style="margin: 0 0 10px 0; color: #f44336;">❌ 測試失敗</h4>
                         <p style="margin: 0; color: #666;">${error.message}</p>
                         ${error.message.includes('LINE User ID') ? `
                             <p style="margin: 15px 0 0 0; padding: 10px; background: #fff3e0; border-radius: 4px; color: #ff6600;">
-                                <i data-lucide="lightbulb" class="icon-sm"></i> 提示：請先設定 LINE User ID<br>
+                                💡 提示：請先設定 LINE User ID<br>
                                 1. 在 LINE 中傳送「/myid」給機器人<br>
                                 2. 複製收到的 User ID<br>
                                 3. 貼到上方「LINE 通知設定」並儲存
@@ -3303,9 +3247,9 @@
 
                     if (!response.ok) throw new Error('發送失敗');
 
-                    alert('<i data-lucide="check-circle" class="icon-sm"></i> 測試訊息已發送！請檢查您的 LINE');
+                    alert('✅ 測試訊息已發送！請檢查您的 LINE');
                 } catch (error) {
-                    alert('<i data-lucide="x-circle" class="icon-sm"></i> 測試失敗: ' + error.message);
+                    alert('❌ 測試失敗: ' + error.message);
                 }
             }
 
@@ -3364,7 +3308,7 @@
                     const postData = await postResponse.json();
 
                     if (postResponse.ok) {
-                        showAlert('dashboardAlert', publishTime === 'now' ? '<i data-lucide="check-circle" class="icon-sm"></i> 貼文已加入發布佇列！' : '<i data-lucide="check-circle" class="icon-sm"></i> 貼文已排程成功！', 'success');
+                        showAlert('dashboardAlert', publishTime === 'now' ? '✅ 貼文已加入發布佇列！' : '✅ 貼文已排程成功！', 'success');
                         document.getElementById('manualPostContent').value = '';
                         document.getElementById('contentCharCount').textContent = '0';
                         document.getElementById('manualPostThreadsAccount').value = '';
@@ -3420,7 +3364,7 @@
                 if (smartSchedulingTemplates.length === 0) {
                     container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon"><i data-lucide="file-text" class="icon-sm"></i></div>
+                        <div class="empty-state-icon">📝</div>
                         <h3>還沒有任何模板</h3>
                         <p>點擊「新增模板」開始建立你的第一個內容模板</p>
                     </div>
@@ -3440,7 +3384,7 @@
                                     <div class="template-name">${escapeHtml(template.name)}</div>
                                     ${template.description ? `<div class="template-description">${escapeHtml(template.description)}</div>` : ''}
                                     <div style="margin-top: 5px; font-size: 12px; color: #667eea;">
-                                        <strong><i data-lucide="bot" class="icon-sm"></i> AI 引擎：</strong>${engineName}
+                                        <strong>🤖 AI 引擎：</strong>${engineName}
                                     </div>
                                 </div>
                                 <span class="template-status ${template.enabled ? 'status-enabled' : 'status-disabled'}">
@@ -3462,7 +3406,7 @@
                             <div class="template-prompt">${escapeHtml(template.prompt)}</div>
 
                             <div class="template-actions">
-                                <button class="btn btn-test" onclick="testSmartTemplate('${template.id}')"><i data-lucide="flask-conical" class="icon-sm"></i> 測試</button>
+                                <button class="btn btn-test" onclick="testSmartTemplate('${template.id}')">🧪 測試</button>
                                 <button class="btn btn-secondary" onclick="editSmartTemplate('${template.id}')">編輯</button>
                                 <button class="btn btn-danger" onclick="deleteSmartTemplate('${template.id}', '${escapeHtml(template.name)}')">刪除</button>
                             </div>
@@ -3681,12 +3625,12 @@
                 const lineUserId = document.getElementById('ucbLineNotifyUserId').value;
 
                 if (!threadsAccount) {
-                    alert('<i data-lucide="x-circle" class="icon-sm"></i> 請先選擇 Threads 帳號並儲存配置');
+                    alert('❌ 請先選擇 Threads 帳號並儲存配置');
                     return;
                 }
 
                 if (!lineUserId) {
-                    alert('<i data-lucide="x-circle" class="icon-sm"></i> 請先設定 LINE User ID 並儲存配置');
+                    alert('❌ 請先設定 LINE User ID 並儲存配置');
                     return;
                 }
 
@@ -3699,14 +3643,14 @@
                     const config = configData.config || {};
 
                     if (!config.ai_prompt || config.ai_prompt.trim() === '') {
-                        alert('<i data-lucide="x-circle" class="icon-sm"></i> 請先到「提示詞設定」頁面設定 AI 生成提示詞');
+                        alert('❌ 請先到「提示詞設定」頁面設定 AI 生成提示詞');
                         return;
                     }
                 } catch (e) {
                     console.error('Failed to check config:', e);
                 }
 
-                if (!confirm('<i data-lucide="clipboard-list" class="icon-sm"></i> 系統將立即生成一篇測試文章\n<i data-lucide="message-circle" class="icon-sm"></i> 生成完成後會發送 LINE 通知給您審核\n\n確定要立即觸發嗎？')) return;
+                if (!confirm('📋 系統將立即生成一篇測試文章\n💬 生成完成後會發送 LINE 通知給您審核\n\n確定要立即觸發嗎？')) return;
 
                 try {
                     showSmartMessage('ai-message', '⏳ 正在生成文章...請稍候', 'info');
@@ -3726,14 +3670,14 @@
                     }
 
                     const data = await response.json();
-                    showSmartMessage('ai-message', '<i data-lucide="check-circle" class="icon-sm"></i> 文章已建立！請稍候查看 LINE 通知進行審核', 'success');
+                    showSmartMessage('ai-message', '✅ 文章已建立！請稍候查看 LINE 通知進行審核', 'success');
 
                     // Reload schedule history
                     setTimeout(() => {
                         loadScheduleHistory();
                     }, 1000);
                 } catch (error) {
-                    showSmartMessage('ai-message', '<i data-lucide="x-circle" class="icon-sm"></i> 觸發失敗: ' + error.message, 'error');
+                    showSmartMessage('ai-message', '❌ 觸發失敗: ' + error.message, 'error');
                 }
             }
 
@@ -3756,7 +3700,7 @@
                     console.error('Failed to load schedule history:', error);
                     document.getElementById('schedule-history-container').innerHTML =
                         `<div class="error-message">
-                        <strong><i data-lucide="clipboard-list" class="icon-sm"></i> 載入排程歷史失敗</strong><br>
+                        <strong>📋 載入排程歷史失敗</strong><br>
                         ${error.message}<br>
                         <small style="opacity: 0.7;">請檢查瀏覽器控制台查看詳細錯誤</small>
                     </div>`;
@@ -3769,7 +3713,7 @@
                 if (schedules.length === 0) {
                     container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-state-icon"><i data-lucide="calendar" class="icon-sm"></i></div>
+                        <div class="empty-state-icon">📅</div>
                         <h3>還沒有排程記錄</h3>
                         <p>系統會在每天 00:00 自動建立排程，或點擊「測試生成發送」進行測試</p>
                     </div>
@@ -3793,7 +3737,7 @@
                     return `
                         <div class="schedule-item">
                             <div class="schedule-header">
-                                <div class="schedule-date"><i data-lucide="calendar" class="icon-sm"></i> ${formatDate(schedule.schedule_date)}</div>
+                                <div class="schedule-date">📅 ${formatDate(schedule.schedule_date)}</div>
                                 <span class="schedule-status ${status.class}">${status.label}</span>
                             </div>
 
@@ -3805,12 +3749,12 @@
 
                             ${schedule.generation_plan ? `
                                 <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;">
-                                    ${schedule.generation_plan.moduleName ? `<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="package" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.moduleName)}</span>` : ''}
-                                    ${schedule.generation_plan.angleName ? `<span style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="clapperboard" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.angleName)}</span>` : ''}
-                                    ${schedule.generation_plan.outletName ? `<span style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="lightbulb" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.outletName)}</span>` : ''}
-                                    ${schedule.generation_plan.toneBiasName ? `<span style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="message-square" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.toneBiasName)}</span>` : ''}
-                                    ${schedule.generation_plan.endingStyleName ? `<span style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="arrow-right-to-line" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.endingStyleName)}</span>` : ''}
-                                    ${schedule.generation_plan.lengthTarget ? `<span style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;"><i data-lucide="ruler" class="icon-sm"></i> ${escapeHtml(schedule.generation_plan.lengthTarget)}字</span>` : ''}
+                                    ${schedule.generation_plan.moduleName ? `<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">📦 ${escapeHtml(schedule.generation_plan.moduleName)}</span>` : ''}
+                                    ${schedule.generation_plan.angleName ? `<span style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🎬 ${escapeHtml(schedule.generation_plan.angleName)}</span>` : ''}
+                                    ${schedule.generation_plan.outletName ? `<span style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">💡 ${escapeHtml(schedule.generation_plan.outletName)}</span>` : ''}
+                                    ${schedule.generation_plan.toneBiasName ? `<span style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🗣️ ${escapeHtml(schedule.generation_plan.toneBiasName)}</span>` : ''}
+                                    ${schedule.generation_plan.endingStyleName ? `<span style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">🔚 ${escapeHtml(schedule.generation_plan.endingStyleName)}</span>` : ''}
+                                    ${schedule.generation_plan.lengthTarget ? `<span style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;">📏 ${escapeHtml(schedule.generation_plan.lengthTarget)}字</span>` : ''}
                                 </div>
                             ` : `
                                 <div style="margin-top: 10px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; font-size: 12px; color: #6b7280;">
@@ -3828,27 +3772,27 @@
                             ${schedule.status === 'GENERATED' ? `
                                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; flex-wrap: wrap;">
                                     <button onclick="resendReviewNotification('${schedule.id}')" class="btn btn-secondary btn-small" style="font-size: 12px; padding: 6px 12px;">
-                                        <i data-lucide="smartphone" class="icon-sm"></i> 重新發送審核
+                                        📱 重新發送審核
                                     </button>
                                     <button onclick="manualApproveSchedule('${schedule.id}')" class="btn btn-success btn-small" style="font-size: 12px; padding: 6px 12px;">
-                                        <i data-lucide="check-circle" class="icon-sm"></i> 手動核准
+                                        ✅ 手動核准
                                     </button>
                                     <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
-                                        <i data-lucide="trash-2" class="icon-sm"></i> 刪除排程
+                                        🗑️ 刪除排程
                                     </button>
                                 </div>
                             ` : ''}
 
                             ${schedule.status === 'APPROVED' ? `
                                 <div style="margin-top: 12px; padding: 10px; background: #d1fae5; border-radius: 6px; font-size: 13px; color: #065f46;">
-                                    <i data-lucide="check-circle" class="icon-sm"></i> 已核准，將於排程時間自動發布
+                                    ✅ 已核准，將於排程時間自動發布
                                 </div>
                             ` : ''}
 
                             ${(schedule.status === 'PENDING' || schedule.status === 'FAILED') ? `
                                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
                                     <button onclick="deleteAutoSchedule('${schedule.id}')" class="btn btn-danger btn-small" style="font-size: 12px; padding: 6px 12px;">
-                                        <i data-lucide="trash-2" class="icon-sm"></i> 刪除此排程
+                                        🗑️ 刪除此排程
                                     </button>
                                 </div>
                             ` : ''}
@@ -3873,10 +3817,10 @@
                         throw new Error(errorData.error || '刪除失敗');
                     }
 
-                    showSmartMessage('ucb-message', '<i data-lucide="check-circle" class="icon-sm"></i> 排程已刪除', 'success');
+                    showSmartMessage('ucb-message', '✅ 排程已刪除', 'success');
                     loadScheduleHistory(); // 重新載入列表
                 } catch (error) {
-                    alert('<i data-lucide="x-circle" class="icon-sm"></i> 刪除失敗: ' + error.message);
+                    alert('❌ 刪除失敗: ' + error.message);
                 }
             }
 
@@ -3885,7 +3829,7 @@
                 if (!confirm('確定要重新發送 LINE 審核通知嗎？\n\n現有的審核連結將失效。')) return;
 
                 try {
-                    showSmartMessage('ucb-message', '<i data-lucide="smartphone" class="icon-sm"></i> 正在重新發送審核通知...', 'info');
+                    showSmartMessage('ucb-message', '📱 正在重新發送審核通知...', 'info');
 
                     const response = await fetch(`${API_BASE}/auto-schedules/${scheduleId}/resend-review`, {
                         method: 'POST',
@@ -3898,9 +3842,9 @@
                         throw new Error(data.error || '發送失敗');
                     }
 
-                    showSmartMessage('ucb-message', data.message || '<i data-lucide="check-circle" class="icon-sm"></i> 已重新發送審核通知', 'success');
+                    showSmartMessage('ucb-message', data.message || '✅ 已重新發送審核通知', 'success');
                 } catch (error) {
-                    showSmartMessage('ucb-message', '<i data-lucide="x-circle" class="icon-sm"></i> 發送失敗: ' + error.message, 'error');
+                    showSmartMessage('ucb-message', '❌ 發送失敗: ' + error.message, 'error');
                 }
             }
 
@@ -3922,10 +3866,10 @@
                         throw new Error(data.error || '核准失敗');
                     }
 
-                    showSmartMessage('ucb-message', data.message || '<i data-lucide="check-circle" class="icon-sm"></i> 已手動核准', 'success');
+                    showSmartMessage('ucb-message', data.message || '✅ 已手動核准', 'success');
                     loadScheduleHistory(); // 重新載入列表
                 } catch (error) {
-                    showSmartMessage('ucb-message', '<i data-lucide="x-circle" class="icon-sm"></i> 核准失敗: ' + error.message, 'error');
+                    showSmartMessage('ucb-message', '❌ 核准失敗: ' + error.message, 'error');
                 }
             }
 
@@ -3959,7 +3903,7 @@
             function openPreviewModal(templateName, engine) {
                 document.getElementById('previewModal').classList.add('active');
                 const engineName = getEngineName(engine);
-                document.querySelector('#previewModal .modal-header h2').textContent = `<i data-lucide="file-text" class="icon-sm"></i> ${templateName} - 內容預覽 (${engineName})`;
+                document.querySelector('#previewModal .modal-header h2').textContent = `📝 ${templateName} - 內容預覽 (${engineName})`;
             }
 
             function closePreviewModal() {
@@ -4007,7 +3951,7 @@
                     resultDiv.innerHTML = `
                     <div class="preview-content">${escapeHtml(data.content)}</div>
                     <div style="margin-top: 15px; padding: 12px; background: #f0f9ff; border-radius: 6px; font-size: 13px; color: #0369a1;">
-                        <strong><i data-lucide="lightbulb" class="icon-sm"></i> 提示：</strong>這是 AI 根據模板提示詞生成的內容範例。每次生成的內容都會有所不同。
+                        <strong>💡 提示：</strong>這是 AI 根據模板提示詞生成的內容範例。每次生成的內容都會有所不同。
                         <br><strong>使用引擎：</strong>${getEngineName(data.engine || engine)}
                     </div>
                 `;
@@ -4353,7 +4297,7 @@
 
                 container.innerHTML = `
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
-                    <i data-lucide="trophy" class="icon-sm"></i> 最佳時段: <strong style="color: #059669;">${data.bestHour}:00</strong>
+                    🏆 最佳時段: <strong style="color: #059669;">${data.bestHour}:00</strong>
                 </div>
                 ${sortedHours.map(h => `
                     <div style="display: flex; align-items: center; margin-bottom: 6px;">
@@ -4383,7 +4327,7 @@
 
                 container.innerHTML = `
                 <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
-                    <i data-lucide="trophy" class="icon-sm"></i> 最佳星期: <strong style="color: #059669;">${dayNames[data.bestDay]}</strong>
+                    🏆 最佳星期: <strong style="color: #059669;">${dayNames[data.bestDay]}</strong>
                 </div>
                 ${data.days.map(d => `
                     <div style="display: flex; align-items: center; margin-bottom: 6px;">
@@ -4418,10 +4362,10 @@
                             ${escapeHtml(post.content || '(無內容)')}
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 6px; font-size: 10px; color: #666;">
-                            <span><i data-lucide="eye" class="icon-sm"></i> ${post.views.toLocaleString()}</span>
-                            <span><i data-lucide="heart" class="icon-sm"></i> ${post.likes}</span>
-                            <span><i data-lucide="message-circle" class="icon-sm"></i> ${post.replies}</span>
-                            <span style="color: #059669; font-weight: bold;"><i data-lucide="bar-chart-2" class="icon-sm"></i> ${post.engagementRate.toFixed(2)}%</span>
+                            <span>👁️ ${post.views.toLocaleString()}</span>
+                            <span>❤️ ${post.likes}</span>
+                            <span>💬 ${post.replies}</span>
+                            <span style="color: #059669; font-weight: bold;">📊 ${post.engagementRate.toFixed(2)}%</span>
                         </div>
                     </div>
                     ${post.postUrl ? `<a href="${post.postUrl}" target="_blank" style="color: #667eea; font-size: 10px; text-decoration: none;">查看 ↗</a>` : ''}
@@ -4449,7 +4393,7 @@
 
                 container.innerHTML = `
                 <div style="font-size: 10px; color: #666; margin-bottom: 8px; text-align: center;">
-                    <i data-lucide="bar-chart-2" class="icon-sm"></i> 分析 ${totalPosts} 篇貼文的<strong>平均參與率</strong>（非分佈比例）
+                    📊 分析 ${totalPosts} 篇貼文的<strong>平均參與率</strong>（非分佈比例）
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
                     ${categories.map(c => `
@@ -4462,7 +4406,7 @@
                     `).join('')}
                 </div>
                 <div style="padding: 8px 12px; background: #ecfdf5; border-radius: 6px; font-size: 11px; color: #065f46;">
-                    <i data-lucide="lightbulb" class="icon-sm"></i> ${data.recommendation}
+                    💡 ${data.recommendation}
                 </div>
             `
             }
@@ -4686,18 +4630,18 @@
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                                 <div>
                                     <span style="background: ${statusColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${statusText}</span>
-                                    <span style="margin-left: 10px; color: #666; font-size: 13px;"><i data-lucide="clock" class="icon-sm"></i> 預定發布：${scheduledTime}</span>
+                                    <span style="margin-left: 10px; color: #666; font-size: 13px;">⏰ 預定發布：${scheduledTime}</span>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
                                     ${schedule.post_id ? `
                                     <button onclick="editPendingPost('${schedule.post_id}')" 
                                         style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="pencil" class="icon-sm"></i> 編輯
+                                        ✏️ 編輯
                                     </button>
                                     ` : ''}
                                     <button onclick="deleteAutoSchedule('${schedule.id}')" 
                                         style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        <i data-lucide="trash-2" class="icon-sm"></i> 刪除
+                                        🗑️ 刪除
                                     </button>
                                 </div>
                             </div>
@@ -4707,12 +4651,12 @@
                             </div>
                             ` : ''}
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; color: #666;">
-                                <div><i data-lucide="file-text" class="icon-sm"></i> 模板：<strong>${templateName}</strong></div>
-                                <div><i data-lucide="calendar" class="icon-sm"></i> 排程日期：<strong>${schedule.schedule_date || '未知'}</strong></div>
+                                <div>📝 模板：<strong>${templateName}</strong></div>
+                                <div>📅 排程日期：<strong>${schedule.schedule_date || '未知'}</strong></div>
                             </div>
                             ${schedule.selection_reason ? `
                             <div style="background: #f3e8ff; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; color: #7c3aed;">
-                                <i data-lucide="bot" class="icon-sm"></i> ${schedule.selection_reason}
+                                🤖 ${schedule.selection_reason}
                             </div>
                             ` : ''}
                         </div>`;
@@ -4834,7 +4778,7 @@
                     }
 
                     closeEditPostModal();
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 貼文已更新，將會在排程時間發布到 Threads', 'success');
+                    showAlert('dashboardAlert', '✅ 貼文已更新，將會在排程時間發布到 Threads', 'success');
                     loadPendingPosts();
                 } catch (error) {
                     console.error('Failed to save edited post:', error);
@@ -4930,7 +4874,7 @@
                     const result = await response.json();
 
                     if (result.success) {
-                        showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> AI 發文設定已儲存', 'success');
+                        showAlert('dashboardAlert', '✅ AI 發文設定已儲存', 'success');
                     } else {
                         throw new Error(result.error || '儲存失敗');
                     }
@@ -5004,7 +4948,7 @@
                     const result = await response.json();
 
                     if (result.success) {
-                        showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 提示詞設定已儲存', 'success');
+                        showAlert('dashboardAlert', '✅ 提示詞設定已儲存', 'success');
                     } else {
                         throw new Error(result.error || '儲存失敗');
                     }
@@ -5174,7 +5118,7 @@
                 <div style="padding: 10px; text-align: center;">
                     <button class="btn btn-secondary" onclick="showAddDimensionModal('${dimension}')" 
                         style="font-size: 12px; padding: 6px 12px;">
-                        <i data-lucide="plus" class="icon-sm"></i> 新增選項
+                        ➕ 新增選項
                     </button>
                 </div>
             `;
@@ -5286,7 +5230,7 @@
                         throw new Error(err.error || '新增失敗');
                     }
 
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> 選項已新增', 'success');
+                    showAlert('dashboardAlert', '✅ 選項已新增', 'success');
                     loadDimensions();
                 } catch (error) {
                     console.error('Failed to add dimension option:', error);
@@ -5310,39 +5254,39 @@
                 // 維度名稱對照表
                 const dimensionMeta = {
                     module: {
-                        title: '<i data-lucide="package" class="icon-sm"></i> 內容模組', color: '#667eea', names: {
+                        title: '📦 內容模組', color: '#667eea', names: {
                             pleasure_relief: '爽與解壓', practical: '務實處理',
                             uncomfortable_truth: '不舒服真實', controversial: '爭議提問'
                         }
                     },
                     angle: {
-                        title: '<i data-lucide="clapperboard" class="icon-sm"></i> 情境切角', color: '#f093fb', names: {
+                        title: '🎬 情境切角', color: '#f093fb', names: {
                             morning_wake: '早晨提問', late_night: '隨便做', confession_anon: '不好意思問',
                             work_break: '午休時間', before_sleep: '睡前發問'
                         }
                     },
                     outlet: {
-                        title: '<i data-lucide="lightbulb" class="icon-sm"></i> 處理出口', color: '#4facfe', names: {
+                        title: '💡 處理出口', color: '#4facfe', names: {
                             solo_quick: '自慰-快戰速決', solo_slow: '自慰-慢慢享受',
                             partner_simple: '有對象-輕量選項', partner_full: '有對象-完整方案',
                             mindset_shift: '心態轉換'
                         }
                     },
                     tone_bias: {
-                        title: '<i data-lucide="message-square" class="icon-sm"></i> 語氣偏壓', color: '#fa709a', names: {
+                        title: '🗣️ 語氣偏壓', color: '#fa709a', names: {
                             blunt_raw: '直白粗暴', playful_mean: '調皮嘴賤',
                             cold_practical: '冷淡務實', warm_body: '溫暖肉體派'
                         }
                     },
                     ending_style: {
-                        title: '<i data-lucide="arrow-right-to-line" class="icon-sm"></i> 收尾意圖', color: '#a8edea', names: {
+                        title: '🔚 收尾意圖', color: '#a8edea', names: {
                             done_sleep: '收工型', question_back: '反問懸念型', tease_more: '挑逗延續型',
                             reader_agency: '讀者決定型', self_call: '自我喊話型',
                             relief_done: '解放完成', no_wait: '不用等型'
                         }
                     },
                     length_target: {
-                        title: '<i data-lucide="ruler" class="icon-sm"></i> 字數目標', color: '#30cfd0', names: {
+                        title: '📏 字數目標', color: '#30cfd0', names: {
                             '50-70': '短狠 (50-70字)', '70-95': '中等 (70-95字)', '95-120': '慢慢戳 (95-120字)'
                         }
                     }
@@ -5572,7 +5516,7 @@
                             </div>
                             ${template.best_performing_time ? `
                                 <div style="margin-top: 8px; font-size: 11px; color: #28a745;">
-                                    <i data-lucide="star" class="icon-sm"></i> 最佳時段: ${template.best_performing_time}
+                                    ⭐ 最佳時段: ${template.best_performing_time}
                                 </div>
                             ` : ''}
                         </div>
@@ -5627,39 +5571,39 @@
 
                 const dimensionMeta = {
                     module: {
-                        title: '<i data-lucide="package" class="icon-sm"></i> 內容模組', color: '#667eea', names: {
+                        title: '📦 內容模組', color: '#667eea', names: {
                             pleasure_relief: '爽與解壓', practical: '務實處理',
                             uncomfortable_truth: '不舒服真實', controversial: '爭議提問'
                         }
                     },
                     angle: {
-                        title: '<i data-lucide="clapperboard" class="icon-sm"></i> 情境切角', color: '#f093fb', names: {
+                        title: '🎬 情境切角', color: '#f093fb', names: {
                             morning_wake: '早晨提問', late_night: '隨便做', confession_anon: '不好意思問',
                             work_break: '午休時間', before_sleep: '睡前發問'
                         }
                     },
                     outlet: {
-                        title: '<i data-lucide="lightbulb" class="icon-sm"></i> 處理出口', color: '#4facfe', names: {
+                        title: '💡 處理出口', color: '#4facfe', names: {
                             solo_quick: '自慰-快戰速決', solo_slow: '自慰-慢慢享受',
                             partner_simple: '有對象-輕量選項', partner_full: '有對象-完整方案',
                             mindset_shift: '心態轉換'
                         }
                     },
                     tone_bias: {
-                        title: '<i data-lucide="message-square" class="icon-sm"></i> 語氣偏壓', color: '#fa709a', names: {
+                        title: '🗣️ 語氣偏壓', color: '#fa709a', names: {
                             blunt_raw: '直白粗暴', playful_mean: '調皮嘴賤',
                             cold_practical: '冷淡務實', warm_body: '溫暖肉體派'
                         }
                     },
                     ending_style: {
-                        title: '<i data-lucide="arrow-right-to-line" class="icon-sm"></i> 收尾意圖', color: '#43e97b', names: {
+                        title: '🔚 收尾意圖', color: '#43e97b', names: {
                             done_sleep: '收工型', question_back: '反問懸念型', tease_more: '挑逗延續型',
                             reader_agency: '讀者決定型', self_call: '自我喊話型',
                             relief_done: '解放完成', no_wait: '不用等型'
                         }
                     },
                     length_target: {
-                        title: '<i data-lucide="ruler" class="icon-sm"></i> 字數目標', color: '#38f9d7', names: {
+                        title: '📏 字數目標', color: '#38f9d7', names: {
                             '50-70': '短狠 (50-70字)', '70-95': '中等 (70-95字)', '95-120': '慢慢戳 (95-120字)'
                         }
                     }
@@ -5737,7 +5681,7 @@
                                  onmouseover="this.style.background='#f5f5f5'" 
                                  onmouseout="this.style.background='white'">
                                 <div>
-                                    <div style="font-weight: bold; margin-bottom: 8px;"><i data-lucide="clock-3" class="icon-sm"></i> ${label}</div>
+                                    <div style="font-weight: bold; margin-bottom: 8px;">🕐 ${label}</div>
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
                                         <div>貼文數: ${slot.posts_count || 0}</div>
                                         <div>參與率: ${(parseFloat(slot.avg_engagement_rate) || 0).toFixed(1)}%</div>
@@ -5803,7 +5747,7 @@
                             <div style="padding: 10px 0; border-bottom: 1px solid #f0f0f0;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                                     <span style="color: #666;">${postedAt}</span>
-                                    <span style="color: #667eea;">👁 ${(post.views || 0).toLocaleString()} · <i data-lucide="heart" class="icon-sm"></i> ${post.likes || 0}</span>
+                                    <span style="color: #667eea;">👁 ${(post.views || 0).toLocaleString()} · ❤️ ${post.likes || 0}</span>
                                 </div>
                                 <div style="color: #333;">${truncated}</div>
                             </div>
@@ -5851,9 +5795,9 @@
                             <tr style="background: #f8f9fa;">
                                 <th style="padding: 10px; text-align: left;">發布時間</th>
                                 <th style="padding: 10px; text-align: left;">內容</th>
-                                <th style="padding: 10px; text-align: center;"><i data-lucide="eye" class="icon-sm"></i> 觀看</th>
-                                <th style="padding: 10px; text-align: center;"><i data-lucide="heart" class="icon-sm"></i> 按讚</th>
-                                <th style="padding: 10px; text-align: center;"><i data-lucide="bar-chart-2" class="icon-sm"></i> 參與率</th>
+                                <th style="padding: 10px; text-align: center;">👁️ 觀看</th>
+                                <th style="padding: 10px; text-align: center;">❤️ 按讚</th>
+                                <th style="padding: 10px; text-align: center;">📊 參與率</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -5913,7 +5857,7 @@
                         throw new Error(result.error || 'Sync failed');
                     }
 
-                    showAlert('dashboardAlert', '<i data-lucide="check-circle" class="icon-sm"></i> ' + result.message, 'success');
+                    showAlert('dashboardAlert', '✅ ' + result.message, 'success');
 
                     // 等待 2 秒後重新載入統計數據
                     setTimeout(() => {
@@ -6013,8 +5957,8 @@
                     container.innerHTML = mentions.map(m => {
                         // 分類標籤
                         const topicLabels = {
-                            'pain_point': { label: '產品痛點', color: '#ef4444', icon: '<i data-lucide="circle" class="icon-sm" style="color: #ef4444;"></i>' },
-                            'need_context': { label: '需求情境', color: '#3b82f6', icon: '<i data-lucide="circle" class="icon-sm" style="color: #3b82f6;"></i>' },
+                            'pain_point': { label: '產品痛點', color: '#ef4444', icon: '🔴' },
+                            'need_context': { label: '需求情境', color: '#3b82f6', icon: '🔵' },
                             'other': { label: '', color: '', icon: '' }
                         };
                         const topic = topicLabels[m.primary_topic] || topicLabels.other;
@@ -6044,15 +5988,15 @@
                         </div>
                         <h4 style="margin-bottom: 10px; color: #333;">${m.title || '(無標題)'}</h4>
                         <p style="color: #666; font-size: 14px; margin-bottom: 10px;">${m.content_preview || ''}</p>
-                        ${hitDetails ? `<p style="font-size: 12px; color: ${topic.color}; margin-bottom: 10px;"><i data-lucide="pin" class="icon-sm"></i> ${hitDetails}</p>` : ''}
+                        ${hitDetails ? `<p style="font-size: 12px; color: ${topic.color}; margin-bottom: 10px;">📌 ${hitDetails}</p>` : ''}
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div style="font-size: 12px; color: #888;">
-                                <i data-lucide="key" class="icon-sm"></i> ${JSON.parse(m.matched_keywords || '[]').join(', ')}
-                                ${m.likes_count ? ` · <i data-lucide="heart" class="icon-sm"></i> ${m.likes_count}` : ''}
-                                ${m.comments_count ? ` · <i data-lucide="message-circle" class="icon-sm"></i> ${m.comments_count}` : ''}
+                                🔑 ${JSON.parse(m.matched_keywords || '[]').join(', ')}
+                                ${m.likes_count ? ` · ❤️ ${m.likes_count}` : ''}
+                                ${m.comments_count ? ` · 💬 ${m.comments_count}` : ''}
                             </div>
                             <div style="display: flex; gap: 10px;">
-                                <a href="${m.url}" target="_blank" class="btn btn-secondary" style="padding: 5px 15px; font-size: 12px;"><i data-lucide="link" class="icon-sm"></i> 查看原文</a>
+                                <a href="${m.url}" target="_blank" class="btn btn-secondary" style="padding: 5px 15px; font-size: 12px;">🔗 查看原文</a>
                                 ${!m.is_read ? `<button class="btn btn-primary" style="padding: 5px 15px; font-size: 12px;" onclick="markMentionRead('${m.id}', this)">✓ 標為已讀</button>` : ''}
                             </div>
                         </div>
@@ -6167,7 +6111,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <strong style="font-size: 13px;">${rule.name}</strong>
                             <div style="display: flex; gap: 5px;">
-                                <button onclick="editRule('${topicName}', '${rule.id}')" style="padding: 2px 8px; font-size: 10px; background: #e5e7eb; border: none; border-radius: 4px; cursor: pointer;"><i data-lucide="pencil" class="icon-sm"></i></button>
+                                <button onclick="editRule('${topicName}', '${rule.id}')" style="padding: 2px 8px; font-size: 10px; background: #e5e7eb; border: none; border-radius: 4px; cursor: pointer;">✏️</button>
                                 <button onclick="deleteRule('${topicName}', '${rule.id}')" style="padding: 2px 8px; font-size: 10px; background: #fee2e2; color: #991b1b; border: none; border-radius: 4px; cursor: pointer;">✕</button>
                             </div>
                         </div>
@@ -6331,7 +6275,7 @@
                         container.innerHTML = `
                         <div style="text-align: center; padding: 40px 0;">
                             <p style="color: #999; margin-bottom: 20px;">尚未設定關鍵字組</p>
-                            <button class="btn btn-primary" onclick="showAddBrandModal()"><i data-lucide="plus" class="icon-sm"></i> 新增關鍵字組</button>
+                            <button class="btn btn-primary" onclick="showAddBrandModal()">➕ 新增關鍵字組</button>
                         </div>
                     `;
                         return;
@@ -6363,7 +6307,7 @@
                                 </div>
                             </div>
                             <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleBrandEdit('${b.id}')"><i data-lucide="pencil" class="icon-sm"></i> 編輯</button>
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleBrandEdit('${b.id}')">✏️ 編輯</button>
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteBrand('${b.id}')">刪除</button>
                             </div>
                         </div>
@@ -6397,7 +6341,7 @@
                                     </select>
                                 </div>
                                 <button onclick="saveBrandEdit('${b.id}')" style="padding: 8px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                                    <i data-lucide="save" class="icon-sm"></i> 儲存變更
+                                    💾 儲存變更
                                 </button>
                             </div>
                         </div>
@@ -6429,7 +6373,7 @@
                         container.innerHTML = `
                         <div style="text-align: center; padding: 40px 0;">
                             <p style="color: #999; margin-bottom: 20px;">尚未設定監控來源</p>
-                            <button class="btn btn-primary" onclick="showSourceTemplates()"><i data-lucide="clipboard-list" class="icon-sm"></i> 從預設來源新增</button>
+                            <button class="btn btn-primary" onclick="showSourceTemplates()">📋 從預設來源新增</button>
                         </div>
                     `;
                         return;
@@ -6462,7 +6406,7 @@
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                                 <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleSourceEdit('${s.id}')">⚙️ 編輯</button>
-                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')"><i data-lucide="refresh-cw" class="icon-sm"></i> 爬取</button>
+                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 爬取</button>
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteSource('${s.id}')">刪除</button>
                             </div>
                         </div>
@@ -6488,7 +6432,7 @@
                                 </div>
                                 <div>
                                     <button onclick="saveSourceEdit('${s.id}')" style="width: 100%; padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                                        <i data-lucide="save" class="icon-sm"></i> 儲存
+                                        💾 儲存
                                     </button>
                                 </div>
                             </div>
@@ -6877,14 +6821,14 @@
 
                     // 顯示詳細結果
                     const data = result.data || {};
-                    let msg = `<i data-lucide="check-circle" class="icon-sm"></i> 爬取完成：${data.source || '來源'}\n`;
+                    let msg = `✅ 爬取完成：${data.source || '來源'}\n`;
 
                     if (data.brandsChecked === 0) {
-                        msg += '<i data-lucide="alert-triangle" class="icon-sm"></i> 此來源尚未關聯任何關鍵字組\n請先新增關鍵字組，或刪除此來源後重新新增';
+                        msg += '⚠️ 此來源尚未關聯任何關鍵字組\n請先新增關鍵字組，或刪除此來源後重新新增';
                         showAlert('dashboardAlert', msg, 'warning');
                     } else if (data.newMentions > 0) {
-                        msg += `<i data-lucide="bar-chart-2" class="icon-sm"></i> 找到 ${data.articlesFound || 0} 篇文章\n`;
-                        msg += `<i data-lucide="search" class="icon-sm"></i> 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
+                        msg += `📊 找到 ${data.articlesFound || 0} 篇文章\n`;
+                        msg += `🔍 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
                         msg += `✨ 新增 ${data.newMentions} 筆提及`;
                         if (data.duplicateSkipped > 0) {
                             msg += `（${data.duplicateSkipped} 筆重複跳過）`;
@@ -6892,8 +6836,8 @@
                         showAlert('dashboardAlert', msg, 'success');
                         loadMentions();
                     } else {
-                        msg += `<i data-lucide="bar-chart-2" class="icon-sm"></i> 找到 ${data.articlesFound || 0} 篇文章\n`;
-                        msg += `<i data-lucide="search" class="icon-sm"></i> 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
+                        msg += `📊 找到 ${data.articlesFound || 0} 篇文章\n`;
+                        msg += `🔍 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
                         msg += `無新增提及`;
                         if (data.duplicateSkipped > 0) {
                             msg += `（${data.duplicateSkipped} 筆已存在）`;
@@ -6938,7 +6882,7 @@
 
                     container.innerHTML = `
                     <div style="padding: 20px; text-align: center; background: #d4edda; border-radius: 8px; color: #155724;">
-                        <i data-lucide="check-circle" class="icon-sm"></i> ${result.message}<br>
+                        ✅ ${result.message}<br>
                         <small>數據會在背景持續抓取，請稍後重新整理查看結果</small>
                     </div>
                 `;
@@ -6975,7 +6919,7 @@
                             <div style="font-size: 12px; color: #666;">${t.traffic || ''}</div>
                         </div>
                         <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;" 
-                            onclick="searchRelatedQueries('${(t.title || '').replace(/'/g, "\\'")}')"><i data-lucide="search" class="icon-sm"></i> 相關詞</button>
+                            onclick="searchRelatedQueries('${(t.title || '').replace(/'/g, "\\'")}')">🔍 相關詞</button>
                     </div>
                 `).join('');
 
@@ -6997,55 +6941,10 @@
                     const topList = (data.top || []).slice(0, 5).map(q => q.query).join(', ') || '無';
                     const risingList = (data.rising || []).slice(0, 5).map(q => `${q.query} (${q.value})`).join(', ') || '無';
 
-                    alert(`「${keyword}」相關搜尋\n\n熱門搜尋詞：\n${topList}\n\n快速上升：\n${risingList}`);
+                    alert(`🔍 「${keyword}」相關搜尋\n\n📊 熱門搜尋詞：\n${topList}\n\n🚀 快速上升：\n${risingList}`);
                 } catch (error) {
                     alert('查詢失敗: ' + error.message);
                 }
-            }
-
-            // Initialize Lucide icons with error handling
-            document.addEventListener('DOMContentLoaded', function() {
-                try {
-                    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                        lucide.createIcons();
-                    }
-                } catch (e) {
-                    console.warn('Lucide icons failed to initialize:', e);
-                }
-            });
-
-            // Re-render icons after dynamic content updates
-            function refreshIcons() {
-                try {
-                    if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                        lucide.createIcons();
-                    }
-                } catch (e) {
-                    console.warn('Lucide icons refresh failed:', e);
-                }
-            }
-
-            // MutationObserver to auto-refresh icons when DOM changes
-            try {
-                const iconObserver = new MutationObserver(function(mutations) {
-                    let needsRefresh = false;
-                    mutations.forEach(function(mutation) {
-                        if (mutation.addedNodes.length > 0) {
-                            mutation.addedNodes.forEach(function(node) {
-                                if (node.nodeType === 1 && (node.querySelector && node.querySelector('[data-lucide]') || node.hasAttribute && node.hasAttribute('data-lucide'))) {
-                                    needsRefresh = true;
-                                }
-                            });
-                        }
-                    });
-                    if (needsRefresh) {
-                        refreshIcons();
-                    }
-                });
-
-                iconObserver.observe(document.body, { childList: true, subtree: true });
-            } catch (e) {
-                console.warn('MutationObserver setup failed:', e);
             }
 
         </script>
