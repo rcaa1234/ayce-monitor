@@ -34,7 +34,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
 
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -6997,40 +6997,56 @@
                     const topList = (data.top || []).slice(0, 5).map(q => q.query).join(', ') || '無';
                     const risingList = (data.rising || []).slice(0, 5).map(q => `${q.query} (${q.value})`).join(', ') || '無';
 
-                    alert(`<i data-lucide="search" class="icon-sm"></i> 「${keyword}」相關搜尋\n\n<i data-lucide="bar-chart-2" class="icon-sm"></i> 熱門搜尋詞：\n${topList}\n\n<i data-lucide="rocket" class="icon-sm"></i> 快速上升：\n${risingList}`);
+                    alert(`「${keyword}」相關搜尋\n\n熱門搜尋詞：\n${topList}\n\n快速上升：\n${risingList}`);
                 } catch (error) {
                     alert('查詢失敗: ' + error.message);
                 }
             }
 
-            // Initialize Lucide icons
+            // Initialize Lucide icons with error handling
             document.addEventListener('DOMContentLoaded', function() {
-                lucide.createIcons();
+                try {
+                    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                        lucide.createIcons();
+                    }
+                } catch (e) {
+                    console.warn('Lucide icons failed to initialize:', e);
+                }
             });
 
             // Re-render icons after dynamic content updates
             function refreshIcons() {
-                lucide.createIcons();
+                try {
+                    if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                        lucide.createIcons();
+                    }
+                } catch (e) {
+                    console.warn('Lucide icons refresh failed:', e);
+                }
             }
 
             // MutationObserver to auto-refresh icons when DOM changes
-            const iconObserver = new MutationObserver(function(mutations) {
-                let needsRefresh = false;
-                mutations.forEach(function(mutation) {
-                    if (mutation.addedNodes.length > 0) {
-                        mutation.addedNodes.forEach(function(node) {
-                            if (node.nodeType === 1 && (node.querySelector('[data-lucide]') || node.hasAttribute('data-lucide'))) {
-                                needsRefresh = true;
-                            }
-                        });
+            try {
+                const iconObserver = new MutationObserver(function(mutations) {
+                    let needsRefresh = false;
+                    mutations.forEach(function(mutation) {
+                        if (mutation.addedNodes.length > 0) {
+                            mutation.addedNodes.forEach(function(node) {
+                                if (node.nodeType === 1 && (node.querySelector && node.querySelector('[data-lucide]') || node.hasAttribute && node.hasAttribute('data-lucide'))) {
+                                    needsRefresh = true;
+                                }
+                            });
+                        }
+                    });
+                    if (needsRefresh) {
+                        refreshIcons();
                     }
                 });
-                if (needsRefresh) {
-                    lucide.createIcons();
-                }
-            });
 
-            iconObserver.observe(document.body, { childList: true, subtree: true });
+                iconObserver.observe(document.body, { childList: true, subtree: true });
+            } catch (e) {
+                console.warn('MutationObserver setup failed:', e);
+            }
 
         </script>
 </body>
