@@ -168,10 +168,19 @@ class MonitorService {
                     'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
                 });
 
+                // PTT 需要 over18 cookie 來繞過年齡驗證
+                if (url.includes('ptt.cc')) {
+                    await page.setCookie({
+                        name: 'over18',
+                        value: '1',
+                        domain: '.ptt.cc',
+                    });
+                }
+
                 logger.info(`[Puppeteer] Navigating to ${url}`);
                 await page.goto(url, {
-                    waitUntil: 'networkidle0', // 等待網路完全靜止
-                    timeout: 60000,
+                    waitUntil: 'domcontentloaded', // 使用較快的等待策略
+                    timeout: 30000,
                 });
 
                 // 等待頁面內容載入
@@ -195,11 +204,13 @@ class MonitorService {
                 });
 
                 // 額外等待確保 React 渲染完成
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                await new Promise(resolve => setTimeout(resolve, 5000));
 
-                // 捲動頁面以觸發懶載入
-                await page.evaluate('window.scrollBy(0, 500)');
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // 捲動頁面多次以觸發懶載入並跳過置頂文章
+                for (let i = 0; i < 3; i++) {
+                    await page.evaluate('window.scrollBy(0, 800)');
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                }
 
                 const html = await page.content();
                 logger.info(`[Puppeteer] Got page content, length: ${html.length}`);
@@ -231,61 +242,79 @@ class MonitorService {
     }
 
     /**
-     * 解析 Dcard 頁面 (備用方案，當 API 不可用時)
+     * 解析 Dcard 頁面
+     * 由於 Dcard 使用 React 且 class 名稱被混淆，需要用連結模式匹配
      */
     parseDcardPage(html: string, baseUrl: string): CrawledArticle[] {
         const $ = cheerio.load(html);
         const articles: CrawledArticle[] = [];
+        const seen = new Set<string>();
 
-        // 記錄 HTML 長度以便除錯
-        logger.debug(`[Monitor] Parsing Dcard HTML, length: ${html.length}`);
+        logger.info(`[Monitor] Parsing Dcard HTML, length: ${html.length}`);
 
-        // 嘗試多種選擇器
-        const selectors = [
-            'article',
-            '[data-key]',
-            '.PostEntry_root__',
-            '.PostEntry_container__',
-            '[class*="PostEntry"]',
-            'div[class*="post"]',
-        ];
+        // 從 URL 提取看板名稱
+        const forumMatch = baseUrl.match(/\/f\/([a-zA-Z0-9_-]+)/);
+        const forum = forumMatch ? forumMatch[1] : '';
 
-        for (const selector of selectors) {
-            $(selector).each((_, element) => {
-                const $el = $(element);
-                const linkEl = $el.find('a[href*="/f/"]').first();
-                const href = linkEl.attr('href');
+        // 找所有文章連結 (格式: /f/{forum}/p/{id})
+        $(`a[href*="/f/"][href*="/p/"]`).each((_, element) => {
+            const $link = $(element);
+            const href = $link.attr('href') || '';
 
-                if (!href) return;
+            // 提取文章 ID
+            const postIdMatch = href.match(/\/p\/(\d+)/);
+            if (!postIdMatch) return;
 
-                const url = href.startsWith('http') ? href : `https://www.dcard.tw${href}`;
-                const title = $el.find('h2, h3, [class*="title"], [class*="Title"]').first().text().trim();
-                const content = $el.find('p, [class*="excerpt"], [class*="Excerpt"], [class*="content"]').first().text().trim();
+            const postId = postIdMatch[1];
+            if (seen.has(postId)) return;
+            seen.add(postId);
 
-                if ((title || content) && !articles.find(a => a.url === url)) {
-                    articles.push({
-                        url,
-                        title: title || null,
-                        content: content || null,
-                        author_name: $el.find('[class*="author"], [class*="Author"], [class*="name"]').first().text().trim() || null,
-                        published_at: null,
-                        likes_count: parseInt($el.find('[class*="like"], [class*="Like"]').text()) || null,
-                        comments_count: parseInt($el.find('[class*="comment"], [class*="Comment"]').text()) || null,
-                        shares_count: null,
-                        external_id: href.split('/').pop() || null,
-                    });
-                }
-            });
+            const url = href.startsWith('http') ? href : `https://www.dcard.tw${href}`;
 
-            if (articles.length > 0) {
-                logger.debug(`[Monitor] Found ${articles.length} articles using selector: ${selector}`);
-                break;
+            // 向上遍歷找到文章卡片容器
+            let container = $link.parent();
+            for (let i = 0; i < 10 && container.length; i++) {
+                const text = container.text();
+                // 找到足夠大的容器（包含標題和摘要）
+                if (text.length > 50) break;
+                container = container.parent();
             }
-        }
+
+            // 取得容器內的所有文字並分行
+            const fullText = container.text() || '';
+            const lines = fullText.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 5 && !l.match(/^\d+[hmd]$/) && l !== 'Pin article');
+
+            // 第一個有效行通常是標題
+            let title = lines.find(l => l.length > 10 && !l.includes('公告') && !l.includes('#公告')) || '';
+            // 其餘是摘要
+            const content = lines.slice(1).join(' ').substring(0, 300);
+
+            // 過濾掉置頂公告
+            if (title.includes('徵模特類型文章') || title.includes('Pin article')) {
+                return;
+            }
+
+            if (title || content) {
+                articles.push({
+                    url,
+                    title: title.substring(0, 200) || null,
+                    content: content || null,
+                    author_name: null,
+                    published_at: null,
+                    likes_count: null,
+                    comments_count: null,
+                    shares_count: null,
+                    external_id: postId,
+                });
+            }
+        });
+
+        logger.info(`[Monitor] Parsed ${articles.length} articles from Dcard`);
 
         if (articles.length === 0) {
-            // 記錄 HTML 片段以便除錯
-            logger.warn(`[Monitor] No articles found in Dcard HTML. First 500 chars: ${html.substring(0, 500)}`);
+            logger.warn(`[Monitor] No articles found. HTML contains Cloudflare: ${html.includes('Cloudflare') || html.includes('Just a moment')}`);
         }
 
         return articles;
