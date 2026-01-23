@@ -81,9 +81,12 @@ export class InsightsModel {
   static async getPostInsightsHistory(postId: string, limit = 30): Promise<PostInsights[]> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 30)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
-      'SELECT * FROM post_insights WHERE post_id = ? ORDER BY fetched_at DESC LIMIT ?',
-      [postId, limit]
+      `SELECT * FROM post_insights WHERE post_id = ? ORDER BY fetched_at DESC LIMIT ${safeLimit}`,
+      [postId]
     );
 
     return rows as PostInsights[];
@@ -155,12 +158,15 @@ export class InsightsModel {
   ): Promise<AccountInsights[]> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 12)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT * FROM account_insights
        WHERE account_id = ? AND period_type = ?
        ORDER BY period_end DESC
-       LIMIT ?`,
-      [accountId, periodType, limit]
+       LIMIT ${safeLimit}`,
+      [accountId, periodType]
     );
 
     return rows as AccountInsights[];

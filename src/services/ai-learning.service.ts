@@ -49,9 +49,12 @@ class AILearningService {
     async getAIPostsPerformance(limit: number = 50): Promise<PostPerformance[]> {
         const pool = getPool();
 
+        // MySQL2 prepared statements don't support LIMIT with placeholders
+        const safeLimit = Math.max(1, Math.min(500, Math.floor(Number(limit) || 50)));
+
         try {
             const [rows] = await pool.execute<RowDataPacket[]>(
-                `SELECT 
+                `SELECT
           p.id as post_id,
           pr.content,
           p.topic_category,
@@ -61,7 +64,7 @@ class AILearningService {
           COALESCE(pi.reposts, 0) as reposts,
           COALESCE(pi.quotes, 0) as quotes,
           COALESCE(
-            (pi.likes * 3 + pi.replies * 5 + pi.reposts * 4 + pi.quotes * 4) / 
+            (pi.likes * 3 + pi.replies * 5 + pi.reposts * 4 + pi.quotes * 4) /
             GREATEST(pi.views, 1) * 100, 0
           ) as engagement_score,
           p.posted_at
@@ -70,12 +73,12 @@ class AILearningService {
           SELECT MAX(pr2.revision_no) FROM post_revisions pr2 WHERE pr2.post_id = p.id
         )
         LEFT JOIN post_insights pi ON p.id = pi.post_id
-        WHERE p.is_ai_generated = true 
+        WHERE p.is_ai_generated = true
           AND p.status = 'POSTED'
           AND p.posted_at IS NOT NULL
         ORDER BY p.posted_at DESC
-        LIMIT ?`,
-                [limit]
+        LIMIT ${safeLimit}`,
+                []
             );
 
             return rows as PostPerformance[];
@@ -92,25 +95,28 @@ class AILearningService {
     async getTopPerformingPosts(topN: number = 5): Promise<SuccessExample[]> {
         const pool = getPool();
 
+        // MySQL2 prepared statements don't support LIMIT with placeholders
+        const safeLimit = Math.max(1, Math.min(50, Math.floor(Number(topN) || 5)));
+
         try {
             const [rows] = await pool.execute<RowDataPacket[]>(
-                `SELECT 
+                `SELECT
           pr.content,
           COALESCE(p.topic_category, 'general') as topic,
-          (COALESCE(pi.likes, 0) * 3 + COALESCE(pi.replies, 0) * 5 + 
+          (COALESCE(pi.likes, 0) * 3 + COALESCE(pi.replies, 0) * 5 +
            COALESCE(pi.reposts, 0) * 4 + COALESCE(pi.quotes, 0) * 4) as engagement_score
         FROM posts p
         INNER JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
           SELECT MAX(pr2.revision_no) FROM post_revisions pr2 WHERE pr2.post_id = p.id
         )
         LEFT JOIN post_insights pi ON p.id = pi.post_id
-        WHERE p.is_ai_generated = true 
+        WHERE p.is_ai_generated = true
           AND p.status = 'POSTED'
           AND p.posted_at IS NOT NULL
           AND p.posted_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ORDER BY engagement_score DESC
-        LIMIT ?`,
-                [topN]
+        LIMIT ${safeLimit}`,
+                []
             );
 
             return rows as SuccessExample[];

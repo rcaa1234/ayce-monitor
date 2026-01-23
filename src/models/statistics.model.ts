@@ -580,6 +580,10 @@ export class StatisticsModel {
       startDate.setDate(startDate.getDate() - days);
       const startDateStr = startDate.toISOString().slice(0, 19).replace('T', ' ');
 
+      // MySQL2 prepared statements don't support LIMIT with placeholders
+      // Ensure limit is a safe integer
+      const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 5)));
+
       const [rows] = await pool.execute<RowDataPacket[]>(
         `SELECT
           p.id,
@@ -602,8 +606,8 @@ export class StatisticsModel {
           AND COALESCE(pi.views, 0) > 0
         GROUP BY p.id, p.posted_at, p.post_url, pi.views, pi.likes, pi.replies, pi.reposts
         ORDER BY engagement_rate DESC, views DESC
-        LIMIT ?`,
-        [startDateStr, limit]
+        LIMIT ${safeLimit}`,
+        [startDateStr]
       );
 
       return rows.map((row: any) => ({

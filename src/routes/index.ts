@@ -1577,6 +1577,8 @@ router.post('/scheduling/create', authenticate, async (req: Request, res: Respon
 router.get('/scheduling/upcoming', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
 
     const { getPool } = await import('../database/connection');
     const pool = getPool();
@@ -1598,8 +1600,8 @@ router.get('/scheduling/upcoming', authenticate, async (req: Request, res: Respo
        WHERE ds.status IN ('PENDING', 'GENERATED')
          AND ds.scheduled_time >= NOW()
        ORDER BY ds.scheduled_time ASC
-       LIMIT ?`,
-      [limit]
+       LIMIT ${safeLimit}`,
+      []
     );
 
     res.json({

@@ -648,8 +648,11 @@ class MonitorService {
     async getUnnotifiedMentions(limit: number = 10): Promise<any[]> {
         const pool = getPool();
 
+        // MySQL2 prepared statements don't support LIMIT with placeholders
+        const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 10)));
+
         const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT 
+            `SELECT
         mm.*,
         mb.name as brand_name,
         ms.name as source_name,
@@ -659,8 +662,8 @@ class MonitorService {
        INNER JOIN monitor_sources ms ON mm.source_id = ms.id
        WHERE mm.is_notified = false AND mb.notify_enabled = true
        ORDER BY mm.discovered_at DESC
-       LIMIT ?`,
-            [limit]
+       LIMIT ${safeLimit}`,
+            []
         );
 
         return rows as any[];

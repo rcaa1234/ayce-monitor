@@ -66,12 +66,15 @@ export class AuditModel {
   ): Promise<AuditLog[]> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(Number(limit) || 50)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT * FROM audit_logs
        WHERE target_type = ? AND target_id = ?
        ORDER BY created_at DESC
-       LIMIT ?`,
-      [targetType, targetId, limit]
+       LIMIT ${safeLimit}`,
+      [targetType, targetId]
     );
 
     return rows.map((row) => ({
@@ -88,12 +91,15 @@ export class AuditModel {
   static async findByActor(userId: string, limit: number = 50): Promise<AuditLog[]> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(Number(limit) || 50)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT * FROM audit_logs
        WHERE actor_user_id = ?
        ORDER BY created_at DESC
-       LIMIT ?`,
-      [userId, limit]
+       LIMIT ${safeLimit}`,
+      [userId]
     );
 
     return rows.map((row) => ({
@@ -110,9 +116,12 @@ export class AuditModel {
   static async getRecent(limit: number = 100): Promise<AuditLog[]> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(Number(limit) || 100)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
-      'SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?',
-      [limit]
+      `SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ${safeLimit}`,
+      []
     );
 
     return rows.map((row) => ({

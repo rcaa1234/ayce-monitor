@@ -275,6 +275,9 @@ class PlannerService {
     async getRecentPostsSummary(limit: number = 15): Promise<string[]> {
         const pool = getPool();
 
+        // MySQL2 prepared statements don't support LIMIT with placeholders
+        const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 15)));
+
         try {
             const [rows] = await pool.execute<RowDataPacket[]>(
                 `SELECT pr.content
@@ -284,8 +287,8 @@ class PlannerService {
          )
          WHERE p.is_ai_generated = true AND p.status = 'POSTED'
          ORDER BY p.posted_at DESC
-         LIMIT ?`,
-                [limit]
+         LIMIT ${safeLimit}`,
+                []
             );
 
             // 取每篇的前 50 字作為摘要

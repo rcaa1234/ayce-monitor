@@ -108,9 +108,10 @@ export class PostModel {
     let query = 'SELECT * FROM posts WHERE status = ? ORDER BY created_at DESC';
     const params: any[] = [status];
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
     if (limit) {
-      query += ' LIMIT ?';
-      params.push(limit);
+      const safeLimit = Math.max(1, Math.min(1000, Math.floor(Number(limit))));
+      query += ` LIMIT ${safeLimit}`;
     }
 
     const [rows] = await pool.execute<RowDataPacket[]>(query, params);
@@ -124,6 +125,9 @@ export class PostModel {
   static async getRecentPosted(limit: number = 60): Promise<Array<{ id: string; content: string }>> {
     const pool = getPool();
 
+    // MySQL2 prepared statements don't support LIMIT with placeholders
+    const safeLimit = Math.max(1, Math.min(500, Math.floor(Number(limit) || 60)));
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT p.id, pr.content
        FROM posts p
@@ -132,8 +136,8 @@ export class PostModel {
        )
        WHERE p.status = 'POSTED'
        ORDER BY p.posted_at DESC
-       LIMIT ?`,
-      [limit]
+       LIMIT ${safeLimit}`,
+      []
     );
 
     return rows as Array<{ id: string; content: string }>;
