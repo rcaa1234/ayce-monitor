@@ -200,38 +200,123 @@ class MonitorService {
     }
 
     /**
-     * 解析 Dcard 頁面
+     * 從 Dcard URL 提取 forum alias
+     * 例如: https://www.dcard.tw/f/girl -> girl
+     */
+    extractDcardForumAlias(url: string): string | null {
+        const match = url.match(/dcard\.tw\/f\/([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : null;
+    }
+
+    /**
+     * 透過 Dcard API 抓取文章列表（比 HTML 解析更可靠）
+     */
+    async fetchDcardArticles(forumAlias: string): Promise<CrawledArticle[]> {
+        const articles: CrawledArticle[] = [];
+
+        try {
+            // Dcard API endpoint for forum posts
+            const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumAlias}/posts?limit=30`;
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/json',
+                    'Referer': `https://www.dcard.tw/f/${forumAlias}`,
+                },
+            });
+
+            if (!response.ok) {
+                logger.warn(`[Monitor] Dcard API returned ${response.status} for ${forumAlias}`);
+                return articles;
+            }
+
+            const posts = await response.json();
+
+            if (!Array.isArray(posts)) {
+                logger.warn(`[Monitor] Dcard API response is not an array for ${forumAlias}`);
+                return articles;
+            }
+
+            for (const post of posts) {
+                articles.push({
+                    url: `https://www.dcard.tw/f/${forumAlias}/p/${post.id}`,
+                    title: post.title || null,
+                    content: post.excerpt || post.content || null,
+                    author_name: post.anonymousSchool || post.school || '匿名',
+                    published_at: post.createdAt ? new Date(post.createdAt) : null,
+                    likes_count: post.likeCount || 0,
+                    comments_count: post.commentCount || 0,
+                    shares_count: null,
+                    external_id: String(post.id),
+                });
+            }
+
+            logger.info(`[Monitor] Dcard API returned ${articles.length} posts for ${forumAlias}`);
+        } catch (error: any) {
+            logger.error(`[Monitor] Failed to fetch Dcard API for ${forumAlias}: ${error.message}`);
+        }
+
+        return articles;
+    }
+
+    /**
+     * 解析 Dcard 頁面 (備用方案，當 API 不可用時)
      */
     parseDcardPage(html: string, baseUrl: string): CrawledArticle[] {
         const $ = cheerio.load(html);
         const articles: CrawledArticle[] = [];
 
-        // Dcard 的文章列表選取器（需要根據實際結構調整）
-        $('article, [data-key], .PostEntry_container__').each((_, element) => {
-            const $el = $(element);
-            const linkEl = $el.find('a[href*="/f/"]').first();
-            const href = linkEl.attr('href');
+        // 記錄 HTML 長度以便除錯
+        logger.debug(`[Monitor] Parsing Dcard HTML, length: ${html.length}`);
 
-            if (!href) return;
+        // 嘗試多種選擇器
+        const selectors = [
+            'article',
+            '[data-key]',
+            '.PostEntry_root__',
+            '.PostEntry_container__',
+            '[class*="PostEntry"]',
+            'div[class*="post"]',
+        ];
 
-            const url = href.startsWith('http') ? href : `https://www.dcard.tw${href}`;
-            const title = $el.find('h2, h3, [class*="title"]').first().text().trim();
-            const content = $el.find('p, [class*="excerpt"], [class*="content"]').first().text().trim();
+        for (const selector of selectors) {
+            $(selector).each((_, element) => {
+                const $el = $(element);
+                const linkEl = $el.find('a[href*="/f/"]').first();
+                const href = linkEl.attr('href');
 
-            if (title || content) {
-                articles.push({
-                    url,
-                    title: title || null,
-                    content: content || null,
-                    author_name: $el.find('[class*="author"], [class*="name"]').first().text().trim() || null,
-                    published_at: null,
-                    likes_count: parseInt($el.find('[class*="like"]').text()) || null,
-                    comments_count: parseInt($el.find('[class*="comment"]').text()) || null,
-                    shares_count: null,
-                    external_id: href.split('/').pop() || null,
-                });
+                if (!href) return;
+
+                const url = href.startsWith('http') ? href : `https://www.dcard.tw${href}`;
+                const title = $el.find('h2, h3, [class*="title"], [class*="Title"]').first().text().trim();
+                const content = $el.find('p, [class*="excerpt"], [class*="Excerpt"], [class*="content"]').first().text().trim();
+
+                if ((title || content) && !articles.find(a => a.url === url)) {
+                    articles.push({
+                        url,
+                        title: title || null,
+                        content: content || null,
+                        author_name: $el.find('[class*="author"], [class*="Author"], [class*="name"]').first().text().trim() || null,
+                        published_at: null,
+                        likes_count: parseInt($el.find('[class*="like"], [class*="Like"]').text()) || null,
+                        comments_count: parseInt($el.find('[class*="comment"], [class*="Comment"]').text()) || null,
+                        shares_count: null,
+                        external_id: href.split('/').pop() || null,
+                    });
+                }
+            });
+
+            if (articles.length > 0) {
+                logger.debug(`[Monitor] Found ${articles.length} articles using selector: ${selector}`);
+                break;
             }
-        });
+        }
+
+        if (articles.length === 0) {
+            // 記錄 HTML 片段以便除錯
+            logger.warn(`[Monitor] No articles found in Dcard HTML. First 500 chars: ${html.substring(0, 500)}`);
+        }
 
         return articles;
     }
@@ -569,20 +654,25 @@ class MonitorService {
                 return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
             }
 
-            // 抓取頁面
-            const html = await this.fetchPageContent(source.url, source.use_puppeteer);
-
             // 解析文章
             let articles: CrawledArticle[];
-            switch (source.platform) {
-                case 'dcard':
+
+            if (source.platform === 'dcard') {
+                // Dcard: 優先使用 API（更可靠）
+                const forumAlias = this.extractDcardForumAlias(source.url);
+                if (forumAlias) {
+                    articles = await this.fetchDcardArticles(forumAlias);
+                } else {
+                    // 如果無法取得 forum alias，退回到 HTML 解析
+                    const html = await this.fetchPageContent(source.url, source.use_puppeteer);
                     articles = this.parseDcardPage(html, source.url);
-                    break;
-                case 'ptt':
-                    articles = this.parsePttPage(html, source.url);
-                    break;
-                default:
-                    articles = this.parseGenericPage(html, source.selectors);
+                }
+            } else if (source.platform === 'ptt') {
+                const html = await this.fetchPageContent(source.url, source.use_puppeteer);
+                articles = this.parsePttPage(html, source.url);
+            } else {
+                const html = await this.fetchPageContent(source.url, source.use_puppeteer);
+                articles = this.parseGenericPage(html, source.selectors);
             }
 
             logger.info(`Found ${articles.length} articles from ${source.name}`);
