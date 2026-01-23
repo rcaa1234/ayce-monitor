@@ -69,4 +69,9 @@ router.post('/classifier-rules', monitorController.addClassifierRule.bind(monito
 router.put('/classifier-rules/:topic/:ruleId', monitorController.updateClassifierRule.bind(monitorController));
 router.delete('/classifier-rules/:topic/:ruleId', monitorController.deleteClassifierRule.bind(monitorController));
 
+// ========================================
+// 關聯修復
+// ========================================
+router.post('/relink-all', monitorController.relinkAllBrandsSources.bind(monitorController));
+
 export default router;

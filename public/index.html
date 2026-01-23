@@ -1886,7 +1886,12 @@
                 </div>
 
                 <!-- 來源列表 -->
-                <h3 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🌐 已設定來源</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="font-size: 16px; color: #374151; margin: 0;">🌐 已設定來源</h3>
+                    <button id="relinkBtn" class="btn btn-secondary" onclick="relinkAllBrandsSources()" style="padding: 8px 15px; font-size: 12px;">
+                        🔗 修復關聯
+                    </button>
+                </div>
                 <div id="sourcesList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
@@ -6889,6 +6894,47 @@
                         btn.disabled = false;
                         btn.innerHTML = '🔄 爬取';
                     }
+                }
+            }
+
+            // 修復所有品牌與來源的關聯
+            async function relinkAllBrandsSources() {
+                const btn = document.getElementById('relinkBtn');
+                if (btn.disabled) return;
+
+                if (!confirm('這會將所有關鍵字組關聯到所有來源。\n確定要繼續嗎？')) return;
+
+                btn.disabled = true;
+                btn.innerHTML = '⏳ 處理中...';
+
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/relink-all`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    const data = result.data || {};
+                    showAlert('dashboardAlert',
+                        `✅ 關聯修復完成\n` +
+                        `📦 關鍵字組: ${data.brands} 個\n` +
+                        `🌐 來源: ${data.sources} 個\n` +
+                        `🔗 新增關聯: ${data.linksCreated} 個\n` +
+                        `⏭️ 已存在: ${data.linksSkipped} 個`,
+                        'success'
+                    );
+
+                    loadSources();
+                } catch (error) {
+                    showAlert('dashboardAlert', '修復失敗: ' + error.message, 'danger');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '🔗 修復關聯';
                 }
             }
 

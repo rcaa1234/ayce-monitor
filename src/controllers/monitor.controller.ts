@@ -71,10 +71,32 @@ class MonitorController {
                 ]
             );
 
+            // 自動將新關鍵字組關聯到所有現有的來源
+            const [sources] = await pool.execute<RowDataPacket[]>(
+                'SELECT id FROM monitor_sources WHERE is_active = true'
+            );
+
+            for (const source of sources) {
+                const linkId = generateUUID();
+                try {
+                    await pool.execute(
+                        `INSERT INTO monitor_brand_sources (id, brand_id, source_id) VALUES (?, ?, ?)`,
+                        [linkId, id, source.id]
+                    );
+                } catch (linkError: any) {
+                    // 忽略重複關聯的錯誤
+                    if (linkError.code !== 'ER_DUP_ENTRY') {
+                        logger.warn(`Failed to link brand ${id} to source ${source.id}:`, linkError.message);
+                    }
+                }
+            }
+
+            logger.info(`Created brand "${name}" and linked to ${sources.length} existing sources`);
+
             res.json({
                 success: true,
-                data: { id, name },
-                message: '品牌已建立',
+                data: { id, name, linkedSources: sources.length },
+                message: `關鍵字組已建立，並已關聯到 ${sources.length} 個現有來源`,
             });
         } catch (error: any) {
             logger.error('Failed to create brand:', error);
@@ -940,6 +962,68 @@ class MonitorController {
             });
         } catch (error: any) {
             logger.error('Failed to delete classifier rule:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    // ========================================
+    // 關聯修復 API
+    // ========================================
+
+    /**
+     * POST /api/monitor/relink-all - 重新建立所有品牌與來源的關聯
+     * 用於修復關聯遺失的問題
+     */
+    async relinkAllBrandsSources(req: Request, res: Response): Promise<void> {
+        try {
+            const pool = getPool();
+
+            // 取得所有活躍的品牌和來源
+            const [brands] = await pool.execute<RowDataPacket[]>(
+                'SELECT id, name FROM monitor_brands WHERE is_active = true'
+            );
+            const [sources] = await pool.execute<RowDataPacket[]>(
+                'SELECT id, name FROM monitor_sources WHERE is_active = true'
+            );
+
+            let created = 0;
+            let skipped = 0;
+
+            // 為每個品牌-來源組合建立關聯
+            for (const brand of brands) {
+                for (const source of sources) {
+                    const linkId = generateUUID();
+                    try {
+                        await pool.execute(
+                            `INSERT INTO monitor_brand_sources (id, brand_id, source_id) VALUES (?, ?, ?)`,
+                            [linkId, brand.id, source.id]
+                        );
+                        created++;
+                    } catch (error: any) {
+                        // 已存在的關聯會因為 UNIQUE KEY 而失敗，這是正常的
+                        if (error.code === 'ER_DUP_ENTRY') {
+                            skipped++;
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
+            }
+
+            logger.info(`Relinked brands-sources: ${created} created, ${skipped} already existed`);
+
+            res.json({
+                success: true,
+                data: {
+                    brands: brands.length,
+                    sources: sources.length,
+                    linksCreated: created,
+                    linksSkipped: skipped,
+                },
+                message: `已重新建立關聯：新增 ${created} 個，跳過 ${skipped} 個（已存在）`,
+            });
+        } catch (error: any) {
+            logger.error('Failed to relink brands-sources:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }
