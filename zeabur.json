@@ -1,0 +1,13 @@
+{
+  "$schema": "https://zeabur.com/schemas/zeabur.json",
+  "build": {
+    "command": "npm run build"
+  },
+  "start": {
+    "command": "npm start"
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD": "true"
+  }
+}

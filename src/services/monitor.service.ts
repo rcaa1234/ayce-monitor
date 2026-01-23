@@ -144,19 +144,35 @@ class MonitorService {
 
             logger.info(`[Puppeteer] Launching browser with stealth plugin for ${url}`);
 
+            // 判斷執行環境，決定使用哪個 Chromium
+            let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+            let chromiumArgs = [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-blink-features=AutomationControlled',
+                '--window-size=1920,1080',
+            ];
+
+            // 在 serverless 環境 (Zeabur/Vercel/Lambda) 使用 @sparticuz/chromium
+            if (!executablePath && process.env.NODE_ENV === 'production') {
+                try {
+                    const chromium = await import('@sparticuz/chromium');
+                    executablePath = await chromium.default.executablePath();
+                    chromiumArgs = chromium.default.args;
+                    logger.info(`[Puppeteer] Using @sparticuz/chromium: ${executablePath}`);
+                } catch (e: any) {
+                    logger.warn(`[Puppeteer] @sparticuz/chromium not available: ${e.message}`);
+                }
+            }
+
             const browser = await puppeteerExtra.default.launch({
                 headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-blink-features=AutomationControlled',
-                    '--window-size=1920,1080',
-                ],
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+                args: chromiumArgs,
+                executablePath: executablePath || undefined,
             });
 
             try {
