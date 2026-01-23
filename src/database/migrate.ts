@@ -1129,6 +1129,12 @@ const migrations = [
 
   // Migration 52: 補充 post_insights 的 last_synced_at 欄位
   `ALTER TABLE post_insights ADD COLUMN last_synced_at DATETIME NULL`,
+
+  // Migration 53: 補充 post_insights 的 fetched_at 欄位
+  `ALTER TABLE post_insights ADD COLUMN fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+
+  // Migration 54: 補充 post_insights 的 fetched_at 索引
+  `ALTER TABLE post_insights ADD INDEX idx_fetched_at (fetched_at)`,
 ];
 
 async function runMigrations() {
