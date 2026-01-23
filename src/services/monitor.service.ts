@@ -136,10 +136,15 @@ class MonitorService {
      */
     async fetchPageContent(url: string, usePuppeteer: boolean = false): Promise<string> {
         if (usePuppeteer) {
-            // 使用 Puppeteer 處理需要 JavaScript 渲染的頁面
-            const puppeteer = await import('puppeteer');
+            // 使用 puppeteer-extra + stealth 插件繞過 Cloudflare
+            const puppeteerExtra = await import('puppeteer-extra');
+            const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
 
-            const browser = await puppeteer.default.launch({
+            puppeteerExtra.default.use(StealthPlugin.default());
+
+            logger.info(`[Puppeteer] Launching browser with stealth plugin for ${url}`);
+
+            const browser = await puppeteerExtra.default.launch({
                 headless: true,
                 args: [
                     '--no-sandbox',
@@ -148,7 +153,8 @@ class MonitorService {
                     '--disable-gpu',
                     '--no-first-run',
                     '--no-zygote',
-                    '--single-process',
+                    '--disable-blink-features=AutomationControlled',
+                    '--window-size=1920,1080',
                 ],
                 executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             });
@@ -156,28 +162,53 @@ class MonitorService {
             try {
                 const page = await browser.newPage();
 
-                await page.setUserAgent(
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                );
+                // 設定更真實的瀏覽器環境
                 await page.setViewport({ width: 1920, height: 1080 });
+                await page.setExtraHTTPHeaders({
+                    'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                });
 
                 logger.info(`[Puppeteer] Navigating to ${url}`);
                 await page.goto(url, {
-                    waitUntil: 'networkidle2',
+                    waitUntil: 'networkidle0', // 等待網路完全靜止
                     timeout: 60000,
                 });
 
-                // 等待 Cloudflare 驗證通過（如果有）
-                await page.waitForSelector('article, [data-key], .r-ent', { timeout: 30000 }).catch(() => {
-                    logger.warn('[Puppeteer] Content selector not found, continuing anyway...');
+                // 等待頁面內容載入
+                logger.info('[Puppeteer] Waiting for content to load...');
+
+                // Dcard 特定選擇器
+                const dcardSelectors = [
+                    '[class*="PostEntry"]',
+                    '[class*="Post_post"]',
+                    'article',
+                    '[data-key]',
+                ];
+
+                // PTT 選擇器
+                const pttSelectors = ['.r-ent', '.bbs-screen'];
+
+                const allSelectors = [...dcardSelectors, ...pttSelectors].join(', ');
+
+                await page.waitForSelector(allSelectors, { timeout: 15000 }).catch(() => {
+                    logger.warn('[Puppeteer] Content selector not found after 15s, checking page content...');
                 });
 
-                // 額外等待確保內容載入
+                // 額外等待確保 React 渲染完成
                 await new Promise(resolve => setTimeout(resolve, 3000));
 
-                const html = await page.content();
-                await page.close();
+                // 捲動頁面以觸發懶載入
+                await page.evaluate('window.scrollBy(0, 500)');
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
+                const html = await page.content();
+                logger.info(`[Puppeteer] Got page content, length: ${html.length}`);
+
+                // 記錄頁面標題以便除錯
+                const title = await page.title();
+                logger.info(`[Puppeteer] Page title: ${title}`);
+
+                await page.close();
                 return html;
             } finally {
                 await browser.close();
@@ -197,67 +228,6 @@ class MonitorService {
         }
 
         return await response.text();
-    }
-
-    /**
-     * 從 Dcard URL 提取 forum alias
-     * 例如: https://www.dcard.tw/f/girl -> girl
-     */
-    extractDcardForumAlias(url: string): string | null {
-        const match = url.match(/dcard\.tw\/f\/([a-zA-Z0-9_-]+)/);
-        return match ? match[1] : null;
-    }
-
-    /**
-     * 透過 Dcard API 抓取文章列表（比 HTML 解析更可靠）
-     */
-    async fetchDcardArticles(forumAlias: string): Promise<CrawledArticle[]> {
-        const articles: CrawledArticle[] = [];
-
-        try {
-            // Dcard API endpoint for forum posts
-            const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumAlias}/posts?limit=30`;
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'application/json',
-                    'Referer': `https://www.dcard.tw/f/${forumAlias}`,
-                },
-            });
-
-            if (!response.ok) {
-                logger.warn(`[Monitor] Dcard API returned ${response.status} for ${forumAlias}`);
-                return articles;
-            }
-
-            const posts = await response.json();
-
-            if (!Array.isArray(posts)) {
-                logger.warn(`[Monitor] Dcard API response is not an array for ${forumAlias}`);
-                return articles;
-            }
-
-            for (const post of posts) {
-                articles.push({
-                    url: `https://www.dcard.tw/f/${forumAlias}/p/${post.id}`,
-                    title: post.title || null,
-                    content: post.excerpt || post.content || null,
-                    author_name: post.anonymousSchool || post.school || '匿名',
-                    published_at: post.createdAt ? new Date(post.createdAt) : null,
-                    likes_count: post.likeCount || 0,
-                    comments_count: post.commentCount || 0,
-                    shares_count: null,
-                    external_id: String(post.id),
-                });
-            }
-
-            logger.info(`[Monitor] Dcard API returned ${articles.length} posts for ${forumAlias}`);
-        } catch (error: any) {
-            logger.error(`[Monitor] Failed to fetch Dcard API for ${forumAlias}: ${error.message}`);
-        }
-
-        return articles;
     }
 
     /**
@@ -654,25 +624,21 @@ class MonitorService {
                 return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
             }
 
+            // 抓取頁面 (Dcard 強制使用 Puppeteer)
+            const needsPuppeteer = source.platform === 'dcard' || source.use_puppeteer;
+            const html = await this.fetchPageContent(source.url, needsPuppeteer);
+
             // 解析文章
             let articles: CrawledArticle[];
-
-            if (source.platform === 'dcard') {
-                // Dcard: 優先使用 API（更可靠）
-                const forumAlias = this.extractDcardForumAlias(source.url);
-                if (forumAlias) {
-                    articles = await this.fetchDcardArticles(forumAlias);
-                } else {
-                    // 如果無法取得 forum alias，退回到 HTML 解析
-                    const html = await this.fetchPageContent(source.url, source.use_puppeteer);
+            switch (source.platform) {
+                case 'dcard':
                     articles = this.parseDcardPage(html, source.url);
-                }
-            } else if (source.platform === 'ptt') {
-                const html = await this.fetchPageContent(source.url, source.use_puppeteer);
-                articles = this.parsePttPage(html, source.url);
-            } else {
-                const html = await this.fetchPageContent(source.url, source.use_puppeteer);
-                articles = this.parseGenericPage(html, source.selectors);
+                    break;
+                case 'ptt':
+                    articles = this.parsePttPage(html, source.url);
+                    break;
+                default:
+                    articles = this.parseGenericPage(html, source.selectors);
             }
 
             logger.info(`Found ${articles.length} articles from ${source.name}`);
