@@ -545,9 +545,10 @@ const migrations = [
   // Migration 27: Add APPROVED status to daily_auto_schedule
   // 用途：為 daily_auto_schedule 的 status 新增 APPROVED 狀態
   // 影響：讓排程可以有「已核准，等待發布」的狀態
+  // 注意：包含所有可能的狀態值以避免重新執行時資料截斷
   `
   ALTER TABLE daily_auto_schedule
-  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'POSTED', 'FAILED', 'CANCELLED') DEFAULT 'PENDING';
+  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED', 'EXPIRED') DEFAULT 'PENDING';
   `,
 
   // Migration 28: Add template_id to posts table
@@ -1096,9 +1097,10 @@ const migrations = [
 
   // Migration 48: 修復 daily_auto_schedule status ENUM，添加 PUBLISHING 狀態
   // 影響：讓排程可以有「發布中」的過渡狀態
+  // 注意：包含所有可能的狀態值以避免重新執行時資料截斷
   `
   ALTER TABLE daily_auto_schedule
-  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED') DEFAULT 'PENDING';
+  MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED', 'EXPIRED') DEFAULT 'PENDING';
   `,
 
   // Migration 49: 修復 2026-01-19 排程狀態（如果存在且狀態為 FAILED 但實際已發文）
