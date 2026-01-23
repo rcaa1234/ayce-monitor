@@ -1127,14 +1127,25 @@ const migrations = [
   // Migration 51: 補充 post_insights 缺少的欄位
   `ALTER TABLE post_insights ADD COLUMN shares INT UNSIGNED DEFAULT 0`,
 
-  // Migration 52: 補充 post_insights 的 last_synced_at 欄位
-  `ALTER TABLE post_insights ADD COLUMN last_synced_at DATETIME NULL`,
+  // Migration 52: 補充 post_insights 的 last_synced_at 欄位（允許 NULL 並有預設值）
+  `ALTER TABLE post_insights ADD COLUMN last_synced_at DATETIME NULL DEFAULT NULL`,
 
   // Migration 53: 補充 post_insights 的 fetched_at 欄位
   `ALTER TABLE post_insights ADD COLUMN fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
 
   // Migration 54: 補充 post_insights 的 fetched_at 索引
   `ALTER TABLE post_insights ADD INDEX idx_fetched_at (fetched_at)`,
+
+  // Migration 55: 修正 last_synced_at 欄位允許 NULL（如果已存在但設定錯誤）
+  `ALTER TABLE post_insights MODIFY COLUMN last_synced_at DATETIME NULL DEFAULT NULL`,
+
+  // Migration 56: 確保 post_insights 的 created_at 欄位有預設值
+  `ALTER TABLE post_insights MODIFY COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+
+  // Migration 57: 為 daily_auto_schedule 的 status ENUM 添加 EXPIRED 狀態
+  // 修復 scheduler.ts 中設定 status='EXPIRED' 導致的 Data truncated 錯誤
+  `ALTER TABLE daily_auto_schedule
+   MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED', 'EXPIRED') DEFAULT 'PENDING'`,
 ];
 
 async function runMigrations() {
