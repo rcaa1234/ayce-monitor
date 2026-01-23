@@ -1950,6 +1950,20 @@
                     </div>
                 </div>
 
+                <!-- 爬取日誌 -->
+                <div
+                    style="margin-top: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4 style="margin: 0;">📋 爬取日誌（最近 20 筆）</h4>
+                        <button class="btn btn-secondary" onclick="loadCrawlLogs()"
+                            style="padding: 8px 15px; font-size: 12px;">🔄 重新整理</button>
+                    </div>
+                    <div id="crawlLogsList" style="max-height: 400px; overflow-y: auto;">
+                        <p style="color: #999; text-align: center; padding: 20px 0;">載入中...</p>
+                    </div>
+                </div>
+
                 <!-- 每日熱門搜尋 -->
                 <div
                     style="margin-top: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -6803,7 +6817,25 @@
                 }
             }
 
+            // 防止重複點擊的狀態追蹤
+            const crawlingSourceIds = new Set();
+
             async function triggerCrawl(sourceId) {
+                // 防止重複點擊
+                if (crawlingSourceIds.has(sourceId)) {
+                    showAlert('dashboardAlert', '⏳ 正在爬取中，請稍候...', 'warning');
+                    return;
+                }
+
+                crawlingSourceIds.add(sourceId);
+
+                // 禁用按鈕
+                const btn = document.querySelector(`button[onclick="triggerCrawl('${sourceId}')"]`);
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '⏳ 爬取中...';
+                }
+
                 try {
                     showAlert('dashboardAlert', '正在爬取，請稍候...', 'info');
 
@@ -6850,6 +6882,13 @@
                     loadSources();
                 } catch (error) {
                     showAlert('dashboardAlert', '爬取失敗: ' + error.message, 'danger');
+                } finally {
+                    // 恢復按鈕狀態
+                    crawlingSourceIds.delete(sourceId);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '🔄 爬取';
+                    }
                 }
             }
 
@@ -6862,6 +6901,76 @@
                     loadBrands();
                 }
             };
+
+            // ========================================
+            // 爬取日誌功能
+            // ========================================
+
+            async function loadCrawlLogs() {
+                const container = document.getElementById('crawlLogsList');
+                container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px 0;">載入中...</p>';
+
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/crawl-logs?limit=20`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    const logs = result.data || [];
+
+                    if (logs.length === 0) {
+                        container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px 0;">尚無爬取記錄</p>';
+                        return;
+                    }
+
+                    container.innerHTML = `
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                    <th style="padding: 10px; text-align: left;">時間</th>
+                                    <th style="padding: 10px; text-align: left;">來源</th>
+                                    <th style="padding: 10px; text-align: center;">狀態</th>
+                                    <th style="padding: 10px; text-align: center;">找到文章</th>
+                                    <th style="padding: 10px; text-align: center;">新提及</th>
+                                    <th style="padding: 10px; text-align: left;">錯誤訊息</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${logs.map(log => {
+                                    const statusColor = log.status === 'success' ? '#22c55e' :
+                                                       log.status === 'failed' ? '#ef4444' :
+                                                       log.status === 'skipped' ? '#f59e0b' : '#6b7280';
+                                    const statusText = log.status === 'success' ? '成功' :
+                                                      log.status === 'failed' ? '失敗' :
+                                                      log.status === 'skipped' ? '跳過' :
+                                                      log.status === 'running' ? '執行中' : log.status;
+                                    return `
+                                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                                            <td style="padding: 10px;">${new Date(log.started_at).toLocaleString('zh-TW')}</td>
+                                            <td style="padding: 10px;">${log.source_name || '-'}</td>
+                                            <td style="padding: 10px; text-align: center;">
+                                                <span style="padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; color: white; background: ${statusColor};">
+                                                    ${statusText}
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px; text-align: center;">${log.articles_found || 0}</td>
+                                            <td style="padding: 10px; text-align: center; font-weight: 600; color: ${log.new_mentions > 0 ? '#22c55e' : '#6b7280'};">
+                                                ${log.new_mentions || 0}
+                                            </td>
+                                            <td style="padding: 10px; color: #ef4444; font-size: 12px;">${log.error_message || '-'}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    `;
+
+                } catch (error) {
+                    container.innerHTML = `<p style="color: #dc3545; text-align: center; padding: 20px 0;">載入失敗: ${error.message}</p>`;
+                }
+            }
 
             // ========================================
             // Google Trends 功能

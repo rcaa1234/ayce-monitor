@@ -526,7 +526,8 @@ class MonitorService {
             // 取得關聯的品牌
             const brands = await this.getBrandsForSource(source.id);
             if (brands.length === 0) {
-                logger.warn(`No brands associated with source: ${source.name}`);
+                // 使用 debug 層級避免日誌污染，這是預期的配置狀態而非錯誤
+                logger.debug(`No brands associated with source: ${source.name}`);
                 await this.updateCrawlLog(crawlLogId, { status: 'skipped' });
                 return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
             }
