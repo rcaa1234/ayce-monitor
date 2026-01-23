@@ -1123,6 +1123,12 @@ const migrations = [
 
   // Migration 50f: 分類系統索引 - 強命中
   `ALTER TABLE monitor_mentions ADD INDEX idx_strong_hit (has_strong_hit, primary_topic, discovered_at DESC)`,
+
+  // Migration 51: 補充 post_insights 缺少的欄位
+  `ALTER TABLE post_insights ADD COLUMN shares INT UNSIGNED DEFAULT 0`,
+
+  // Migration 52: 補充 post_insights 的 last_synced_at 欄位
+  `ALTER TABLE post_insights ADD COLUMN last_synced_at DATETIME NULL`,
 ];
 
 async function runMigrations() {
