@@ -80,18 +80,55 @@ class MonitorService {
         const pool = getPool();
 
         const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT mb.*, mbs.custom_keywords 
+            `SELECT mb.*, mbs.custom_keywords
        FROM monitor_brands mb
        INNER JOIN monitor_brand_sources mbs ON mb.id = mbs.brand_id
        WHERE mbs.source_id = ? AND mb.is_active = true`,
             [sourceId]
         );
 
-        return rows.map((row: any) => ({
-            ...row,
-            keywords: row.custom_keywords ? JSON.parse(row.custom_keywords) : JSON.parse(row.keywords),
-            exclude_keywords: row.exclude_keywords ? JSON.parse(row.exclude_keywords) : [],
-        }));
+        const brands: MonitorBrand[] = [];
+
+        for (const row of rows) {
+            try {
+                // 嘗試解析 keywords JSON
+                let keywords: string[];
+                const keywordsRaw = row.custom_keywords || row.keywords;
+
+                if (typeof keywordsRaw === 'string') {
+                    // 如果是字串，嘗試 JSON 解析
+                    keywords = JSON.parse(keywordsRaw);
+                } else if (Array.isArray(keywordsRaw)) {
+                    // 如果已經是陣列
+                    keywords = keywordsRaw;
+                } else {
+                    logger.warn(`[Monitor] Invalid keywords format for brand "${row.name}" (id: ${row.id}), skipping. Expected JSON array like ["關鍵字1", "關鍵字2"]`);
+                    continue;
+                }
+
+                // 驗證是陣列
+                if (!Array.isArray(keywords)) {
+                    logger.warn(`[Monitor] Keywords for brand "${row.name}" is not an array, skipping. Value: ${JSON.stringify(keywords).substring(0, 100)}`);
+                    continue;
+                }
+
+                brands.push({
+                    id: row.id,
+                    name: row.name,
+                    keywords,
+                    exclude_keywords: row.exclude_keywords ? JSON.parse(row.exclude_keywords) : [],
+                    notify_enabled: row.notify_enabled,
+                    engagement_threshold: row.engagement_threshold,
+                });
+            } catch (parseError: any) {
+                // JSON 解析失敗，記錄錯誤但不中斷其他品牌
+                logger.error(`[Monitor] Failed to parse keywords for brand "${row.name}" (id: ${row.id}): ${parseError.message}`);
+                logger.error(`[Monitor] Keywords value: ${String(row.keywords).substring(0, 200)}`);
+                logger.error(`[Monitor] 請到「關鍵字組」頁面修正此品牌的關鍵字格式，應使用逗號分隔的關鍵字，例如: 情趣用品, 成人玩具`);
+            }
+        }
+
+        return brands;
     }
 
     /**

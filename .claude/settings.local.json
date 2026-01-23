@@ -81,7 +81,9 @@
       "Bash(if [ -f \"dist/index.js\" ])",
       "Bash(then echo \"✅ dist/index.js exists\")",
       "Bash(else echo \"❌ dist/index.js not found\")",
-      "Bash(then powershell -Command \"Get-Content .env | Select-String ''MYSQL''\")"
+      "Bash(then powershell -Command \"Get-Content .env | Select-String ''MYSQL''\")",
+      "Bash(python -c \"\nimport sys\nsys.path.insert\\(0, ''.claude/skills/ui-ux-pro-max/scripts''\\)\nfrom design_system import generate_design_system\n\nresult = generate_design_system\\(\n    ''SaaS dashboard admin panel analytics monitoring professional'',\n    project_name=''ThreadsBot'',\n    output_format=''markdown'',\n    persist=True,\n    page=None,\n    output_dir=''.''\n\\)\n\nwith open\\(''design-system-result.md'', ''w'', encoding=''utf-8''\\) as f:\n    f.write\\(result\\)\n\nprint\\(''Design system saved to design-system-result.md''\\)\n\")",
+      "Bash(git reset:*)"
     ]
   }
 }
