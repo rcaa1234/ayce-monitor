@@ -4,6 +4,7 @@
   "description": "Threads 半自動發文系統 with AI-powered content generation",
   "main": "dist/index.js",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome || echo 'Chrome install skipped'",
     "dev": "concurrently -n \"API,Worker\" -c \"cyan,magenta\" \"ts-node-dev --respawn --transpile-only src/index.ts\" \"ts-node-dev --respawn --transpile-only src/worker.ts\"",
     "dev:api": "ts-node-dev --respawn --transpile-only src/index.ts",
     "dev:worker": "ts-node-dev --respawn --transpile-only src/worker.ts",

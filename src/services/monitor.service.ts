@@ -141,9 +141,6 @@ class MonitorService {
             let browser;
             const envExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
-            // 診斷用 log
-            logger.info(`[Puppeteer] ENV PUPPETEER_EXECUTABLE_PATH = "${envExecutablePath || '(not set)'}"`);
-
             // 使用 puppeteer-extra + stealth 插件
             const puppeteerExtra = await import('puppeteer-extra');
             const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
@@ -160,72 +157,46 @@ class MonitorService {
                 '--disable-blink-features=AutomationControlled',
             ];
 
-            // 檢查可能的 Chrome/Chromium 路徑
-            const fs = await import('fs');
-            const { execSync } = await import('child_process');
+            // 策略：
+            // 1. 如果有設定 PUPPETEER_EXECUTABLE_PATH，使用它
+            // 2. 否則讓 puppeteer 自動找它下載的 Chrome
+            // 3. 如果都失敗，嘗試 @sparticuz/chromium
 
-            // 嘗試用 which 找 chromium
-            let whichChromium: string | null = null;
-            try {
-                whichChromium = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome-stable 2>/dev/null', { encoding: 'utf-8' }).trim();
-                if (whichChromium) {
-                    logger.info(`[Puppeteer] Found via 'which': ${whichChromium}`);
-                }
-            } catch {
-                // which 失敗，忽略
-            }
-
-            const possiblePaths = [
-                envExecutablePath,
-                whichChromium,
-                '/usr/bin/google-chrome-stable',
-                '/usr/bin/google-chrome',
-                '/usr/bin/chromium-browser',
-                '/usr/bin/chromium',
-                // Nixpacks 路徑
-                '/nix/var/nix/profiles/default/bin/chromium',
-            ].filter(Boolean) as string[];
-
-            let foundChromePath: string | null = null;
-            for (const p of possiblePaths) {
-                try {
-                    if (fs.existsSync(p)) {
-                        foundChromePath = p;
-                        logger.info(`[Puppeteer] Found Chrome at: ${p}`);
-                        break;
-                    }
-                } catch {
-                    // 忽略
-                }
-            }
-
-            // 如果找到系統 Chrome，直接使用
-            if (foundChromePath) {
-                logger.info(`[Puppeteer] Using system Chrome: ${foundChromePath}`);
+            if (envExecutablePath) {
+                logger.info(`[Puppeteer] Using PUPPETEER_EXECUTABLE_PATH: ${envExecutablePath}`);
                 browser = await puppeteerExtra.default.launch({
                     headless: true,
                     args: launchArgs,
-                    executablePath: foundChromePath,
+                    executablePath: envExecutablePath,
                 });
             } else {
-                // 嘗試使用 @sparticuz/chromium (serverless 環境)
+                // 嘗試讓 puppeteer 使用它自己下載的 Chrome
                 try {
-                    const chromium = await import('@sparticuz/chromium');
-                    const chromiumPath = await chromium.default.executablePath();
-                    logger.info(`[Puppeteer] Using @sparticuz/chromium: ${chromiumPath}`);
-
-                    browser = await puppeteerExtra.default.launch({
-                        headless: true,
-                        args: [...launchArgs, ...chromium.default.args],
-                        executablePath: chromiumPath,
-                    });
-                } catch (e: any) {
-                    // 本地開發環境，使用 puppeteer 內建的 Chromium
-                    logger.info(`[Puppeteer] Using bundled chromium (local dev)`);
+                    logger.info('[Puppeteer] Trying puppeteer default Chrome...');
                     browser = await puppeteerExtra.default.launch({
                         headless: true,
                         args: launchArgs,
                     });
+                    logger.info('[Puppeteer] Successfully launched with default Chrome');
+                } catch (defaultError: any) {
+                    logger.warn(`[Puppeteer] Default Chrome failed: ${defaultError.message}`);
+
+                    // 嘗試 @sparticuz/chromium 作為備案
+                    try {
+                        const chromium = await import('@sparticuz/chromium');
+                        const chromiumPath = await chromium.default.executablePath();
+                        logger.info(`[Puppeteer] Trying @sparticuz/chromium: ${chromiumPath}`);
+
+                        browser = await puppeteerExtra.default.launch({
+                            headless: true,
+                            args: [...launchArgs, ...chromium.default.args],
+                            executablePath: chromiumPath,
+                        });
+                        logger.info('[Puppeteer] Successfully launched with @sparticuz/chromium');
+                    } catch (chromiumError: any) {
+                        logger.error(`[Puppeteer] @sparticuz/chromium also failed: ${chromiumError.message}`);
+                        throw new Error(`Cannot find Chrome. Please set PUPPETEER_EXECUTABLE_PATH or ensure Chrome is installed. Original error: ${defaultError.message}`);
+                    }
                 }
             }
 
