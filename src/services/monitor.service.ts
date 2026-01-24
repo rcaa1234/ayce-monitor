@@ -141,6 +141,9 @@ class MonitorService {
             let browser;
             const envExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
+            // 診斷用 log
+            logger.info(`[Puppeteer] ENV PUPPETEER_EXECUTABLE_PATH = "${envExecutablePath || '(not set)'}"`);
+
             // 使用 puppeteer-extra + stealth 插件
             const puppeteerExtra = await import('puppeteer-extra');
             const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
@@ -157,13 +160,36 @@ class MonitorService {
                 '--disable-blink-features=AutomationControlled',
             ];
 
-            // 如果有設定 PUPPETEER_EXECUTABLE_PATH，直接使用（Docker 環境）
-            if (envExecutablePath) {
-                logger.info(`[Puppeteer] Using system chromium: ${envExecutablePath}`);
+            // 檢查可能的 Chrome/Chromium 路徑
+            const fs = await import('fs');
+            const possiblePaths = [
+                envExecutablePath,
+                '/usr/bin/google-chrome-stable',
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium-browser',
+                '/usr/bin/chromium',
+            ].filter(Boolean) as string[];
+
+            let foundChromePath: string | null = null;
+            for (const p of possiblePaths) {
+                try {
+                    if (fs.existsSync(p)) {
+                        foundChromePath = p;
+                        logger.info(`[Puppeteer] Found Chrome at: ${p}`);
+                        break;
+                    }
+                } catch {
+                    // 忽略
+                }
+            }
+
+            // 如果找到系統 Chrome，直接使用
+            if (foundChromePath) {
+                logger.info(`[Puppeteer] Using system Chrome: ${foundChromePath}`);
                 browser = await puppeteerExtra.default.launch({
                     headless: true,
                     args: launchArgs,
-                    executablePath: envExecutablePath,
+                    executablePath: foundChromePath,
                 });
             } else {
                 // 嘗試使用 @sparticuz/chromium (serverless 環境)
