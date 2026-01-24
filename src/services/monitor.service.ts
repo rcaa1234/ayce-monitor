@@ -135,26 +135,52 @@ class MonitorService {
      * 爬取網頁內容
      */
     /**
-     * 使用 Dcard API 直接取得文章列表（不需要瀏覽器）
+     * 使用 Dcard API 直接取得文章列表
+     * 注意：Dcard 會封鎖雲端伺服器 IP，需要使用代理才能正常爬取
      */
     async fetchDcardArticlesViaAPI(forumName: string): Promise<CrawledArticle[]> {
         logger.info(`[Dcard API] Fetching articles from forum: ${forumName}`);
 
-        try {
-            // Dcard 內部 API - 取得看板文章列表
-            const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
+        // 檢查是否有設定 ScrapingBee API Key（用於繞過反爬蟲）
+        const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
 
-            const response = await fetch(apiUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                    'Accept-Language': 'zh-TW,zh;q=0.9',
-                    'Referer': `https://www.dcard.tw/f/${forumName}`,
-                },
-            });
+        try {
+            let response: Response;
+
+            if (scrapingBeeKey) {
+                // 使用 ScrapingBee 代理服務
+                const targetUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
+                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(targetUrl)}&render_js=false`;
+
+                logger.info(`[Dcard API] Using ScrapingBee proxy`);
+                response = await fetch(proxyUrl);
+            } else {
+                // 直接請求（可能被封鎖）
+                const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
+
+                response = await fetch(apiUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                        'Origin': 'https://www.dcard.tw',
+                        'Referer': `https://www.dcard.tw/f/${forumName}`,
+                        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                        'Sec-Ch-Ua-Mobile': '?0',
+                        'Sec-Ch-Ua-Platform': '"Windows"',
+                        'Sec-Fetch-Dest': 'empty',
+                        'Sec-Fetch-Mode': 'cors',
+                        'Sec-Fetch-Site': 'same-origin',
+                    },
+                });
+            }
 
             if (!response.ok) {
-                logger.warn(`[Dcard API] API returned ${response.status}, falling back to HTML scraping`);
+                if (response.status === 403) {
+                    logger.error(`[Dcard API] 403 Forbidden - Dcard 封鎖了此伺服器的 IP。解決方案：`);
+                    logger.error(`[Dcard API] 1. 在 Zeabur 設定環境變數 SCRAPINGBEE_API_KEY（https://www.scrapingbee.com 免費方案有 1000 次/月）`);
+                    logger.error(`[Dcard API] 2. 或改用其他爬取來源（如 PTT）`);
+                }
                 return [];
             }
 
@@ -640,18 +666,18 @@ class MonitorService {
             let articles: CrawledArticle[];
 
             if (source.platform === 'dcard') {
-                // Dcard: 優先使用 API（不需要瀏覽器）
+                // Dcard: 使用 API（注意：Dcard 會封鎖雲端 IP，需要代理）
                 const forumMatch = source.url.match(/\/f\/([a-zA-Z0-9_-]+)/);
                 const forumName = forumMatch ? forumMatch[1] : '';
 
                 if (forumName) {
                     articles = await this.fetchDcardArticlesViaAPI(forumName);
 
-                    // 如果 API 失敗，回退到 HTML 解析
                     if (articles.length === 0) {
-                        logger.warn(`[Dcard] API returned 0 articles, trying HTML parsing...`);
-                        const html = await this.fetchPageContent(source.url, false);
-                        articles = this.parseDcardPage(html, source.url);
+                        // 檢查是否有設定代理
+                        if (!process.env.SCRAPINGBEE_API_KEY) {
+                            throw new Error('Dcard 封鎖了伺服器 IP (403)。請在環境變數設定 SCRAPINGBEE_API_KEY 來繞過封鎖，或停用此來源。');
+                        }
                     }
                 } else {
                     logger.warn(`[Dcard] Cannot extract forum name from URL: ${source.url}`);
