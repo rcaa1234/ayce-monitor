@@ -162,12 +162,28 @@ class MonitorService {
 
             // 檢查可能的 Chrome/Chromium 路徑
             const fs = await import('fs');
+            const { execSync } = await import('child_process');
+
+            // 嘗試用 which 找 chromium
+            let whichChromium: string | null = null;
+            try {
+                whichChromium = execSync('which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome-stable 2>/dev/null', { encoding: 'utf-8' }).trim();
+                if (whichChromium) {
+                    logger.info(`[Puppeteer] Found via 'which': ${whichChromium}`);
+                }
+            } catch {
+                // which 失敗，忽略
+            }
+
             const possiblePaths = [
                 envExecutablePath,
+                whichChromium,
                 '/usr/bin/google-chrome-stable',
                 '/usr/bin/google-chrome',
                 '/usr/bin/chromium-browser',
                 '/usr/bin/chromium',
+                // Nixpacks 路徑
+                '/nix/var/nix/profiles/default/bin/chromium',
             ].filter(Boolean) as string[];
 
             let foundChromePath: string | null = null;

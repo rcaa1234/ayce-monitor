@@ -1,0 +1,9 @@
+# Nixpacks configuration for Zeabur
+# Install Chromium and required dependencies for Puppeteer
+
+[phases.setup]
+nixPkgs = ["chromium", "nss", "freetype", "fontconfig", "harfbuzz", "libuuid"]
+
+[variables]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
