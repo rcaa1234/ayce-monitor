@@ -1,3 +1,6 @@
 {
-  "$schema": "https://zeabur.com/schemas/zeabur.json"
+  "$schema": "https://zeabur.com/schemas/zeabur.json",
+  "build": {
+    "type": "dockerfile"
+  }
 }
