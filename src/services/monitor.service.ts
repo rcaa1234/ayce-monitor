@@ -134,139 +134,81 @@ class MonitorService {
     /**
      * 爬取網頁內容
      */
-    async fetchPageContent(url: string, usePuppeteer: boolean = false): Promise<string> {
-        if (usePuppeteer) {
-            logger.info(`[Puppeteer] Launching browser for ${url}`);
+    /**
+     * 使用 Dcard API 直接取得文章列表（不需要瀏覽器）
+     */
+    async fetchDcardArticlesViaAPI(forumName: string): Promise<CrawledArticle[]> {
+        logger.info(`[Dcard API] Fetching articles from forum: ${forumName}`);
 
-            let browser;
-            const envExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        try {
+            // Dcard 內部 API - 取得看板文章列表
+            const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
 
-            // 使用 puppeteer-extra + stealth 插件
-            const puppeteerExtra = await import('puppeteer-extra');
-            const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
-            puppeteerExtra.default.use(StealthPlugin.default());
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'Accept-Language': 'zh-TW,zh;q=0.9',
+                    'Referer': `https://www.dcard.tw/f/${forumName}`,
+                },
+            });
 
-            const launchArgs = [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-blink-features=AutomationControlled',
-            ];
-
-            // 策略：
-            // 1. 如果有設定 PUPPETEER_EXECUTABLE_PATH，使用它
-            // 2. 否則讓 puppeteer 自動找它下載的 Chrome
-            // 3. 如果都失敗，嘗試 @sparticuz/chromium
-
-            if (envExecutablePath) {
-                logger.info(`[Puppeteer] Using PUPPETEER_EXECUTABLE_PATH: ${envExecutablePath}`);
-                browser = await puppeteerExtra.default.launch({
-                    headless: true,
-                    args: launchArgs,
-                    executablePath: envExecutablePath,
-                });
-            } else {
-                // 嘗試讓 puppeteer 使用它自己下載的 Chrome
-                try {
-                    logger.info('[Puppeteer] Trying puppeteer default Chrome...');
-                    browser = await puppeteerExtra.default.launch({
-                        headless: true,
-                        args: launchArgs,
-                    });
-                    logger.info('[Puppeteer] Successfully launched with default Chrome');
-                } catch (defaultError: any) {
-                    logger.warn(`[Puppeteer] Default Chrome failed: ${defaultError.message}`);
-
-                    // 嘗試 @sparticuz/chromium 作為備案
-                    try {
-                        const chromium = await import('@sparticuz/chromium');
-                        const chromiumPath = await chromium.default.executablePath();
-                        logger.info(`[Puppeteer] Trying @sparticuz/chromium: ${chromiumPath}`);
-
-                        browser = await puppeteerExtra.default.launch({
-                            headless: true,
-                            args: [...launchArgs, ...chromium.default.args],
-                            executablePath: chromiumPath,
-                        });
-                        logger.info('[Puppeteer] Successfully launched with @sparticuz/chromium');
-                    } catch (chromiumError: any) {
-                        logger.error(`[Puppeteer] @sparticuz/chromium also failed: ${chromiumError.message}`);
-                        throw new Error(`Cannot find Chrome. Please set PUPPETEER_EXECUTABLE_PATH or ensure Chrome is installed. Original error: ${defaultError.message}`);
-                    }
-                }
+            if (!response.ok) {
+                logger.warn(`[Dcard API] API returned ${response.status}, falling back to HTML scraping`);
+                return [];
             }
 
-            try {
-                const page: any = await browser.newPage();
+            const posts = await response.json() as any[];
+            logger.info(`[Dcard API] Got ${posts.length} posts from API`);
 
-                // 設定更真實的瀏覽器環境
-                await page.setViewport({ width: 1920, height: 1080 });
-                await page.setExtraHTTPHeaders({
-                    'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-                });
+            return posts.map((post: any) => ({
+                url: `https://www.dcard.tw/f/${forumName}/p/${post.id}`,
+                title: post.title || null,
+                content: (post.excerpt || post.content || '').substring(0, 500),
+                author_name: post.anonymousSchool || post.school || null,
+                published_at: post.createdAt ? new Date(post.createdAt) : null,
+                likes_count: post.likeCount || 0,
+                comments_count: post.commentCount || 0,
+                shares_count: null,
+                external_id: String(post.id),
+            }));
+        } catch (error: any) {
+            logger.error(`[Dcard API] Error: ${error.message}`);
+            return [];
+        }
+    }
 
-                // PTT 需要 over18 cookie 來繞過年齡驗證
-                if (url.includes('ptt.cc')) {
-                    await page.setCookie({
-                        name: 'over18',
-                        value: '1',
-                        domain: '.ptt.cc',
-                    });
-                }
+    /**
+     * 使用 HTTP 請求取得 PTT 頁面（帶 over18 cookie）
+     */
+    async fetchPttPageViaHTTP(url: string): Promise<string> {
+        logger.info(`[PTT HTTP] Fetching: ${url}`);
 
-                logger.info(`[Puppeteer] Navigating to ${url}`);
-                await page.goto(url, {
-                    waitUntil: 'domcontentloaded', // 使用較快的等待策略
-                    timeout: 30000,
-                });
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'zh-TW,zh;q=0.9',
+                'Cookie': 'over18=1',
+            },
+        });
 
-                // 等待頁面內容載入
-                logger.info('[Puppeteer] Waiting for content to load...');
-
-                // Dcard 特定選擇器
-                const dcardSelectors = [
-                    '[class*="PostEntry"]',
-                    '[class*="Post_post"]',
-                    'article',
-                    '[data-key]',
-                ];
-
-                // PTT 選擇器
-                const pttSelectors = ['.r-ent', '.bbs-screen'];
-
-                const allSelectors = [...dcardSelectors, ...pttSelectors].join(', ');
-
-                await page.waitForSelector(allSelectors, { timeout: 15000 }).catch(() => {
-                    logger.warn('[Puppeteer] Content selector not found after 15s, checking page content...');
-                });
-
-                // 額外等待確保 React 渲染完成
-                await new Promise(resolve => setTimeout(resolve, 5000));
-
-                // 捲動頁面多次以觸發懶載入並跳過置頂文章
-                for (let i = 0; i < 3; i++) {
-                    await page.evaluate('window.scrollBy(0, 800)');
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                }
-
-                const html = await page.content();
-                logger.info(`[Puppeteer] Got page content, length: ${html.length}`);
-
-                // 記錄頁面標題以便除錯
-                const title = await page.title();
-                logger.info(`[Puppeteer] Page title: ${title}`);
-
-                await page.close();
-                return html;
-            } finally {
-                await browser.close();
-            }
+        if (!response.ok) {
+            throw new Error(`Failed to fetch PTT: ${response.status}`);
         }
 
+        const html = await response.text();
+        logger.info(`[PTT HTTP] Got HTML, length: ${html.length}`);
+        return html;
+    }
+
+    async fetchPageContent(url: string, usePuppeteer: boolean = false): Promise<string> {
+        // 針對 PTT，使用 HTTP 請求 + cookie（不需要 Puppeteer）
+        if (url.includes('ptt.cc')) {
+            return this.fetchPttPageViaHTTP(url);
+        }
+
+        // 針對其他網站，使用一般 HTTP 請求
         const response = await fetch(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -694,21 +636,35 @@ class MonitorService {
                 return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
             }
 
-            // 抓取頁面 (Dcard 強制使用 Puppeteer)
-            const needsPuppeteer = source.platform === 'dcard' || source.use_puppeteer;
-            const html = await this.fetchPageContent(source.url, needsPuppeteer);
-
             // 解析文章
             let articles: CrawledArticle[];
-            switch (source.platform) {
-                case 'dcard':
-                    articles = this.parseDcardPage(html, source.url);
-                    break;
-                case 'ptt':
-                    articles = this.parsePttPage(html, source.url);
-                    break;
-                default:
-                    articles = this.parseGenericPage(html, source.selectors);
+
+            if (source.platform === 'dcard') {
+                // Dcard: 優先使用 API（不需要瀏覽器）
+                const forumMatch = source.url.match(/\/f\/([a-zA-Z0-9_-]+)/);
+                const forumName = forumMatch ? forumMatch[1] : '';
+
+                if (forumName) {
+                    articles = await this.fetchDcardArticlesViaAPI(forumName);
+
+                    // 如果 API 失敗，回退到 HTML 解析
+                    if (articles.length === 0) {
+                        logger.warn(`[Dcard] API returned 0 articles, trying HTML parsing...`);
+                        const html = await this.fetchPageContent(source.url, false);
+                        articles = this.parseDcardPage(html, source.url);
+                    }
+                } else {
+                    logger.warn(`[Dcard] Cannot extract forum name from URL: ${source.url}`);
+                    articles = [];
+                }
+            } else if (source.platform === 'ptt') {
+                // PTT: 使用 HTTP + cookie（不需要瀏覽器）
+                const html = await this.fetchPageContent(source.url, false);
+                articles = this.parsePttPage(html, source.url);
+            } else {
+                // 其他平台: 一般 HTTP 請求
+                const html = await this.fetchPageContent(source.url, false);
+                articles = this.parseGenericPage(html, source.selectors);
             }
 
             logger.info(`Found ${articles.length} articles from ${source.name}`);
