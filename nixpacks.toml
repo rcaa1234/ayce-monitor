@@ -1,34 +1,5 @@
 # Nixpacks configuration for Zeabur
-# Install Chromium and all required dependencies for Puppeteer
-
-[phases.setup]
-nixPkgs = [
-  "chromium",
-  "nss",
-  "nspr",
-  "freetype",
-  "fontconfig",
-  "harfbuzz",
-  "glib",
-  "gtk3",
-  "at-spi2-atk",
-  "cups",
-  "dbus",
-  "expat",
-  "libdrm",
-  "libxkbcommon",
-  "mesa",
-  "pango",
-  "alsa-lib",
-  "xorg.libX11",
-  "xorg.libXcomposite",
-  "xorg.libXdamage",
-  "xorg.libXext",
-  "xorg.libXfixes",
-  "xorg.libXrandr",
-  "xorg.libxcb"
-]
+# Puppeteer/Chrome no longer needed - using API-based crawling
 
 [variables]
-PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "false"
-PUPPETEER_EXECUTABLE_PATH = "/nix/var/nix/profiles/default/bin/chromium"
+NODE_ENV = "production"
