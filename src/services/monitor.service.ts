@@ -135,71 +135,105 @@ class MonitorService {
      * 爬取網頁內容
      */
     /**
-     * 使用 Dcard API 直接取得文章列表
-     * 注意：Dcard 會封鎖雲端伺服器 IP，需要使用代理才能正常爬取
+     * 使用 ZenRows 爬取 Dcard（可繞過 Cloudflare）
+     * 需要設定環境變數 ZENROWS_API_KEY
      */
     async fetchDcardArticlesViaAPI(forumName: string): Promise<CrawledArticle[]> {
-        logger.info(`[Dcard API] Fetching articles from forum: ${forumName}`);
+        const zenrowsKey = process.env.ZENROWS_API_KEY;
 
-        // 檢查是否有設定 ScrapingBee API Key（用於繞過反爬蟲）
-        const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+        if (!zenrowsKey) {
+            logger.error(`[Dcard] 未設定 ZENROWS_API_KEY 環境變數，無法爬取 Dcard`);
+            logger.error(`[Dcard] 請在 Zeabur 設定環境變數 ZENROWS_API_KEY`);
+            return [];
+        }
+
+        logger.info(`[Dcard ZenRows] Fetching forum: ${forumName}`);
 
         try {
-            let response: Response;
+            const targetUrl = `https://www.dcard.tw/f/${forumName}`;
+            const apiUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&antibot=true&premium_proxy=true&wait=5000`;
 
-            if (scrapingBeeKey) {
-                // 使用 ScrapingBee 代理服務
-                const targetUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
-                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(targetUrl)}&render_js=false`;
-
-                logger.info(`[Dcard API] Using ScrapingBee proxy`);
-                response = await fetch(proxyUrl);
-            } else {
-                // 直接請求（可能被封鎖）
-                const apiUrl = `https://www.dcard.tw/service/api/v2/forums/${forumName}/posts?limit=30`;
-
-                response = await fetch(apiUrl, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Accept': 'application/json, text/plain, */*',
-                        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-                        'Origin': 'https://www.dcard.tw',
-                        'Referer': `https://www.dcard.tw/f/${forumName}`,
-                        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                        'Sec-Ch-Ua-Mobile': '?0',
-                        'Sec-Ch-Ua-Platform': '"Windows"',
-                        'Sec-Fetch-Dest': 'empty',
-                        'Sec-Fetch-Mode': 'cors',
-                        'Sec-Fetch-Site': 'same-origin',
-                    },
-                });
-            }
+            const response = await fetch(apiUrl, {
+                signal: AbortSignal.timeout(60000), // 60 秒超時
+            });
 
             if (!response.ok) {
-                if (response.status === 403) {
-                    logger.error(`[Dcard API] 403 Forbidden - Dcard 封鎖了此伺服器的 IP。解決方案：`);
-                    logger.error(`[Dcard API] 1. 在 Zeabur 設定環境變數 SCRAPINGBEE_API_KEY（https://www.scrapingbee.com 免費方案有 1000 次/月）`);
-                    logger.error(`[Dcard API] 2. 或改用其他爬取來源（如 PTT）`);
-                }
+                logger.error(`[Dcard ZenRows] Request failed: ${response.status}`);
                 return [];
             }
 
-            const posts = await response.json() as any[];
-            logger.info(`[Dcard API] Got ${posts.length} posts from API`);
+            const html = await response.text();
+            logger.info(`[Dcard ZenRows] Got HTML, length: ${html.length}`);
 
-            return posts.map((post: any) => ({
-                url: `https://www.dcard.tw/f/${forumName}/p/${post.id}`,
-                title: post.title || null,
-                content: (post.excerpt || post.content || '').substring(0, 500),
-                author_name: post.anonymousSchool || post.school || null,
-                published_at: post.createdAt ? new Date(post.createdAt) : null,
-                likes_count: post.likeCount || 0,
-                comments_count: post.commentCount || 0,
-                shares_count: null,
-                external_id: String(post.id),
-            }));
+            // 檢查是否被 Cloudflare 阻擋
+            if (html.includes('Attention Required') || html.includes('Just a moment')) {
+                logger.error(`[Dcard ZenRows] Still blocked by Cloudflare`);
+                return [];
+            }
+
+            // 從 HTML 中提取文章連結和標題
+            const articles: CrawledArticle[] = [];
+            const seen = new Set<string>();
+
+            // 方法 1: 從 __NEXT_DATA__ 提取（最完整）
+            const jsonMatch = html.match(/__NEXT_DATA__[^>]*>([^<]+)</);
+            if (jsonMatch) {
+                try {
+                    const data = JSON.parse(jsonMatch[1]);
+                    const posts = data?.props?.pageProps?.posts || [];
+
+                    for (const post of posts) {
+                        if (!post.id || seen.has(String(post.id))) continue;
+                        seen.add(String(post.id));
+
+                        articles.push({
+                            url: `https://www.dcard.tw/f/${post.forumAlias || forumName}/p/${post.id}`,
+                            title: post.title || null,
+                            content: (post.excerpt || '').substring(0, 500),
+                            author_name: post.anonymousSchool || post.school || null,
+                            published_at: post.createdAt ? new Date(post.createdAt) : null,
+                            likes_count: post.likeCount || 0,
+                            comments_count: post.commentCount || 0,
+                            shares_count: null,
+                            external_id: String(post.id),
+                        });
+                    }
+
+                    if (articles.length > 0) {
+                        logger.info(`[Dcard ZenRows] Found ${articles.length} posts from __NEXT_DATA__`);
+                        return articles;
+                    }
+                } catch (e) {
+                    logger.warn(`[Dcard ZenRows] Failed to parse __NEXT_DATA__`);
+                }
+            }
+
+            // 方法 2: 從 HTML 連結提取（備用）
+            const linkRegex = /href="(\/f\/[a-z]+\/p\/(\d+))"/g;
+            let match;
+
+            while ((match = linkRegex.exec(html)) !== null) {
+                const postId = match[2];
+                if (seen.has(postId)) continue;
+                seen.add(postId);
+
+                articles.push({
+                    url: `https://www.dcard.tw${match[1]}`,
+                    title: null,
+                    content: null,
+                    author_name: null,
+                    published_at: null,
+                    likes_count: null,
+                    comments_count: null,
+                    shares_count: null,
+                    external_id: postId,
+                });
+            }
+
+            logger.info(`[Dcard ZenRows] Found ${articles.length} articles from HTML links`);
+            return articles;
         } catch (error: any) {
-            logger.error(`[Dcard API] Error: ${error.message}`);
+            logger.error(`[Dcard ZenRows] Error: ${error.message}`);
             return [];
         }
     }
@@ -674,9 +708,11 @@ class MonitorService {
                     articles = await this.fetchDcardArticlesViaAPI(forumName);
 
                     if (articles.length === 0) {
-                        // 檢查是否有設定代理
-                        if (!process.env.SCRAPINGBEE_API_KEY) {
-                            throw new Error('Dcard 封鎖了伺服器 IP (403)。請在環境變數設定 SCRAPINGBEE_API_KEY 來繞過封鎖，或停用此來源。');
+                        // 檢查是否有設定 ZenRows API Key
+                        if (!process.env.ZENROWS_API_KEY) {
+                            throw new Error('Dcard 需要 ZenRows 代理才能爬取。請在環境變數設定 ZENROWS_API_KEY，或停用此來源。');
+                        } else {
+                            throw new Error('Dcard 爬取失敗，請檢查 ZenRows 帳戶額度或稍後再試。');
                         }
                     }
                 } else {
