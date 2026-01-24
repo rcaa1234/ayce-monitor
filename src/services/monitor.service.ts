@@ -136,47 +136,50 @@ class MonitorService {
      */
     async fetchPageContent(url: string, usePuppeteer: boolean = false): Promise<string> {
         if (usePuppeteer) {
-            // 使用 puppeteer-extra + stealth 插件繞過 Cloudflare
-            const puppeteerExtra = await import('puppeteer-extra');
-            const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
+            logger.info(`[Puppeteer] Launching browser for ${url}`);
 
-            puppeteerExtra.default.use(StealthPlugin.default());
-
-            logger.info(`[Puppeteer] Launching browser with stealth plugin for ${url}`);
-
-            // 判斷執行環境，決定使用哪個 Chromium
+            let browser;
             let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-            let chromiumArgs = [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-zygote',
-                '--disable-blink-features=AutomationControlled',
-                '--window-size=1920,1080',
-            ];
 
-            // 在 serverless 環境 (Zeabur/Vercel/Lambda) 使用 @sparticuz/chromium
-            if (!executablePath && process.env.NODE_ENV === 'production') {
-                try {
-                    const chromium = await import('@sparticuz/chromium');
-                    executablePath = await chromium.default.executablePath();
-                    chromiumArgs = chromium.default.args;
-                    logger.info(`[Puppeteer] Using @sparticuz/chromium: ${executablePath}`);
-                } catch (e: any) {
-                    logger.warn(`[Puppeteer] @sparticuz/chromium not available: ${e.message}`);
-                }
+            // 優先嘗試使用 @sparticuz/chromium (serverless 環境)
+            try {
+                const chromium = await import('@sparticuz/chromium');
+                executablePath = await chromium.default.executablePath();
+                logger.info(`[Puppeteer] Using @sparticuz/chromium: ${executablePath}`);
+
+                // 使用 puppeteer-core 搭配 @sparticuz/chromium
+                const puppeteerCore = await import('puppeteer-core');
+                browser = await puppeteerCore.default.launch({
+                    headless: true,
+                    args: chromium.default.args,
+                    executablePath,
+                });
+            } catch (e: any) {
+                logger.info(`[Puppeteer] @sparticuz/chromium not available (${e.message}), falling back to puppeteer-extra`);
+
+                // 本地開發環境使用 puppeteer-extra + stealth
+                const puppeteerExtra = await import('puppeteer-extra');
+                const StealthPlugin = await import('puppeteer-extra-plugin-stealth');
+                puppeteerExtra.default.use(StealthPlugin.default());
+
+                browser = await puppeteerExtra.default.launch({
+                    headless: true,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-blink-features=AutomationControlled',
+                        '--window-size=1920,1080',
+                    ],
+                    executablePath: executablePath || undefined,
+                });
             }
 
-            const browser = await puppeteerExtra.default.launch({
-                headless: true,
-                args: chromiumArgs,
-                executablePath: executablePath || undefined,
-            });
-
             try {
-                const page = await browser.newPage();
+                const page: any = await browser.newPage();
 
                 // 設定更真實的瀏覽器環境
                 await page.setViewport({ width: 1920, height: 1080 });

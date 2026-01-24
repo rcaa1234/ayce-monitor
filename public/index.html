@@ -6425,10 +6425,12 @@
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                                 <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleSourceEdit('${s.id}')">⚙️ 編輯</button>
-                                <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 爬取</button>
+                                <button id="crawl-btn-${s.id}" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="triggerCrawl('${s.id}')">🔄 爬取</button>
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteSource('${s.id}')">刪除</button>
                             </div>
                         </div>
+                        <!-- 爬取結果顯示區域 -->
+                        <div id="crawl-result-${s.id}" style="display: none; margin-top: 10px; padding: 10px 15px; border-radius: 8px; font-size: 13px;"></div>
                         <!-- 編輯區域 (預設隱藏) -->
                         <div id="source-edit-${s.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: end;">
@@ -6828,17 +6830,26 @@
             async function triggerCrawl(sourceId) {
                 // 防止重複點擊
                 if (crawlingSourceIds.has(sourceId)) {
-                    showAlert('dashboardAlert', '⏳ 正在爬取中，請稍候...', 'warning');
                     return;
                 }
 
                 crawlingSourceIds.add(sourceId);
 
                 // 禁用按鈕
-                const btn = document.querySelector(`button[onclick="triggerCrawl('${sourceId}')"]`);
+                const btn = document.getElementById(`crawl-btn-${sourceId}`);
+                const resultDiv = document.getElementById(`crawl-result-${sourceId}`);
+
                 if (btn) {
                     btn.disabled = true;
                     btn.innerHTML = '⏳ 爬取中...';
+                }
+
+                // 顯示爬取中狀態
+                if (resultDiv) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#fef3c7';
+                    resultDiv.style.color = '#92400e';
+                    resultDiv.innerHTML = '⏳ 正在爬取中，請稍候...';
                 }
 
                 try {
@@ -6858,35 +6869,52 @@
 
                     // 顯示詳細結果
                     const data = result.data || {};
-                    let msg = `✅ 爬取完成：${data.source || '來源'}\n`;
+                    let msg = `✅ 爬取完成：${data.source || '來源'} `;
+                    let bgColor = '#d1fae5';
+                    let textColor = '#065f46';
 
                     if (data.brandsChecked === 0) {
-                        msg += '⚠️ 此來源尚未關聯任何關鍵字組\n請先新增關鍵字組，或刪除此來源後重新新增';
-                        showAlert('dashboardAlert', msg, 'warning');
+                        msg = `⚠️ 此來源尚未關聯任何關鍵字組`;
+                        bgColor = '#fef3c7';
+                        textColor = '#92400e';
                     } else if (data.newMentions > 0) {
-                        msg += `📊 找到 ${data.articlesFound || 0} 篇文章\n`;
-                        msg += `🔍 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
+                        msg += `📊 ${data.articlesFound || 0} 篇文章 `;
+                        msg += `🔍 ${data.brandsChecked || 0} 個關鍵字組 `;
                         msg += `✨ 新增 ${data.newMentions} 筆提及`;
                         if (data.duplicateSkipped > 0) {
-                            msg += `（${data.duplicateSkipped} 筆重複跳過）`;
+                            msg += `（${data.duplicateSkipped} 筆重複）`;
                         }
-                        showAlert('dashboardAlert', msg, 'success');
                         loadMentions();
                     } else {
-                        msg += `📊 找到 ${data.articlesFound || 0} 篇文章\n`;
-                        msg += `🔍 比對 ${data.brandsChecked || 0} 個關鍵字組\n`;
+                        msg += `📊 ${data.articlesFound || 0} 篇文章 `;
+                        msg += `🔍 ${data.brandsChecked || 0} 個關鍵字組 `;
                         msg += `無新增提及`;
                         if (data.duplicateSkipped > 0) {
                             msg += `（${data.duplicateSkipped} 筆已存在）`;
                         } else {
                             msg += `（無關鍵字匹配）`;
                         }
-                        showAlert('dashboardAlert', msg, 'info');
+                        bgColor = '#e0f2fe';
+                        textColor = '#0369a1';
+                    }
+
+                    // 顯示在來源卡片下方
+                    if (resultDiv) {
+                        resultDiv.style.display = 'block';
+                        resultDiv.style.background = bgColor;
+                        resultDiv.style.color = textColor;
+                        resultDiv.innerHTML = msg;
                     }
 
                     loadSources();
                 } catch (error) {
-                    showAlert('dashboardAlert', '爬取失敗: ' + error.message, 'danger');
+                    // 顯示錯誤訊息在來源卡片下方
+                    if (resultDiv) {
+                        resultDiv.style.display = 'block';
+                        resultDiv.style.background = '#fee2e2';
+                        resultDiv.style.color = '#991b1b';
+                        resultDiv.innerHTML = `❌ 爬取失敗: ${error.message}`;
+                    }
                 } finally {
                     // 恢復按鈕狀態
                     crawlingSourceIds.delete(sourceId);
