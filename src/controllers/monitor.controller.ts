@@ -180,10 +180,22 @@ class MonitorController {
         try {
             const pool = getPool();
             const [rows] = await pool.execute<RowDataPacket[]>(
-                `SELECT ms.*, 
-          (SELECT COUNT(*) FROM monitor_brand_sources mbs WHERE mbs.source_id = ms.id) as brand_count
-         FROM monitor_sources ms 
-         ORDER BY ms.platform, ms.name`
+                `SELECT ms.*,
+                    (SELECT COUNT(*) FROM monitor_brand_sources mbs WHERE mbs.source_id = ms.id) as brand_count,
+                    (SELECT COUNT(*) FROM monitor_mentions mm WHERE mm.source_id = ms.id) as total_mentions,
+                    mcl.completed_at as last_crawl_at,
+                    mcl.status as last_crawl_status,
+                    mcl.articles_found as last_articles_found,
+                    mcl.new_mentions as last_new_mentions,
+                    mcl.duplicate_skipped as last_duplicate_skipped,
+                    mcl.error_message as last_error_message
+                FROM monitor_sources ms
+                LEFT JOIN (
+                    SELECT source_id, completed_at, status, articles_found, new_mentions, duplicate_skipped, error_message,
+                           ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY completed_at DESC) as rn
+                    FROM monitor_crawl_logs
+                ) mcl ON mcl.source_id = ms.id AND mcl.rn = 1
+                ORDER BY ms.platform, ms.name`
             );
 
             res.json({ success: true, data: rows });
@@ -316,6 +328,43 @@ class MonitorController {
             res.json({ success: true, message: '來源已刪除' });
         } catch (error: any) {
             logger.error('Failed to delete source:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/sources/delete-by-platform - 刪除指定平台的所有來源
+     */
+    async deleteSourcesByPlatform(req: Request, res: Response): Promise<void> {
+        try {
+            const { platform } = req.body;
+
+            if (!platform) {
+                res.status(400).json({ success: false, error: '請指定平台' });
+                return;
+            }
+
+            const pool = getPool();
+
+            // 先查詢數量
+            const [countResult] = await pool.execute<RowDataPacket[]>(
+                'SELECT COUNT(*) as count FROM monitor_sources WHERE platform = ?',
+                [platform]
+            );
+            const count = countResult[0].count;
+
+            // 刪除
+            await pool.execute('DELETE FROM monitor_sources WHERE platform = ?', [platform]);
+
+            logger.info(`Deleted ${count} sources for platform: ${platform}`);
+
+            res.json({
+                success: true,
+                data: { deleted: count, platform },
+                message: `已刪除 ${count} 個 ${platform} 來源`,
+            });
+        } catch (error: any) {
+            logger.error('Failed to delete sources by platform:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }
@@ -612,20 +661,19 @@ class MonitorController {
 
     /**
      * GET /api/monitor/templates - 取得預設來源模板
+     * 注意：Dcard 來源會自動抓取最新文章（程式會自動加上 ?tab=latest）
      */
     async getSourceTemplates(req: Request, res: Response): Promise<void> {
         const templates = [
-            { name: 'Dcard 熱門', url: 'https://www.dcard.tw/f/trending', platform: 'dcard', platform_category: 'trending' },
-            { name: 'Dcard 閒聊', url: 'https://www.dcard.tw/f/talk', platform: 'dcard', platform_category: 'talk' },
-            { name: 'Dcard 西斯', url: 'https://www.dcard.tw/f/sex', platform: 'dcard', platform_category: 'sex' },
-            { name: 'Dcard 女孩', url: 'https://www.dcard.tw/f/girl', platform: 'dcard', platform_category: 'girl' },
-            { name: 'Dcard 感情', url: 'https://www.dcard.tw/f/relationship', platform: 'dcard', platform_category: 'relationship' },
+            { name: 'Dcard 閒聊 (最新)', url: 'https://www.dcard.tw/f/talk?tab=latest', platform: 'dcard', platform_category: 'talk', description: '抓取最新文章' },
+            { name: 'Dcard 西斯 (最新)', url: 'https://www.dcard.tw/f/sex?tab=latest', platform: 'dcard', platform_category: 'sex', description: '抓取最新文章' },
+            { name: 'Dcard 女孩 (最新)', url: 'https://www.dcard.tw/f/girl?tab=latest', platform: 'dcard', platform_category: 'girl', description: '抓取最新文章' },
+            { name: 'Dcard 感情 (最新)', url: 'https://www.dcard.tw/f/relationship?tab=latest', platform: 'dcard', platform_category: 'relationship', description: '抓取最新文章' },
+            { name: 'Dcard 美妝 (最新)', url: 'https://www.dcard.tw/f/makeup?tab=latest', platform: 'dcard', platform_category: 'makeup', description: '抓取最新文章' },
             { name: 'PTT 八卦板', url: 'https://www.ptt.cc/bbs/Gossiping/index.html', platform: 'ptt', platform_category: 'Gossiping' },
             { name: 'PTT WomenTalk', url: 'https://www.ptt.cc/bbs/WomenTalk/index.html', platform: 'ptt', platform_category: 'WomenTalk' },
             { name: 'PTT Sex', url: 'https://www.ptt.cc/bbs/sex/index.html', platform: 'ptt', platform_category: 'sex' },
             { name: 'PTT Boy-Girl', url: 'https://www.ptt.cc/bbs/Boy-Girl/index.html', platform: 'ptt', platform_category: 'Boy-Girl' },
-            { name: 'Mobile01 討論', url: 'https://www.mobile01.com/topiclist.php', platform: 'mobile01', platform_category: 'general' },
-            { name: '痞客邦搜尋', url: 'https://www.pixnet.net/blog/search', platform: 'pixnet', platform_category: 'search' },
         ];
 
         res.json({ success: true, data: templates });

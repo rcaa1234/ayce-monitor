@@ -1617,6 +1617,46 @@
             <h2 style="margin-bottom: 20px;">🔔 聲量監控</h2>
 
             <!-- Monitor Sub-tabs -->
+            <!-- 監控功能總覽 -->
+            <div id="monitorOverview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="toggleMonitorOverview()">
+                    <h4 style="margin: 0; font-size: 14px;">📖 聲量監控運作流程</h4>
+                    <span id="monitorOverviewToggle" style="font-size: 12px;">▼ 展開說明</span>
+                </div>
+                <div id="monitorOverviewContent" style="display: none; margin-top: 15px; font-size: 13px;">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                        <div style="background: rgba(255,255,255,0.15); padding: 12px 8px; border-radius: 8px;">
+                            <div style="font-size: 24px; margin-bottom: 5px;">🏷️</div>
+                            <div style="font-weight: bold; margin-bottom: 3px;">1. 關鍵字組</div>
+                            <div style="font-size: 11px; opacity: 0.9;">設定要監控的品牌關鍵字</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.15); padding: 12px 8px; border-radius: 8px;">
+                            <div style="font-size: 24px; margin-bottom: 5px;">🌐</div>
+                            <div style="font-weight: bold; margin-bottom: 3px;">2. 來源管理</div>
+                            <div style="font-size: 11px; opacity: 0.9;">設定要爬取的網站（Dcard、PTT）</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.15); padding: 12px 8px; border-radius: 8px;">
+                            <div style="font-size: 24px; margin-bottom: 5px;">📋</div>
+                            <div style="font-weight: bold; margin-bottom: 3px;">3. 提及列表</div>
+                            <div style="font-size: 11px; opacity: 0.9;">查看匹配關鍵字的文章</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.15); padding: 12px 8px; border-radius: 8px;">
+                            <div style="font-size: 24px; margin-bottom: 5px;">📊</div>
+                            <div style="font-weight: bold; margin-bottom: 3px;">4. 聲量統計</div>
+                            <div style="font-size: 11px; opacity: 0.9;">查看趨勢圖表和爬取日誌</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 8px; font-size: 12px;">
+                        <strong>📌 重點說明：</strong>
+                        <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                            <li><strong>提及列表</strong>：顯示所有匹配關鍵字的文章，可篩選分類（痛點/情境），逐篇閱讀處理</li>
+                            <li><strong>聲量統計</strong>：彙總數據，看哪個品牌被提及最多、哪個來源最活躍、歷史趨勢變化</li>
+                            <li><strong>自動分類</strong>：系統會自動判斷文章是「產品痛點」還是「需求情境」，痛點會發 LINE 通知</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
                 <button class="monitor-sub-tab active" onclick="switchMonitorTab('mentions')"
                     style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
@@ -1638,6 +1678,11 @@
 
             <!-- Mentions Sub-tab -->
             <div id="monitorMentionsTab" class="sub-tab-content active">
+                <!-- 頁面說明 -->
+                <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #1e40af;">
+                    <strong>📋 提及列表</strong>：顯示所有匹配關鍵字的文章，可逐篇閱讀、標記已讀、查看分類。這是你處理每筆提及的工作台。
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <select id="mentionBrandFilter" onchange="loadMentions()"
@@ -1888,9 +1933,14 @@
                 <!-- 來源列表 -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="font-size: 16px; color: #374151; margin: 0;">🌐 已設定來源</h3>
-                    <button id="relinkBtn" class="btn btn-secondary" onclick="relinkAllBrandsSources()" style="padding: 8px 15px; font-size: 12px;">
-                        🔗 修復關聯
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-danger" onclick="deleteAllDcardSources()" style="padding: 8px 15px; font-size: 12px;">
+                            🗑️ 清除 Dcard 來源
+                        </button>
+                        <button id="relinkBtn" class="btn btn-secondary" onclick="relinkAllBrandsSources()" style="padding: 8px 15px; font-size: 12px;">
+                            🔗 修復關聯
+                        </button>
+                    </div>
                 </div>
                 <div id="sourcesList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
@@ -1900,6 +1950,11 @@
 
             <!-- Stats Sub-tab -->
             <div id="monitorStatsTab" class="sub-tab-content" style="display: none;">
+                <!-- 頁面說明 -->
+                <div style="background: #fdf4ff; border-left: 4px solid #a855f7; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #6b21a8;">
+                    <strong>📊 聲量統計</strong>：彙總所有提及的數據分析。看哪個關鍵字組被提及最多、哪個來源最活躍，以及爬取日誌和 Google 趨勢。
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h3>聲量統計</h3>
                     <select id="monitorStatsDays" onchange="loadMonitorStats()"
@@ -5908,6 +5963,19 @@
 
             let currentMonitorTab = 'mentions';
 
+            // 切換監控功能總覽展開/收起
+            function toggleMonitorOverview() {
+                const content = document.getElementById('monitorOverviewContent');
+                const toggle = document.getElementById('monitorOverviewToggle');
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    toggle.textContent = '▲ 收起說明';
+                } else {
+                    content.style.display = 'none';
+                    toggle.textContent = '▼ 展開說明';
+                }
+            }
+
             function switchMonitorTab(tabName) {
                 currentMonitorTab = tabName;
 
@@ -6407,7 +6475,7 @@
 
                     container.innerHTML = sources.map(s => `
                     <div id="source-card-${s.id}" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <div style="flex: 1;">
                                 <h4 style="margin-bottom: 5px;">
                                     <span style="color: ${healthColors[s.health_status] || '#999'};">●</span>
@@ -6421,7 +6489,21 @@
                                 <p style="color: #888; font-size: 11px; margin-top: 5px;">
                                     檢查間隔: ${s.check_interval_hours} 小時 ·
                                     上次檢查: ${s.last_checked_at ? new Date(s.last_checked_at).toLocaleString('zh-TW') : '從未'}
+                                    ${s.platform === 'dcard' ? '<span style="color: #059669; margin-left: 8px;">✓ 自動抓取最新文章</span>' : ''}
                                 </p>
+                                <!-- 統計摘要 -->
+                                <div style="display: flex; gap: 15px; margin-top: 10px; font-size: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 5px; color: #666;">
+                                        <span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 10px; font-weight: bold;">${s.total_mentions || 0}</span>
+                                        累計提及
+                                    </div>
+                                    ${s.last_checked_at ? `
+                                    <div style="display: flex; align-items: center; gap: 5px; color: #666;">
+                                        上次掃描 <strong>${s.last_articles_found || 0}</strong> 篇，
+                                        新增 <strong style="color: ${(s.last_new_mentions || 0) > 0 ? '#059669' : '#666'};">${s.last_new_mentions || 0}</strong> 筆提及
+                                    </div>
+                                    ` : '<span style="color: #999;">尚未執行爬取</span>'}
+                                </div>
                             </div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
                                 <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="toggleSourceEdit('${s.id}')">⚙️ 編輯</button>
@@ -6429,7 +6511,42 @@
                                 <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="deleteSource('${s.id}')">刪除</button>
                             </div>
                         </div>
-                        <!-- 爬取結果顯示區域 -->
+                        <!-- 上次爬取結果（永久顯示） -->
+                        ${s.last_crawl_at ? `
+                        <div style="margin-top: 12px; padding: 12px 15px; border-radius: 8px; font-size: 13px; background: ${s.last_crawl_status === 'success' ? '#f0fdf4' : s.last_crawl_status === 'failed' ? '#fef2f2' : '#fefce8'}; border: 1px solid ${s.last_crawl_status === 'success' ? '#86efac' : s.last_crawl_status === 'failed' ? '#fecaca' : '#fde047'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-weight: bold; color: ${s.last_crawl_status === 'success' ? '#166534' : s.last_crawl_status === 'failed' ? '#991b1b' : '#854d0e'};">
+                                    ${s.last_crawl_status === 'success' ? '✅ 上次爬取成功' : s.last_crawl_status === 'failed' ? '❌ 上次爬取失敗' : '⚠️ 上次爬取'}
+                                </span>
+                                <span style="font-size: 11px; color: #666;">
+                                    ${new Date(s.last_crawl_at).toLocaleString('zh-TW')}
+                                </span>
+                            </div>
+                            ${s.last_crawl_status === 'success' ? `
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
+                                <div style="background: rgba(255,255,255,0.7); padding: 6px; border-radius: 6px;">
+                                    <div style="font-size: 16px; font-weight: bold;">${s.last_articles_found || 0}</div>
+                                    <div style="font-size: 10px; color: #666;">抓到文章</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.7); padding: 6px; border-radius: 6px;">
+                                    <div style="font-size: 16px; font-weight: bold; color: ${(s.last_new_mentions || 0) > 0 ? '#059669' : '#666'};">${s.last_new_mentions || 0}</div>
+                                    <div style="font-size: 10px; color: #666;">新提及</div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.7); padding: 6px; border-radius: 6px;">
+                                    <div style="font-size: 16px; font-weight: bold;">${s.last_duplicate_skipped || 0}</div>
+                                    <div style="font-size: 10px; color: #666;">重複跳過</div>
+                                </div>
+                            </div>
+                            ` : `
+                            <div style="font-size: 12px; color: #991b1b;">${s.last_error_message || '未知錯誤'}</div>
+                            `}
+                        </div>
+                        ` : `
+                        <div style="margin-top: 12px; padding: 10px 15px; border-radius: 8px; font-size: 12px; background: #f3f4f6; color: #6b7280; text-align: center;">
+                            尚未執行爬取，點擊「🔄 爬取」開始
+                        </div>
+                        `}
+                        <!-- 即時爬取結果（點擊按鈕後顯示） -->
                         <div id="crawl-result-${s.id}" style="display: none; margin-top: 10px; padding: 10px 15px; border-radius: 8px; font-size: 13px;"></div>
                         <!-- 編輯區域 (預設隱藏) -->
                         <div id="source-edit-${s.id}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
@@ -6869,33 +6986,93 @@
 
                     // 顯示詳細結果
                     const data = result.data || {};
-                    let msg = `✅ 爬取完成：${data.source || '來源'} `;
                     let bgColor = '#d1fae5';
                     let textColor = '#065f46';
+                    let statusIcon = '✅';
+                    let statusText = '爬取成功';
 
-                    if (data.brandsChecked === 0) {
-                        msg = `⚠️ 此來源尚未關聯任何關鍵字組`;
+                    // 根據 crawlStatus 決定顯示樣式
+                    const crawlStatus = data.crawlStatus || 'success';
+
+                    if (crawlStatus === 'no_brands') {
+                        statusIcon = '⚠️';
+                        statusText = '未設定關鍵字組';
                         bgColor = '#fef3c7';
                         textColor = '#92400e';
-                    } else if (data.newMentions > 0) {
-                        msg += `📊 ${data.articlesFound || 0} 篇文章 `;
-                        msg += `🔍 ${data.brandsChecked || 0} 個關鍵字組 `;
-                        msg += `✨ 新增 ${data.newMentions} 筆提及`;
-                        if (data.duplicateSkipped > 0) {
-                            msg += `（${data.duplicateSkipped} 筆重複）`;
-                        }
-                        loadMentions();
-                    } else {
-                        msg += `📊 ${data.articlesFound || 0} 篇文章 `;
-                        msg += `🔍 ${data.brandsChecked || 0} 個關鍵字組 `;
-                        msg += `無新增提及`;
-                        if (data.duplicateSkipped > 0) {
-                            msg += `（${data.duplicateSkipped} 筆已存在）`;
-                        } else {
-                            msg += `（無關鍵字匹配）`;
-                        }
+                    } else if (crawlStatus === 'failed') {
+                        statusIcon = '❌';
+                        statusText = '爬取失敗';
+                        bgColor = '#fee2e2';
+                        textColor = '#991b1b';
+                    } else if (crawlStatus === 'no_content') {
+                        statusIcon = '⚠️';
+                        statusText = '抓到連結但沒有內容';
+                        bgColor = '#fef3c7';
+                        textColor = '#92400e';
+                    } else if (crawlStatus === 'partial') {
+                        statusIcon = '⚡';
+                        statusText = '部分成功';
                         bgColor = '#e0f2fe';
                         textColor = '#0369a1';
+                    } else if (data.newMentions > 0) {
+                        statusIcon = '🎉';
+                        statusText = '發現新提及！';
+                        loadMentions();
+                    } else if (data.articlesFound === 0) {
+                        statusIcon = '⚠️';
+                        statusText = '未抓到文章';
+                        bgColor = '#fef3c7';
+                        textColor = '#92400e';
+                    } else {
+                        bgColor = '#e0f2fe';
+                        textColor = '#0369a1';
+                    }
+
+                    // 構建詳細統計
+                    const articlesWithContent = data.articlesWithContent || 0;
+                    const articlesUrlOnly = data.articlesUrlOnly || 0;
+
+                    let statsHtml = `
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <span style="font-size: 24px;">${statusIcon}</span>
+                            <div>
+                                <strong style="font-size: 15px;">${statusText}</strong>
+                                ${data.statusMessage ? `<div style="font-size: 12px; margin-top: 3px; opacity: 0.9;">${data.statusMessage}</div>` : ''}
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; text-align: center;">
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 4px; border-radius: 6px;">
+                                <div style="font-size: 18px; font-weight: bold;">${data.articlesFound || 0}</div>
+                                <div style="font-size: 10px; opacity: 0.8;">抓到文章</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 4px; border-radius: 6px;">
+                                <div style="font-size: 18px; font-weight: bold; color: ${articlesWithContent > 0 ? '#059669' : '#dc2626'};">${articlesWithContent}</div>
+                                <div style="font-size: 10px; opacity: 0.8;">有內容</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 4px; border-radius: 6px;">
+                                <div style="font-size: 18px; font-weight: bold; color: ${articlesUrlOnly > 0 ? '#dc2626' : 'inherit'};">${articlesUrlOnly}</div>
+                                <div style="font-size: 10px; opacity: 0.8;">僅連結</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 4px; border-radius: 6px;">
+                                <div style="font-size: 18px; font-weight: bold; color: ${data.newMentions > 0 ? '#059669' : 'inherit'};">${data.newMentions || 0}</div>
+                                <div style="font-size: 10px; opacity: 0.8;">新提及</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.5); padding: 8px 4px; border-radius: 6px;">
+                                <div style="font-size: 18px; font-weight: bold;">${data.duplicateSkipped || 0}</div>
+                                <div style="font-size: 10px; opacity: 0.8;">重複</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 顯示關鍵字列表
+                    if (data.keywordsChecked && data.keywordsChecked.length > 0) {
+                        const keywordsList = data.keywordsChecked.slice(0, 5).join('、');
+                        const moreCount = data.keywordsChecked.length > 5 ? ` 等 ${data.keywordsChecked.length} 個` : '';
+                        statsHtml += `<div style="margin-top: 8px; font-size: 11px; opacity: 0.8;">🔍 比對關鍵字：${keywordsList}${moreCount}</div>`;
+                    }
+
+                    if (data.newMentions > 0) {
+                        statsHtml += `<div style="margin-top: 8px; font-size: 12px; font-weight: bold;">👉 前往「提及列表」查看詳情</div>`;
                     }
 
                     // 顯示在來源卡片下方
@@ -6903,7 +7080,7 @@
                         resultDiv.style.display = 'block';
                         resultDiv.style.background = bgColor;
                         resultDiv.style.color = textColor;
-                        resultDiv.innerHTML = msg;
+                        resultDiv.innerHTML = statsHtml;
                     }
 
                     loadSources();
@@ -6963,6 +7140,32 @@
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = '🔗 修復關聯';
+                }
+            }
+
+            // 清除所有 Dcard 來源
+            async function deleteAllDcardSources() {
+                if (!confirm('確定要刪除所有 Dcard 來源嗎？\n\n刪除後可以從「預設來源」重新新增（名稱會標示「最新」）')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/sources/delete-by-platform`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ platform: 'dcard' })
+                    });
+
+                    const result = await response.json();
+                    if (!result.success) throw new Error(result.error);
+
+                    showAlert('dashboardAlert', `✅ 已刪除 ${result.data.deleted} 個 Dcard 來源`, 'success');
+                    loadSources();
+                } catch (error) {
+                    showAlert('dashboardAlert', '刪除失敗: ' + error.message, 'danger');
                 }
             }
 

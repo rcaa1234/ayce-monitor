@@ -150,7 +150,8 @@ class MonitorService {
         logger.info(`[Dcard ZenRows] Fetching forum: ${forumName}`);
 
         try {
-            const targetUrl = `https://www.dcard.tw/f/${forumName}`;
+            // 強制使用最新文章頁面（?tab=latest），而不是預設的熱門
+            const targetUrl = `https://www.dcard.tw/f/${forumName}?tab=latest`;
             const apiUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&antibot=true&premium_proxy=true&wait=5000`;
 
             const response = await fetch(apiUrl, {
@@ -175,12 +176,20 @@ class MonitorService {
             const articles: CrawledArticle[] = [];
             const seen = new Set<string>();
 
-            // 方法 1: 從 __NEXT_DATA__ 提取（最完整）
-            const jsonMatch = html.match(/__NEXT_DATA__[^>]*>([^<]+)</);
-            if (jsonMatch) {
+            // 方法 1: 使用 Cheerio 從 __NEXT_DATA__ 提取（最完整）
+            const $ = cheerio.load(html);
+            const nextDataScript = $('#__NEXT_DATA__').html();
+
+            if (nextDataScript) {
                 try {
-                    const data = JSON.parse(jsonMatch[1]);
-                    const posts = data?.props?.pageProps?.posts || [];
+                    const data = JSON.parse(nextDataScript);
+                    // 嘗試多種可能的資料路徑
+                    const posts = data?.props?.pageProps?.posts
+                        || data?.props?.pageProps?.forum?.posts
+                        || data?.props?.pageProps?.initialPosts
+                        || [];
+
+                    logger.info(`[Dcard ZenRows] __NEXT_DATA__ found, posts array length: ${posts.length}`);
 
                     for (const post of posts) {
                         if (!post.id || seen.has(String(post.id))) continue;
@@ -189,8 +198,8 @@ class MonitorService {
                         articles.push({
                             url: `https://www.dcard.tw/f/${post.forumAlias || forumName}/p/${post.id}`,
                             title: post.title || null,
-                            content: (post.excerpt || '').substring(0, 500),
-                            author_name: post.anonymousSchool || post.school || null,
+                            content: (post.excerpt || post.content || '').substring(0, 500),
+                            author_name: post.anonymousSchool || post.school || post.withNickname || null,
                             published_at: post.createdAt ? new Date(post.createdAt) : null,
                             likes_count: post.likeCount || 0,
                             comments_count: post.commentCount || 0,
@@ -202,39 +211,218 @@ class MonitorService {
                     if (articles.length > 0) {
                         logger.info(`[Dcard ZenRows] Found ${articles.length} posts from __NEXT_DATA__`);
                         return articles;
+                    } else {
+                        // Log the structure to help debug
+                        const keys = Object.keys(data?.props?.pageProps || {});
+                        logger.warn(`[Dcard ZenRows] __NEXT_DATA__ found but no posts. Available keys: ${keys.join(', ')}`);
                     }
-                } catch (e) {
-                    logger.warn(`[Dcard ZenRows] Failed to parse __NEXT_DATA__`);
+                } catch (e: any) {
+                    logger.warn(`[Dcard ZenRows] Failed to parse __NEXT_DATA__: ${e.message}`);
+                }
+            } else {
+                logger.warn(`[Dcard ZenRows] No __NEXT_DATA__ script found in HTML`);
+            }
+
+            // 方法 2: 使用 Cheerio 從 HTML 元素解析文章卡片
+            logger.info(`[Dcard ZenRows] Trying Cheerio HTML parsing...`);
+
+            // 找到所有文章連結
+            $('a[href*="/f/"][href*="/p/"]').each((_, element) => {
+                const $link = $(element);
+                const href = $link.attr('href') || '';
+
+                const postIdMatch = href.match(/\/p\/(\d+)/);
+                if (!postIdMatch) return;
+
+                const postId = postIdMatch[1];
+                if (seen.has(postId)) return;
+                seen.add(postId);
+
+                // 向上尋找包含文章資訊的容器
+                let $container = $link;
+                let title = '';
+                let content = '';
+
+                // 嘗試從連結文字取得標題
+                const linkText = $link.text().trim();
+                if (linkText.length > 10 && linkText.length < 200) {
+                    title = linkText;
+                }
+
+                // 向上遍歷找到文章卡片容器
+                for (let i = 0; i < 8 && $container.length; i++) {
+                    $container = $container.parent();
+                    const containerText = $container.text().trim();
+
+                    // 找到包含更多文字的容器
+                    if (containerText.length > 100) {
+                        // 分析容器內的文字結構
+                        const lines = containerText.split('\n')
+                            .map(l => l.trim())
+                            .filter(l => l.length > 5)
+                            .filter(l => !l.match(/^\d+[天小時分]前?$/)) // 排除時間
+                            .filter(l => !l.match(/^[0-9,]+$/)) // 排除純數字
+                            .filter(l => l !== '愛心' && l !== '留言' && l !== '收藏');
+
+                        // 第一個較長的行通常是標題
+                        if (!title && lines.length > 0) {
+                            for (const line of lines) {
+                                if (line.length > 10 && line.length < 150) {
+                                    title = line;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // 其餘是摘要內容
+                        if (lines.length > 1) {
+                            const excerptLines = lines.filter(l => l !== title);
+                            content = excerptLines.join(' ').substring(0, 300);
+                        }
+
+                        if (title || content) break;
+                    }
+                }
+
+                // 只有在有標題或內容時才添加
+                if (title || content) {
+                    articles.push({
+                        url: href.startsWith('http') ? href : `https://www.dcard.tw${href}`,
+                        title: title || null,
+                        content: content || null,
+                        author_name: null,
+                        published_at: null,
+                        likes_count: null,
+                        comments_count: null,
+                        shares_count: null,
+                        external_id: postId,
+                    });
+                }
+            });
+
+            // 如果 Cheerio 方法沒有取得內容，嘗試抓取個別文章頁面
+            if (articles.length === 0 || articles.every(a => !a.title && !a.content)) {
+                logger.info(`[Dcard ZenRows] Cheerio parsing found ${articles.length} URLs but no content, fetching individual articles...`);
+
+                // 收集文章 URL
+                const articleUrls: { url: string; postId: string }[] = [];
+                const urlRegex = /href="(\/f\/[a-zA-Z0-9_-]+\/p\/(\d+))"/g;
+                let match;
+
+                while ((match = urlRegex.exec(html)) !== null) {
+                    const postId = match[2];
+                    if (!seen.has(postId)) {
+                        seen.add(postId);
+                        articleUrls.push({
+                            url: `https://www.dcard.tw${match[1]}`,
+                            postId,
+                        });
+                    }
+                }
+
+                logger.info(`[Dcard ZenRows] Found ${articleUrls.length} article URLs to fetch`);
+
+                // 限制抓取數量避免消耗太多 API 額度
+                const maxFetch = Math.min(articleUrls.length, 10);
+                const fetchedArticles: CrawledArticle[] = [];
+
+                for (let i = 0; i < maxFetch; i++) {
+                    const { url, postId } = articleUrls[i];
+                    try {
+                        const articleData = await this.fetchDcardArticleContent(url, postId);
+                        if (articleData) {
+                            fetchedArticles.push(articleData);
+                        }
+                        // 延遲避免觸發速率限制
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    } catch (e: any) {
+                        logger.warn(`[Dcard ZenRows] Failed to fetch article ${postId}: ${e.message}`);
+                    }
+                }
+
+                if (fetchedArticles.length > 0) {
+                    logger.info(`[Dcard ZenRows] Successfully fetched ${fetchedArticles.length} article contents`);
+                    return fetchedArticles;
                 }
             }
 
-            // 方法 2: 從 HTML 連結提取（備用）
-            const linkRegex = /href="(\/f\/[a-z]+\/p\/(\d+))"/g;
-            let match;
+            logger.info(`[Dcard ZenRows] Final result: ${articles.length} articles with content`);
+            return articles;
+        } catch (error: any) {
+            logger.error(`[Dcard ZenRows] Error: ${error.message}`);
+            return [];
+        }
+    }
 
-            while ((match = linkRegex.exec(html)) !== null) {
-                const postId = match[2];
-                if (seen.has(postId)) continue;
-                seen.add(postId);
+    /**
+     * 使用 ZenRows 抓取單篇 Dcard 文章內容
+     */
+    async fetchDcardArticleContent(url: string, postId: string): Promise<CrawledArticle | null> {
+        const zenrowsKey = process.env.ZENROWS_API_KEY;
+        if (!zenrowsKey) return null;
 
-                articles.push({
-                    url: `https://www.dcard.tw${match[1]}`,
-                    title: null,
-                    content: null,
+        try {
+            const apiUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsKey}&url=${encodeURIComponent(url)}&js_render=true&antibot=true&premium_proxy=true&wait=3000`;
+
+            const response = await fetch(apiUrl, {
+                signal: AbortSignal.timeout(30000),
+            });
+
+            if (!response.ok) return null;
+
+            const html = await response.text();
+            const $ = cheerio.load(html);
+
+            // 從 __NEXT_DATA__ 取得文章資料
+            const nextDataScript = $('#__NEXT_DATA__').html();
+            if (nextDataScript) {
+                try {
+                    const data = JSON.parse(nextDataScript);
+                    const post = data?.props?.pageProps?.post;
+
+                    if (post) {
+                        return {
+                            url,
+                            title: post.title || null,
+                            content: (post.content || post.excerpt || '').substring(0, 1000),
+                            author_name: post.anonymousSchool || post.school || null,
+                            published_at: post.createdAt ? new Date(post.createdAt) : null,
+                            likes_count: post.likeCount || 0,
+                            comments_count: post.commentCount || 0,
+                            shares_count: null,
+                            external_id: String(post.id || postId),
+                        };
+                    }
+                } catch (e) {
+                    // 忽略解析錯誤
+                }
+            }
+
+            // Fallback: 從 HTML 元素解析
+            const title = $('h1').first().text().trim() ||
+                         $('[class*="title"]').first().text().trim() ||
+                         $('article h1, article h2').first().text().trim();
+
+            const content = $('article').text().trim().substring(0, 1000) ||
+                           $('[class*="content"]').first().text().trim().substring(0, 1000);
+
+            if (title || content) {
+                return {
+                    url,
+                    title: title || null,
+                    content: content || null,
                     author_name: null,
                     published_at: null,
                     likes_count: null,
                     comments_count: null,
                     shares_count: null,
                     external_id: postId,
-                });
+                };
             }
 
-            logger.info(`[Dcard ZenRows] Found ${articles.length} articles from HTML links`);
-            return articles;
-        } catch (error: any) {
-            logger.error(`[Dcard ZenRows] Error: ${error.message}`);
-            return [];
+            return null;
+        } catch (error) {
+            return null;
         }
     }
 
@@ -678,9 +866,14 @@ class MonitorService {
         success: boolean;
         newMentions: number;
         articlesFound?: number;
+        articlesWithContent?: number;
+        articlesUrlOnly?: number;
         brandsChecked?: number;
         duplicateSkipped?: number;
+        keywordsChecked?: string[];
         error?: string;
+        crawlStatus?: 'success' | 'partial' | 'no_content' | 'failed' | 'no_brands';
+        statusMessage?: string;
     }> {
         const crawlLogId = await this.createCrawlLog(source.id);
 
@@ -693,8 +886,18 @@ class MonitorService {
                 // 使用 debug 層級避免日誌污染，這是預期的配置狀態而非錯誤
                 logger.debug(`No brands associated with source: ${source.name}`);
                 await this.updateCrawlLog(crawlLogId, { status: 'skipped' });
-                return { success: true, newMentions: 0, brandsChecked: 0, articlesFound: 0, error: '此來源尚未關聯任何關鍵字組' };
+                return {
+                    success: true,
+                    newMentions: 0,
+                    brandsChecked: 0,
+                    articlesFound: 0,
+                    crawlStatus: 'no_brands',
+                    statusMessage: '此來源尚未關聯任何關鍵字組，請先到「關鍵字組」新增關鍵字',
+                };
             }
+
+            // 收集所有關鍵字
+            const allKeywords = brands.flatMap(b => b.keywords);
 
             // 解析文章
             let articles: CrawledArticle[];
@@ -712,7 +915,7 @@ class MonitorService {
                         if (!process.env.ZENROWS_API_KEY) {
                             throw new Error('Dcard 需要 ZenRows 代理才能爬取。請在環境變數設定 ZENROWS_API_KEY，或停用此來源。');
                         } else {
-                            throw new Error('Dcard 爬取失敗，請檢查 ZenRows 帳戶額度或稍後再試。');
+                            throw new Error('Dcard 爬取失敗，可能原因：ZenRows 額度用完、被 Cloudflare 阻擋、或網路問題。');
                         }
                     }
                 } else {
@@ -729,7 +932,11 @@ class MonitorService {
                 articles = this.parseGenericPage(html, source.selectors);
             }
 
-            logger.info(`Found ${articles.length} articles from ${source.name}`);
+            // 統計文章內容狀態
+            const articlesWithContent = articles.filter(a => a.title || a.content).length;
+            const articlesUrlOnly = articles.length - articlesWithContent;
+
+            logger.info(`Found ${articles.length} articles from ${source.name} (${articlesWithContent} with content, ${articlesUrlOnly} URL only)`);
 
             let newMentions = 0;
             let duplicateSkipped = 0;
@@ -782,12 +989,35 @@ class MonitorService {
 
             logger.info(`Crawl completed for ${source.name}: ${newMentions} new mentions`);
 
+            // 判斷爬取狀態和訊息
+            let crawlStatus: 'success' | 'partial' | 'no_content' | 'failed' | 'no_brands' = 'success';
+            let statusMessage = '';
+
+            if (articlesWithContent === 0 && articles.length > 0) {
+                crawlStatus = 'no_content';
+                statusMessage = `抓到 ${articles.length} 篇文章的連結，但無法取得標題和內容。這可能是因為網站的防護機制。沒有內容就無法比對關鍵字。`;
+            } else if (articlesWithContent < articles.length) {
+                crawlStatus = 'partial';
+                statusMessage = `抓到 ${articles.length} 篇文章，其中 ${articlesWithContent} 篇有內容可比對，${articlesUrlOnly} 篇只有連結。`;
+            } else if (newMentions > 0) {
+                statusMessage = `成功抓取 ${articles.length} 篇文章，比對到 ${newMentions} 筆新提及！`;
+            } else if (duplicateSkipped > 0) {
+                statusMessage = `成功抓取 ${articles.length} 篇文章，但都是之前已記錄過的內容。`;
+            } else {
+                statusMessage = `成功抓取 ${articles.length} 篇文章，但沒有匹配到關鍵字「${allKeywords.slice(0, 3).join('、')}${allKeywords.length > 3 ? '...' : ''}」。`;
+            }
+
             return {
                 success: true,
                 newMentions,
                 articlesFound: articles.length,
+                articlesWithContent,
+                articlesUrlOnly,
                 brandsChecked: brands.length,
+                keywordsChecked: allKeywords,
                 duplicateSkipped,
+                crawlStatus,
+                statusMessage,
             };
 
         } catch (error: any) {
@@ -800,7 +1030,13 @@ class MonitorService {
 
             await this.updateSourceStatus(source.id, false, error.message);
 
-            return { success: false, newMentions: 0, error: error.message };
+            return {
+                success: false,
+                newMentions: 0,
+                crawlStatus: 'failed',
+                statusMessage: error.message,
+                error: error.message,
+            };
         }
     }
 

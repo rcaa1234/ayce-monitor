@@ -22,6 +22,7 @@ router.get('/sources', monitorController.getSources.bind(monitorController));
 router.post('/sources', monitorController.createSource.bind(monitorController));
 router.put('/sources/:id', monitorController.updateSource.bind(monitorController));
 router.delete('/sources/:id', monitorController.deleteSource.bind(monitorController));
+router.post('/sources/delete-by-platform', monitorController.deleteSourcesByPlatform.bind(monitorController));
 
 // ========================================
 // 提及記錄
