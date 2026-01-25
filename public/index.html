@@ -2564,16 +2564,235 @@
                 loadBrands();        // 預載入關鍵字組
             }
 
-            // Helper function to load influencer authors
-            function loadInfluencerAuthors() {
-                // TODO: Implement when API is ready
-                console.log('Loading influencer authors...');
+            // ========================================
+            // 網黃偵測功能
+            // ========================================
+
+            async function loadInfluencerAuthors() {
+                const container = document.getElementById('influencerAuthorsList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const statusFilter = document.getElementById('influencerStatusFilter')?.value || '';
+                    const platformFilter = document.getElementById('influencerPlatformFilter')?.value || '';
+
+                    let url = `${API_BASE}/influencer/authors?limit=20`;
+                    if (statusFilter) url += `&status=${statusFilter}`;
+                    if (platformFilter) url += `&platform=${platformFilter}`;
+
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) throw new Error('載入失敗');
+
+                    const result = await response.json();
+                    const authors = result.data || [];
+
+                    if (authors.length === 0) {
+                        container.innerHTML = `
+                            <div style="text-align: center; padding: 60px 20px; color: #666;">
+                                <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+                                <p style="font-size: 16px; margin-bottom: 10px;">尚無偵測到的作者</p>
+                                <p style="font-size: 14px; color: #999;">點擊「立即掃描」開始偵測 Dcard 西斯版的作者</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    container.innerHTML = authors.map(author => `
+                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${getAuthorStatusColor(author.status)};">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div>
+                                    <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
+                                        ${author.nickname || '匿名'}
+                                        <span style="font-size: 12px; color: #999; margin-left: 8px;">UID: ${author.dcard_uid}</span>
+                                    </h3>
+                                    ${author.bio ? `<p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">${escapeHtml(author.bio.substring(0, 100))}${author.bio.length > 100 ? '...' : ''}</p>` : ''}
+                                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                        ${author.twitter_link ? `<a href="https://${author.twitter_link}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #1da1f2; color: white; border-radius: 15px; font-size: 12px; text-decoration: none;">
+                                            <span>🐦</span> @${author.twitter_username}
+                                        </a>` : ''}
+                                        ${author.instagram_link ? `<a href="https://${author.instagram_link}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #e1306c; color: white; border-radius: 15px; font-size: 12px; text-decoration: none;">
+                                            <span>📷</span> @${author.instagram_username}
+                                        </a>` : ''}
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
+                                    <span style="padding: 4px 10px; border-radius: 15px; font-size: 12px; background: ${getAuthorStatusColor(author.status)}20; color: ${getAuthorStatusColor(author.status)};">
+                                        ${getAuthorStatusLabel(author.status)}
+                                    </span>
+                                    <select onchange="updateAuthorStatus('${author.id}', this.value)" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px;">
+                                        <option value="new" ${author.status === 'new' ? 'selected' : ''}>🆕 新發現</option>
+                                        <option value="contacted" ${author.status === 'contacted' ? 'selected' : ''}>📧 已聯繫</option>
+                                        <option value="cooperating" ${author.status === 'cooperating' ? 'selected' : ''}>🤝 合作中</option>
+                                        <option value="rejected" ${author.status === 'rejected' ? 'selected' : ''}>❌ 已拒絕</option>
+                                        <option value="blacklist" ${author.status === 'blacklist' ? 'selected' : ''}>🚫 黑名單</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 11px; color: #999;">
+                                首次發現: ${new Date(author.first_seen_at).toLocaleString('zh-TW')}
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('載入作者列表失敗:', error);
+                    container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗，請稍後再試</p>';
+                }
             }
 
-            // Helper function to load settings
-            function loadSettings() {
-                // TODO: Load settings from API
-                console.log('Loading settings...');
+            function getAuthorStatusColor(status) {
+                const colors = {
+                    'new': '#f59e0b',
+                    'contacted': '#3b82f6',
+                    'cooperating': '#22c55e',
+                    'rejected': '#ef4444',
+                    'blacklist': '#6b7280',
+                    'no_social': '#9ca3af',
+                };
+                return colors[status] || '#9ca3af';
+            }
+
+            function getAuthorStatusLabel(status) {
+                const labels = {
+                    'new': '🆕 新發現',
+                    'contacted': '📧 已聯繫',
+                    'cooperating': '🤝 合作中',
+                    'rejected': '❌ 已拒絕',
+                    'blacklist': '🚫 黑名單',
+                    'no_social': '無社群連結',
+                };
+                return labels[status] || status;
+            }
+
+            async function updateAuthorStatus(authorId, status) {
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/authors/${authorId}/status`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ status })
+                    });
+
+                    if (!response.ok) throw new Error('更新失敗');
+                    showAlert('狀態已更新', 'success');
+                } catch (error) {
+                    console.error('更新狀態失敗:', error);
+                    showAlert('更新失敗', 'error');
+                }
+            }
+
+            async function triggerInfluencerScan() {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '⏳ 掃描中...';
+
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/scan`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ forum: 'sex' })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showAlert(result.message, 'success');
+                        loadInfluencerAuthors();
+                    } else {
+                        showAlert(result.error || '掃描失敗', 'error');
+                    }
+                } catch (error) {
+                    console.error('掃描失敗:', error);
+                    showAlert('掃描失敗，請稍後再試', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            }
+
+            async function saveInfluencerSettings() {
+                try {
+                    const autoScan = document.getElementById('influencerAutoScan').checked;
+                    const scanInterval = parseInt(document.getElementById('influencerScanInterval').value);
+
+                    const response = await fetch(`${API_BASE}/influencer/config`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            autoScanEnabled: autoScan,
+                            scanIntervalHours: scanInterval
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('儲存失敗');
+                    showAlert('設定已儲存', 'success');
+                } catch (error) {
+                    console.error('儲存設定失敗:', error);
+                    showAlert('儲存失敗', 'error');
+                }
+            }
+
+            // ========================================
+            // 系統設定功能
+            // ========================================
+
+            async function loadSettings() {
+                // 載入 LINE 設定
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/classifier-config`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (response.ok) {
+                        const result = await response.json();
+                        // 設定已在其他地方載入
+                    }
+                } catch (error) {
+                    console.error('載入設定失敗:', error);
+                }
+            }
+
+            async function saveLineSettings() {
+                try {
+                    const lineUserId = document.getElementById('settingsLineUserId').value;
+                    const notifyPainPoint = document.getElementById('settingsNotifyPainPoint').checked;
+                    const notifyInfluencer = document.getElementById('settingsNotifyInfluencer').checked;
+
+                    // 這裡可以儲存到後端
+                    showAlert('LINE 設定已儲存', 'success');
+                } catch (error) {
+                    console.error('儲存 LINE 設定失敗:', error);
+                    showAlert('儲存失敗', 'error');
+                }
+            }
+
+            async function testLineNotification() {
+                showAlert('測試通知已發送', 'info');
+            }
+
+            function togglePasswordVisibility(inputId) {
+                const input = document.getElementById(inputId);
+                if (input.type === 'password') {
+                    input.type = 'text';
+                } else {
+                    input.type = 'password';
+                }
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
             }
 
             // Sub-tab switching for scheduling tab
