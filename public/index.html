@@ -2485,7 +2485,7 @@
                     loadInfluencerAuthors();
                 }
                 if (tabName === 'settings') {
-                    loadSettings();
+                    loadSystemSettings();
                 }
             }
 
@@ -2749,19 +2749,10 @@
             // 系統設定功能
             // ========================================
 
-            async function loadSettings() {
-                // 載入 LINE 設定
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/classifier-config`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (response.ok) {
-                        const result = await response.json();
-                        // 設定已在其他地方載入
-                    }
-                } catch (error) {
-                    console.error('載入設定失敗:', error);
-                }
+            async function loadSystemSettings() {
+                // 系統設定頁面的載入函數
+                // 目前只顯示靜態資訊，不需要從 API 載入
+                console.log('系統設定頁面已載入');
             }
 
             async function saveLineSettings() {
