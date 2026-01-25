@@ -432,21 +432,80 @@ class MonitorService {
     async fetchPttPageViaHTTP(url: string): Promise<string> {
         logger.info(`[PTT HTTP] Fetching: ${url}`);
 
-        const response = await fetch(url, {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Cookie': 'over18=1',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"Windows"',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
+                    'Upgrade-Insecure-Requests': '1',
+                },
+                signal: AbortSignal.timeout(30000), // 30 秒超時
+            });
+
+            if (!response.ok) {
+                logger.error(`[PTT HTTP] Response not OK: ${response.status} ${response.statusText}`);
+                throw new Error(`PTT 回應錯誤: ${response.status} ${response.statusText}`);
+            }
+
+            const html = await response.text();
+            logger.info(`[PTT HTTP] Got HTML, length: ${html.length}`);
+            return html;
+        } catch (error: any) {
+            logger.error(`[PTT HTTP] Fetch error: ${error.message}`);
+
+            // 如果是網路錯誤，提供更明確的訊息
+            if (error.message.includes('fetch failed') || error.message.includes('ENOTFOUND')) {
+                throw new Error('無法連線到 PTT，可能是網路問題或 PTT 封鎖了雲端 IP。建議：1) 稍後再試 2) 考慮使用 ZenRows 代理');
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * 使用 ZenRows 代理爬取 PTT（當直接請求失敗時使用）
+     */
+    async fetchPttViaZenRows(url: string): Promise<string> {
+        const zenrowsKey = process.env.ZENROWS_API_KEY;
+        if (!zenrowsKey) {
+            throw new Error('未設定 ZENROWS_API_KEY');
+        }
+
+        logger.info(`[PTT ZenRows] Fetching: ${url}`);
+
+        // PTT 需要 over18 cookie
+        const apiUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsKey}&url=${encodeURIComponent(url)}&custom_headers=true&premium_proxy=true`;
+
+        const response = await fetch(apiUrl, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'zh-TW,zh;q=0.9',
                 'Cookie': 'over18=1',
             },
+            signal: AbortSignal.timeout(30000),
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch PTT: ${response.status}`);
+            throw new Error(`ZenRows 請求失敗: ${response.status}`);
         }
 
         const html = await response.text();
-        logger.info(`[PTT HTTP] Got HTML, length: ${html.length}`);
+        logger.info(`[PTT ZenRows] Got HTML, length: ${html.length}`);
+
+        // 檢查是否被阻擋
+        if (html.includes('您已被拒絕存取') || html.length < 1000) {
+            throw new Error('PTT 拒絕存取');
+        }
+
         return html;
     }
 
@@ -923,9 +982,27 @@ class MonitorService {
                     articles = [];
                 }
             } else if (source.platform === 'ptt') {
-                // PTT: 使用 HTTP + cookie（不需要瀏覽器）
-                const html = await this.fetchPageContent(source.url, false);
-                articles = this.parsePttPage(html, source.url);
+                // PTT: 先嘗試直接 HTTP，失敗則用 ZenRows
+                try {
+                    const html = await this.fetchPageContent(source.url, false);
+                    articles = this.parsePttPage(html, source.url);
+                } catch (directError: any) {
+                    logger.warn(`[PTT] Direct fetch failed: ${directError.message}, trying ZenRows...`);
+
+                    // 嘗試用 ZenRows
+                    const zenrowsKey = process.env.ZENROWS_API_KEY;
+                    if (zenrowsKey) {
+                        try {
+                            const html = await this.fetchPttViaZenRows(source.url);
+                            articles = this.parsePttPage(html, source.url);
+                            logger.info(`[PTT] Successfully fetched via ZenRows: ${articles.length} articles`);
+                        } catch (zenrowsError: any) {
+                            throw new Error(`PTT 爬取失敗（直接連線和 ZenRows 都失敗）: ${directError.message}`);
+                        }
+                    } else {
+                        throw new Error(`PTT 爬取失敗: ${directError.message}。可設定 ZENROWS_API_KEY 使用代理。`);
+                    }
+                }
             } else {
                 // 其他平台: 一般 HTTP 請求
                 const html = await this.fetchPageContent(source.url, false);
