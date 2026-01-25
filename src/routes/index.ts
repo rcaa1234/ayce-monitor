@@ -3113,4 +3113,8 @@ router.get('/generation/stats', authenticate, async (req: Request, res: Response
 import monitorRoutes from './monitor.routes';
 router.use('/monitor', monitorRoutes);
 
+// Influencer routes (網黃偵測)
+import influencerRoutes from './influencer.routes';
+router.use('/influencer', influencerRoutes);
+
 export default router;
