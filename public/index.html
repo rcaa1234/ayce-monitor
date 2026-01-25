@@ -2077,17 +2077,23 @@
             <div id="influencerTab" class="tab-content">
                 <h2 style="margin-bottom: 20px;">🔍 網黃偵測</h2>
 
-            <!-- 功能說明 -->
-            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 16px;">📖 網黃偵測功能說明</h3>
-                <div style="font-size: 13px; opacity: 0.95;">
-                    <p style="margin: 0 0 10px 0;">自動掃描 Dcard 西斯版，偵測作者個人頁面是否有 Twitter/X 或其他社群連結。</p>
-                    <ol style="margin: 0; padding-left: 20px;">
-                        <li><strong>自動掃描</strong>：定時爬取西斯版最新文章</li>
-                        <li><strong>作者分析</strong>：進入作者頁面檢查是否有社群連結</li>
-                        <li><strong>連結偵測</strong>：識別 Twitter/X、Instagram 等社群平台連結</li>
-                        <li><strong>名單管理</strong>：建立並管理偵測到的網黃作者名單</li>
-                    </ol>
+            <!-- 統計卡片 -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 24px; font-weight: bold;" id="influencerStatTotal">0</div>
+                    <div style="font-size: 13px; opacity: 0.9;">有 Twitter 作者</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 24px; font-weight: bold;" id="influencerStatVerified">0</div>
+                    <div style="font-size: 13px; opacity: 0.9;">已驗證</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 24px; font-weight: bold;" id="influencerStatContacted">0</div>
+                    <div style="font-size: 13px; opacity: 0.9;">已聯繫</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); color: white; padding: 20px; border-radius: 12px;">
+                    <div style="font-size: 24px; font-weight: bold;" id="influencerStatCooperating">0</div>
+                    <div style="font-size: 13px; opacity: 0.9;">合作中</div>
                 </div>
             </div>
 
@@ -2113,21 +2119,25 @@
 
             <!-- 作者名單 Sub-tab -->
             <div id="influencerAuthorsTab" class="influencer-sub-content active">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <select id="influencerStatusFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <select id="influencerStatusFilter" onchange="loadInfluencerAuthors()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
                             <option value="">全部狀態</option>
                             <option value="new">🆕 新發現</option>
                             <option value="contacted">📧 已聯繫</option>
                             <option value="cooperating">🤝 合作中</option>
                             <option value="rejected">❌ 已拒絕</option>
-                            <option value="blacklist">🚫 黑名單</option>
+                            <option value="blacklisted">🚫 黑名單</option>
                         </select>
-                        <select id="influencerPlatformFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                            <option value="">全部平台</option>
-                            <option value="twitter">Twitter/X</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="other">其他</option>
+                        <select id="influencerVerifiedFilter" onchange="loadInfluencerAuthors()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="">全部驗證狀態</option>
+                            <option value="true">✓ 已驗證</option>
+                            <option value="false">⚠️ 待驗證</option>
+                        </select>
+                        <select id="influencerContactFilter" onchange="loadInfluencerAuthors()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="">全部聯繫狀態</option>
+                            <option value="true">📧 已聯繫過</option>
+                            <option value="false">- 未聯繫</option>
                         </select>
                     </div>
                     <div style="display: flex; gap: 10px;">
@@ -2137,21 +2147,32 @@
                 </div>
 
                 <div id="influencerAuthorsList" style="display: grid; gap: 15px;">
-                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                    <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
+
+                <!-- 分頁 -->
+                <div id="influencerAuthorsPagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
             </div>
 
             <!-- 來源貼文 Sub-tab -->
             <div id="influencerSourcesTab" class="influencer-sub-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">📋 來源貼文列表</h3>
+                    <button class="btn btn-secondary" onclick="loadInfluencerSourcePosts()">🔄 重新整理</button>
+                </div>
                 <div id="influencerSourcesList" style="display: grid; gap: 15px;">
-                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                    <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
             </div>
 
             <!-- 聯繫記錄 Sub-tab -->
             <div id="influencerContactsTab" class="influencer-sub-content" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0;">💼 聯繫記錄</h3>
+                    <button class="btn btn-secondary" onclick="loadInfluencerContacts()">🔄 重新整理</button>
+                </div>
                 <div id="influencerContactsList" style="display: grid; gap: 15px;">
-                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                    <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
                 </div>
             </div>
 
@@ -2165,25 +2186,29 @@
                                 <input type="checkbox" id="influencerAutoScan" style="width: 18px; height: 18px;">
                                 <span>啟用自動掃描</span>
                             </label>
-                            <p style="font-size: 12px; color: #666; margin: 5px 0 0 28px;">每小時自動掃描一次 Dcard 西斯版最新文章</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0 0 28px;">自動掃描 Dcard 西斯版最新文章</p>
                         </div>
                         <div class="form-group" style="margin-bottom: 15px;">
-                            <label style="display: block; margin-bottom: 5px;">掃描間隔（小時）</label>
-                            <input type="number" id="influencerScanInterval" value="1" min="1" max="24"
+                            <label style="display: block; margin-bottom: 5px;">掃描間隔（分鐘）</label>
+                            <input type="number" id="influencerScanInterval" value="30" min="10" max="1440"
                                 style="padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 100px;">
                         </div>
                         <button class="btn" onclick="saveInfluencerSettings()">💾 儲存設定</button>
                     </div>
 
                     <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <h3 style="margin: 0 0 15px 0; font-size: 16px;">🔗 社群平台偵測</h3>
-                        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">系統會偵測以下平台的連結：</p>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <span style="padding: 5px 12px; background: #1da1f2; color: white; border-radius: 20px; font-size: 12px;">Twitter/X</span>
-                            <span style="padding: 5px 12px; background: #e1306c; color: white; border-radius: 20px; font-size: 12px;">Instagram</span>
-                            <span style="padding: 5px 12px; background: #ff0050; color: white; border-radius: 20px; font-size: 12px;">TikTok</span>
-                            <span style="padding: 5px 12px; background: #25d366; color: white; border-radius: 20px; font-size: 12px;">WhatsApp</span>
-                            <span style="padding: 5px 12px; background: #0088cc; color: white; border-radius: 20px; font-size: 12px;">Telegram</span>
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px;">🔗 偵測模式說明</h3>
+                        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">系統偵測以下 Twitter/X 格式：</p>
+                        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+                            <div style="padding: 10px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #1da1f2;">
+                                <strong>完整連結</strong>: twitter.com/username 或 x.com/username
+                            </div>
+                            <div style="padding: 10px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #1da1f2;">
+                                <strong>純 ID 格式</strong>: 推特: username、Twitter: xxx、TW: xxx
+                            </div>
+                            <div style="padding: 10px; background: #f0f9ff; border-radius: 8px; border-left: 3px solid #1da1f2;">
+                                <strong>@mention</strong>: @username（需搭配 twitter 關鍵字）
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2542,16 +2567,18 @@
                     c.style.display = 'none';
                 });
 
-                // Show selected sub-tab
+                // Show selected sub-tab and load data
                 if (subTabName === 'authors') {
                     document.getElementById('influencerAuthorsTab').style.display = 'block';
                     loadInfluencerAuthors();
                 }
                 if (subTabName === 'sources') {
                     document.getElementById('influencerSourcesTab').style.display = 'block';
+                    loadInfluencerSourcePosts();
                 }
                 if (subTabName === 'contacts') {
                     document.getElementById('influencerContactsTab').style.display = 'block';
+                    loadInfluencerContacts();
                 }
                 if (subTabName === 'settings') {
                     document.getElementById('influencerSettingsTab').style.display = 'block';
@@ -2568,17 +2595,40 @@
             // 網黃偵測功能
             // ========================================
 
+            let influencerAuthorsPage = 0;
+            const influencerAuthorsLimit = 20;
+
+            async function loadInfluencerStats() {
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/stats`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) return;
+                    const result = await response.json();
+                    const stats = result.data || {};
+
+                    document.getElementById('influencerStatTotal').textContent = stats.withTwitter || 0;
+                    document.getElementById('influencerStatVerified').textContent = stats.twitterVerified || 0;
+                    document.getElementById('influencerStatContacted').textContent = stats.contacted || 0;
+                    document.getElementById('influencerStatCooperating').textContent = stats.cooperating || 0;
+                } catch (error) {
+                    console.error('載入統計失敗:', error);
+                }
+            }
+
             async function loadInfluencerAuthors() {
                 const container = document.getElementById('influencerAuthorsList');
                 container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
 
                 try {
                     const statusFilter = document.getElementById('influencerStatusFilter')?.value || '';
-                    const platformFilter = document.getElementById('influencerPlatformFilter')?.value || '';
+                    const verifiedFilter = document.getElementById('influencerVerifiedFilter')?.value || '';
+                    const contactFilter = document.getElementById('influencerContactFilter')?.value || '';
 
-                    let url = `${API_BASE}/influencer/authors?limit=20`;
+                    let url = `${API_BASE}/influencer/authors?limit=${influencerAuthorsLimit}&offset=${influencerAuthorsPage * influencerAuthorsLimit}`;
                     if (statusFilter) url += `&status=${statusFilter}`;
-                    if (platformFilter) url += `&platform=${platformFilter}`;
+                    if (verifiedFilter) url += `&twitterVerified=${verifiedFilter}`;
+                    if (contactFilter) url += `&hasContact=${contactFilter}`;
 
                     const response = await fetch(url, {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -2588,12 +2638,16 @@
 
                     const result = await response.json();
                     const authors = result.data || [];
+                    const total = result.total || 0;
+
+                    // 載入統計
+                    loadInfluencerStats();
 
                     if (authors.length === 0) {
                         container.innerHTML = `
                             <div style="text-align: center; padding: 60px 20px; color: #666;">
                                 <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
-                                <p style="font-size: 16px; margin-bottom: 10px;">尚無偵測到的作者</p>
+                                <p style="font-size: 16px; margin-bottom: 10px;">尚無偵測到有 Twitter 的作者</p>
                                 <p style="font-size: 14px; color: #999;">點擊「立即掃描」開始偵測 Dcard 西斯版的作者</p>
                             </div>
                         `;
@@ -2602,53 +2656,122 @@
 
                     container.innerHTML = authors.map(author => `
                         <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${getAuthorStatusColor(author.status)};">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                <div>
-                                    <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">
-                                        ${author.nickname || '匿名'}
-                                        <span style="font-size: 12px; color: #999; margin-left: 8px;">UID: ${author.dcard_uid}</span>
-                                    </h3>
-                                    ${author.bio ? `<p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">${escapeHtml(author.bio.substring(0, 100))}${author.bio.length > 100 ? '...' : ''}</p>` : ''}
-                                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                        ${author.twitter_link ? `<a href="https://${author.twitter_link}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #1da1f2; color: white; border-radius: 15px; font-size: 12px; text-decoration: none;">
-                                            <span>🐦</span> @${author.twitter_username}
-                                        </a>` : ''}
-                                        ${author.instagram_link ? `<a href="https://${author.instagram_link}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #e1306c; color: white; border-radius: 15px; font-size: 12px; text-decoration: none;">
-                                            <span>📷</span> @${author.instagram_username}
-                                        </a>` : ''}
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+                                <div style="flex: 1; min-width: 250px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                        <h3 style="margin: 0; font-size: 16px; color: #333;">
+                                            <a href="${author.dcard_url || '#'}" target="_blank" style="text-decoration: none; color: inherit;">
+                                                ${author.dcard_username || '匿名'}
+                                            </a>
+                                        </h3>
+                                        <span style="font-size: 11px; color: #999; background: #f3f4f6; padding: 2px 8px; border-radius: 10px;">
+                                            ${author.dcard_id || ''}
+                                        </span>
+                                    </div>
+
+                                    <!-- Twitter 資訊 -->
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                        ${author.twitter_id ? `
+                                            <a href="${author.twitter_url || 'https://x.com/' + author.twitter_id}" target="_blank"
+                                               style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: #1da1f2; color: white; border-radius: 15px; font-size: 13px; text-decoration: none;">
+                                                🐦 @${author.twitter_id}
+                                            </a>
+                                            <span style="font-size: 12px; padding: 3px 8px; border-radius: 10px;
+                                                ${author.twitter_verified ? 'background: #dcfce7; color: #16a34a;' : 'background: #fef3c7; color: #d97706;'}">
+                                                ${author.twitter_verified ? '✓ 已驗證' : '⚠️ 待驗證'}
+                                            </span>
+                                            ${!author.twitter_verified ? `
+                                                <button onclick="verifyAuthorTwitter('${author.id}')"
+                                                    style="padding: 3px 8px; background: #e5e7eb; border: none; border-radius: 5px; cursor: pointer; font-size: 11px;">
+                                                    驗證
+                                                </button>
+                                            ` : ''}
+                                        ` : ''}
+                                    </div>
+
+                                    <!-- 狀態資訊 -->
+                                    <div style="display: flex; gap: 15px; font-size: 12px; color: #666; flex-wrap: wrap;">
+                                        <span>📅 最後發文: ${author.last_seen_at ? formatRelativeTime(author.last_seen_at) : '未知'}</span>
+                                        <span>${author.contact_count > 0 ? '📧 已聯繫 (' + author.contact_count + '次)' : '- 未聯繫'}</span>
                                     </div>
                                 </div>
-                                <div style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end;">
-                                    <span style="padding: 4px 10px; border-radius: 15px; font-size: 12px; background: ${getAuthorStatusColor(author.status)}20; color: ${getAuthorStatusColor(author.status)};">
+
+                                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                                    <span style="padding: 4px 12px; border-radius: 15px; font-size: 12px; background: ${getAuthorStatusColor(author.status)}20; color: ${getAuthorStatusColor(author.status)}; font-weight: 500;">
                                         ${getAuthorStatusLabel(author.status)}
                                     </span>
-                                    <select onchange="updateAuthorStatus('${author.id}', this.value)" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px;">
-                                        <option value="new" ${author.status === 'new' ? 'selected' : ''}>🆕 新發現</option>
-                                        <option value="contacted" ${author.status === 'contacted' ? 'selected' : ''}>📧 已聯繫</option>
-                                        <option value="cooperating" ${author.status === 'cooperating' ? 'selected' : ''}>🤝 合作中</option>
-                                        <option value="rejected" ${author.status === 'rejected' ? 'selected' : ''}>❌ 已拒絕</option>
-                                        <option value="blacklist" ${author.status === 'blacklist' ? 'selected' : ''}>🚫 黑名單</option>
-                                    </select>
+                                    <div style="display: flex; gap: 5px;">
+                                        <select onchange="updateAuthorStatus('${author.id}', this.value)" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; cursor: pointer;">
+                                            <option value="new" ${author.status === 'new' ? 'selected' : ''}>🆕 新發現</option>
+                                            <option value="contacted" ${author.status === 'contacted' ? 'selected' : ''}>📧 已聯繫</option>
+                                            <option value="cooperating" ${author.status === 'cooperating' ? 'selected' : ''}>🤝 合作中</option>
+                                            <option value="rejected" ${author.status === 'rejected' ? 'selected' : ''}>❌ 已拒絕</option>
+                                            <option value="blacklisted" ${author.status === 'blacklisted' ? 'selected' : ''}>🚫 黑名單</option>
+                                        </select>
+                                        <button onclick="showAddContactModal('${author.id}', '${author.dcard_username || '匿名'}')"
+                                            style="padding: 6px 10px; background: #3b82f6; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">
+                                            + 聯繫
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div style="margin-top: 10px; font-size: 11px; color: #999;">
-                                首次發現: ${new Date(author.first_seen_at).toLocaleString('zh-TW')}
+                                首次發現: ${new Date(author.first_detected_at).toLocaleString('zh-TW')}
                             </div>
                         </div>
                     `).join('');
+
+                    // 分頁
+                    renderInfluencerPagination(total);
                 } catch (error) {
                     console.error('載入作者列表失敗:', error);
                     container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗，請稍後再試</p>';
                 }
             }
 
+            function renderInfluencerPagination(total) {
+                const container = document.getElementById('influencerAuthorsPagination');
+                const totalPages = Math.ceil(total / influencerAuthorsLimit);
+
+                if (totalPages <= 1) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                if (influencerAuthorsPage > 0) {
+                    html += `<button onclick="influencerAuthorsPage--; loadInfluencerAuthors();" class="btn btn-secondary btn-small">上一頁</button>`;
+                }
+                html += `<span style="padding: 8px 15px;">第 ${influencerAuthorsPage + 1} / ${totalPages} 頁</span>`;
+                if (influencerAuthorsPage < totalPages - 1) {
+                    html += `<button onclick="influencerAuthorsPage++; loadInfluencerAuthors();" class="btn btn-secondary btn-small">下一頁</button>`;
+                }
+                container.innerHTML = html;
+            }
+
+            function formatRelativeTime(dateStr) {
+                const date = new Date(dateStr);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                if (diffMins < 60) return `${diffMins} 分鐘前`;
+                if (diffHours < 24) return `${diffHours} 小時前`;
+                if (diffDays < 30) return `${diffDays} 天前`;
+                return date.toLocaleDateString('zh-TW');
+            }
+
             function getAuthorStatusColor(status) {
                 const colors = {
                     'new': '#f59e0b',
+                    'pending': '#6366f1',
                     'contacted': '#3b82f6',
+                    'negotiating': '#8b5cf6',
                     'cooperating': '#22c55e',
                     'rejected': '#ef4444',
-                    'blacklist': '#6b7280',
+                    'blacklisted': '#6b7280',
                     'no_social': '#9ca3af',
                 };
                 return colors[status] || '#9ca3af';
@@ -2657,11 +2780,13 @@
             function getAuthorStatusLabel(status) {
                 const labels = {
                     'new': '🆕 新發現',
+                    'pending': '⏳ 待處理',
                     'contacted': '📧 已聯繫',
+                    'negotiating': '💬 洽談中',
                     'cooperating': '🤝 合作中',
                     'rejected': '❌ 已拒絕',
-                    'blacklist': '🚫 黑名單',
-                    'no_social': '無社群連結',
+                    'blacklisted': '🚫 黑名單',
+                    'no_social': '無社群',
                 };
                 return labels[status] || status;
             }
@@ -2679,9 +2804,31 @@
 
                     if (!response.ok) throw new Error('更新失敗');
                     showAlert('狀態已更新', 'success');
+                    loadInfluencerStats();
                 } catch (error) {
                     console.error('更新狀態失敗:', error);
                     showAlert('更新失敗', 'error');
+                }
+            }
+
+            async function verifyAuthorTwitter(authorId) {
+                try {
+                    showAlert('驗證中...', 'info');
+                    const response = await fetch(`${API_BASE}/influencer/authors/${authorId}/verify-twitter`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert(result.message, result.data.exists ? 'success' : 'warning');
+                        loadInfluencerAuthors();
+                    } else {
+                        showAlert(result.error || '驗證失敗', 'error');
+                    }
+                } catch (error) {
+                    console.error('驗證失敗:', error);
+                    showAlert('驗證失敗', 'error');
                 }
             }
 
@@ -2711,10 +2858,232 @@
                     }
                 } catch (error) {
                     console.error('掃描失敗:', error);
-                    showAlert('掃描失敗，請稍後再試', 'error');
+                    showAlert('掃描失敗，請稀後再試', 'error');
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
+                }
+            }
+
+            // 來源貼文
+            async function loadInfluencerSourcePosts() {
+                const container = document.getElementById('influencerSourcesList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/source-posts?limit=50`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) throw new Error('載入失敗');
+
+                    const result = await response.json();
+                    const posts = result.data || [];
+
+                    if (posts.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">尚無來源貼文</p>';
+                        return;
+                    }
+
+                    container.innerHTML = posts.map(post => `
+                        <div style="background: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                                <div>
+                                    <a href="${post.post_url}" target="_blank" style="font-size: 14px; color: #1d4ed8; text-decoration: none; font-weight: 500;">
+                                        ${escapeHtml(post.post_title || '無標題')}
+                                    </a>
+                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                                        作者: ${post.author_name || '匿名'} ${post.twitter_id ? '(@' + post.twitter_id + ')' : ''}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; font-size: 12px; color: #999;">
+                                    <div>👍 ${post.likes_count || 0} · 💬 ${post.comments_count || 0}</div>
+                                    <div style="margin-top: 3px;">${formatRelativeTime(post.detected_at)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('載入來源貼文失敗:', error);
+                    container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
+                }
+            }
+
+            // 聯繫記錄
+            async function loadInfluencerContacts() {
+                const container = document.getElementById('influencerContactsList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/contacts?limit=50`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) throw new Error('載入失敗');
+
+                    const result = await response.json();
+                    const contacts = result.data || [];
+
+                    if (contacts.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">尚無聯繫記錄</p>';
+                        return;
+                    }
+
+                    container.innerHTML = contacts.map(contact => `
+                        <div style="background: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                                <div>
+                                    <div style="font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                                        ${contact.author_name || '匿名'} ${contact.twitter_id ? '(@' + contact.twitter_id + ')' : ''}
+                                    </div>
+                                    <div style="font-size: 12px; color: #666;">
+                                        📅 ${new Date(contact.contact_date).toLocaleDateString('zh-TW')} ·
+                                        ${getContactMethodLabel(contact.contact_method)}
+                                    </div>
+                                    ${contact.notes ? `<div style="font-size: 12px; color: #888; margin-top: 5px;">${escapeHtml(contact.notes)}</div>` : ''}
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                                    <span style="padding: 3px 10px; border-radius: 10px; font-size: 11px;
+                                        background: ${getContactResultColor(contact.result)}20; color: ${getContactResultColor(contact.result)};">
+                                        ${getContactResultLabel(contact.result)}
+                                    </span>
+                                    <select onchange="updateContactResult('${contact.id}', this.value)"
+                                        style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 11px;">
+                                        <option value="pending" ${contact.result === 'pending' ? 'selected' : ''}>⏳ 待回覆</option>
+                                        <option value="no_response" ${contact.result === 'no_response' ? 'selected' : ''}>😶 無回應</option>
+                                        <option value="responded" ${contact.result === 'responded' ? 'selected' : ''}>💬 已回覆</option>
+                                        <option value="interested" ${contact.result === 'interested' ? 'selected' : ''}>👍 有意願</option>
+                                        <option value="agreed" ${contact.result === 'agreed' ? 'selected' : ''}>🤝 已同意</option>
+                                        <option value="rejected" ${contact.result === 'rejected' ? 'selected' : ''}>❌ 已拒絕</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('載入聯繫記錄失敗:', error);
+                    container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
+                }
+            }
+
+            function getContactMethodLabel(method) {
+                const labels = {
+                    'twitter_dm': '🐦 Twitter DM',
+                    'dcard_msg': '💬 Dcard 私訊',
+                    'instagram_dm': '📷 IG 私訊',
+                    'email': '📧 Email',
+                    'other': '📝 其他',
+                };
+                return labels[method] || method;
+            }
+
+            function getContactResultColor(result) {
+                const colors = {
+                    'pending': '#f59e0b',
+                    'no_response': '#9ca3af',
+                    'responded': '#3b82f6',
+                    'interested': '#8b5cf6',
+                    'negotiating': '#6366f1',
+                    'agreed': '#22c55e',
+                    'rejected': '#ef4444',
+                };
+                return colors[result] || '#9ca3af';
+            }
+
+            function getContactResultLabel(result) {
+                const labels = {
+                    'pending': '⏳ 待回覆',
+                    'no_response': '😶 無回應',
+                    'responded': '💬 已回覆',
+                    'interested': '👍 有意願',
+                    'negotiating': '💬 洽談中',
+                    'agreed': '🤝 已同意',
+                    'rejected': '❌ 已拒絕',
+                };
+                return labels[result] || result;
+            }
+
+            async function updateContactResult(contactId, result) {
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/contacts/${contactId}/result`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ result })
+                    });
+
+                    if (!response.ok) throw new Error('更新失敗');
+                    showAlert('狀態已更新', 'success');
+                    loadInfluencerStats();
+                } catch (error) {
+                    console.error('更新失敗:', error);
+                    showAlert('更新失敗', 'error');
+                }
+            }
+
+            function showAddContactModal(authorId, authorName) {
+                const modal = document.createElement('div');
+                modal.id = 'addContactModal';
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+                modal.innerHTML = `
+                    <div style="background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px;">
+                        <h3 style="margin: 0 0 20px 0;">📧 新增聯繫記錄</h3>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">作者: ${authorName}</p>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">聯繫日期</label>
+                            <input type="date" id="contactDate" value="${new Date().toISOString().split('T')[0]}"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">聯繫方式</label>
+                            <select id="contactMethod" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                <option value="twitter_dm">🐦 Twitter DM</option>
+                                <option value="dcard_msg">💬 Dcard 私訊</option>
+                                <option value="other">📝 其他</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 13px;">備註（選填）</label>
+                            <textarea id="contactNotes" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; resize: none;"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button onclick="document.getElementById('addContactModal').remove()" class="btn btn-secondary">取消</button>
+                            <button onclick="submitAddContact('${authorId}')" class="btn">儲存</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function submitAddContact(authorId) {
+                const contactDate = document.getElementById('contactDate').value;
+                const contactMethod = document.getElementById('contactMethod').value;
+                const notes = document.getElementById('contactNotes').value;
+
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/contacts`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            authorId,
+                            contactDate,
+                            contactMethod,
+                            notes
+                        })
+                    });
+
+                    if (!response.ok) throw new Error('新增失敗');
+
+                    document.getElementById('addContactModal').remove();
+                    showAlert('聯繫記錄已新增', 'success');
+                    loadInfluencerAuthors();
+                    loadInfluencerStats();
+                } catch (error) {
+                    console.error('新增聯繫記錄失敗:', error);
+                    showAlert('新增失敗', 'error');
                 }
             }
 
@@ -2730,8 +3099,8 @@
                             'Authorization': `Bearer ${token}`
                         },
                         body: JSON.stringify({
-                            autoScanEnabled: autoScan,
-                            scanIntervalHours: scanInterval
+                            enabled: autoScan,
+                            checkIntervalMinutes: scanInterval
                         })
                     });
 

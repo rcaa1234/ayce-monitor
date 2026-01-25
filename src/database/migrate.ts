@@ -1337,6 +1337,9 @@ const migrations = [
     INDEX idx_setting_key (setting_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `,
+
+  // Migration 64: 新增 Twitter 驗證時間欄位
+  `ALTER TABLE influencer_authors ADD COLUMN twitter_verified_at DATETIME NULL COMMENT 'Twitter ID 驗證時間' AFTER twitter_verified`,
 ];
 
 async function runMigrations() {

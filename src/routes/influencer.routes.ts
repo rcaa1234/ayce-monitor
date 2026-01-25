@@ -17,7 +17,9 @@ router.put('/config', influencerController.updateConfig.bind(influencerControlle
 // 作者管理
 // ========================================
 router.get('/authors', influencerController.getAuthors.bind(influencerController));
+router.get('/authors/:id', influencerController.getAuthorById.bind(influencerController));
 router.put('/authors/:id/status', influencerController.updateAuthorStatus.bind(influencerController));
+router.post('/authors/:id/verify-twitter', influencerController.verifyAuthorTwitter.bind(influencerController));
 
 // ========================================
 // 來源貼文
@@ -29,7 +31,7 @@ router.get('/source-posts', influencerController.getSourcePosts.bind(influencerC
 // ========================================
 router.get('/contacts', influencerController.getContacts.bind(influencerController));
 router.post('/contacts', influencerController.addContact.bind(influencerController));
-router.put('/contacts/:id/response', influencerController.updateContactResponse.bind(influencerController));
+router.put('/contacts/:id/result', influencerController.updateContactResult.bind(influencerController));
 
 // ========================================
 // 掃描操作
