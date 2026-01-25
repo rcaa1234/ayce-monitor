@@ -1148,6 +1148,182 @@ const migrations = [
   // 修復 scheduler.ts 中設定 status='EXPIRED' 導致的 Data truncated 錯誤
   `ALTER TABLE daily_auto_schedule
    MODIFY COLUMN status ENUM('PENDING', 'GENERATED', 'APPROVED', 'PUBLISHING', 'POSTED', 'FAILED', 'CANCELLED', 'EXPIRED') DEFAULT 'PENDING'`,
+
+  // ========================================
+  // Migration 58-60: 網黃偵測系統
+  // ========================================
+
+  // Migration 58: 網黃作者表 influencer_authors
+  `
+  CREATE TABLE IF NOT EXISTS influencer_authors (
+    id CHAR(36) PRIMARY KEY,
+
+    -- Dcard 資訊
+    dcard_id VARCHAR(100) NULL COMMENT 'Dcard 用戶 ID',
+    dcard_username VARCHAR(100) NULL COMMENT 'Dcard 用戶名稱',
+    dcard_url VARCHAR(500) NULL COMMENT 'Dcard 個人頁面 URL',
+    dcard_avatar_url VARCHAR(500) NULL COMMENT 'Dcard 頭像',
+    dcard_bio TEXT NULL COMMENT 'Dcard 自我介紹原文',
+    dcard_school VARCHAR(100) NULL COMMENT 'Dcard 學校標籤',
+    dcard_post_count INT DEFAULT 0 COMMENT 'Dcard 文章數',
+
+    -- Twitter 資訊
+    twitter_id VARCHAR(100) NULL COMMENT 'Twitter ID/用戶名',
+    twitter_url VARCHAR(500) NULL COMMENT 'Twitter 連結',
+    twitter_display_name VARCHAR(100) NULL COMMENT 'Twitter 顯示名稱',
+    twitter_followers INT NULL COMMENT 'Twitter 粉絲數',
+    twitter_verified BOOLEAN DEFAULT FALSE COMMENT 'Twitter 是否認證',
+
+    -- 其他社群連結
+    instagram_id VARCHAR(100) NULL COMMENT 'Instagram ID',
+    instagram_url VARCHAR(500) NULL,
+    telegram_id VARCHAR(100) NULL COMMENT 'Telegram ID',
+    telegram_url VARCHAR(500) NULL,
+    other_links JSON NULL COMMENT '其他連結',
+
+    -- 偵測資訊
+    first_detected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '首次偵測時間',
+    last_seen_at DATETIME NULL COMMENT '最後看到時間',
+    detection_count INT DEFAULT 1 COMMENT '偵測到次數',
+    source_forum VARCHAR(50) DEFAULT 'sex' COMMENT '來源看板',
+
+    -- 合作狀態
+    status ENUM('new', 'pending', 'contacted', 'negotiating', 'cooperating', 'rejected', 'blacklisted') DEFAULT 'new' COMMENT '狀態',
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium' COMMENT '優先度',
+
+    -- 評估資訊
+    estimated_followers INT NULL COMMENT '估計總粉絲數',
+    content_style VARCHAR(100) NULL COMMENT '內容風格',
+    cooperation_potential ENUM('low', 'medium', 'high') NULL COMMENT '合作潛力',
+    notes TEXT NULL COMMENT '備註',
+    tags JSON NULL COMMENT '標籤',
+
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by CHAR(36) NULL,
+
+    UNIQUE KEY uk_dcard_id (dcard_id),
+    INDEX idx_twitter_id (twitter_id),
+    INDEX idx_status (status),
+    INDEX idx_priority (priority),
+    INDEX idx_first_detected (first_detected_at DESC),
+    INDEX idx_last_seen (last_seen_at DESC)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='網黃作者資料';
+  `,
+
+  // Migration 59: 合作記錄表 influencer_contacts
+  `
+  CREATE TABLE IF NOT EXISTS influencer_contacts (
+    id CHAR(36) PRIMARY KEY,
+    author_id CHAR(36) NOT NULL COMMENT '作者 ID',
+
+    -- 聯絡資訊
+    contact_date DATETIME NOT NULL COMMENT '聯絡日期',
+    contact_method ENUM('twitter_dm', 'instagram_dm', 'telegram', 'email', 'dcard_msg', 'other') DEFAULT 'twitter_dm' COMMENT '聯絡方式',
+    contact_platform VARCHAR(50) NULL COMMENT '聯絡平台',
+
+    -- 聯絡內容
+    subject VARCHAR(200) NULL COMMENT '主旨',
+    message TEXT NULL COMMENT '聯絡內容',
+
+    -- 結果
+    result ENUM('no_response', 'responded', 'interested', 'negotiating', 'agreed', 'rejected', 'pending') DEFAULT 'pending' COMMENT '結果',
+    response_content TEXT NULL COMMENT '回覆內容',
+    response_date DATETIME NULL COMMENT '回覆日期',
+
+    -- 後續
+    next_action VARCHAR(200) NULL COMMENT '下一步行動',
+    next_action_date DATETIME NULL COMMENT '下一步日期',
+    follow_up_count INT DEFAULT 0 COMMENT '追蹤次數',
+
+    -- 備註
+    notes TEXT NULL COMMENT '備註',
+
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by CHAR(36) NULL,
+
+    FOREIGN KEY (author_id) REFERENCES influencer_authors(id) ON DELETE CASCADE,
+    INDEX idx_author (author_id, contact_date DESC),
+    INDEX idx_result (result),
+    INDEX idx_next_action (next_action_date)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='網黃聯絡/合作記錄';
+  `,
+
+  // Migration 60: 偵測來源文章表 influencer_source_posts
+  `
+  CREATE TABLE IF NOT EXISTS influencer_source_posts (
+    id CHAR(36) PRIMARY KEY,
+    author_id CHAR(36) NOT NULL COMMENT '作者 ID',
+
+    -- 文章資訊
+    post_id VARCHAR(100) NOT NULL COMMENT 'Dcard 文章 ID',
+    post_url VARCHAR(500) NOT NULL COMMENT '文章連結',
+    post_title VARCHAR(500) NULL COMMENT '文章標題',
+    post_excerpt TEXT NULL COMMENT '文章摘要',
+    post_category VARCHAR(50) NULL COMMENT '文章分類',
+
+    -- 互動數據
+    likes_count INT DEFAULT 0,
+    comments_count INT DEFAULT 0,
+
+    -- 偵測資訊
+    detected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '偵測時間',
+    detection_source ENUM('hot', 'latest', 'manual') DEFAULT 'latest' COMMENT '偵測來源',
+
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_post_id (post_id),
+    FOREIGN KEY (author_id) REFERENCES influencer_authors(id) ON DELETE CASCADE,
+    INDEX idx_author (author_id, detected_at DESC),
+    INDEX idx_detected (detected_at DESC)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='網黃偵測來源文章';
+  `,
+
+  // Migration 61: 偵測設定表 influencer_detection_config
+  `
+  CREATE TABLE IF NOT EXISTS influencer_detection_config (
+    id CHAR(36) PRIMARY KEY,
+
+    -- 偵測設定
+    enabled BOOLEAN DEFAULT TRUE COMMENT '是否啟用自動偵測',
+    detection_source ENUM('hot', 'latest', 'both') DEFAULT 'latest' COMMENT '偵測來源',
+    check_interval_minutes INT DEFAULT 30 COMMENT '檢查間隔（分鐘）',
+    max_posts_per_check INT DEFAULT 20 COMMENT '每次最多檢查幾篇',
+
+    -- 目標看板
+    target_forums JSON DEFAULT ('["sex"]') COMMENT '目標看板列表',
+
+    -- 過濾設定
+    min_likes INT DEFAULT 0 COMMENT '最低讚數門檻',
+    keyword_filters JSON NULL COMMENT '關鍵字過濾',
+    exclude_keywords JSON NULL COMMENT '排除關鍵字',
+
+    -- Twitter 偵測設定
+    twitter_patterns JSON DEFAULT ('["twitter.com", "x.com", "@"]') COMMENT 'Twitter 偵測模式',
+
+    -- 通知設定
+    notify_on_new BOOLEAN DEFAULT TRUE COMMENT '發現新作者時通知',
+    notify_line_user_id VARCHAR(100) NULL COMMENT 'LINE 通知接收者',
+
+    -- 上次執行
+    last_check_at DATETIME NULL COMMENT '上次檢查時間',
+    last_check_result JSON NULL COMMENT '上次檢查結果',
+
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='網黃偵測設定';
+  `,
+
+  // Migration 62: 插入預設偵測設定
+  `
+  INSERT IGNORE INTO influencer_detection_config (id, enabled, detection_source, check_interval_minutes)
+  VALUES (UUID(), TRUE, 'latest', 30);
+  `,
 ];
 
 async function runMigrations() {

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Threads 半自動發文系統 - 管理介面</title>
+    <title>品牌監控中心 - 管理介面</title>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
@@ -843,8 +843,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>🚀 Threads 半自動發文系統</h1>
-            <p>AI 驅動的內容生成與發布管理平台</p>
+            <h1>🎯 品牌監控中心</h1>
+            <p>聲量監控 | 網黃偵測 | Threads 自動發文</p>
             <div id="userInfo" class="user-info">
                 <p><strong>使用者:</strong> <span id="userName"></span></p>
                 <p><strong>Email:</strong> <span id="userEmail"></span></p>
@@ -874,11 +874,10 @@
         <div id="dashboard" class="dashboard">
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('overview')">📊 總覽</button>
-                <button class="tab" onclick="switchTab('scheduling')">📅 發文排程</button>
-                <button class="tab" onclick="switchTab('templates')">✨ 提示詞設定</button>
-                <button class="tab" onclick="switchTab('accounts')">⚙️ 帳號管理</button>
-                <button class="tab" onclick="switchTab('monitor')">🔔 聲量監控</button>
+                <button class="tab active" onclick="switchTab('monitor')">📊 聲量監控</button>
+                <button class="tab" onclick="switchTab('influencer')">🔍 網黃偵測</button>
+                <button class="tab" onclick="switchTab('threads')">🤖 Threads Bot</button>
+                <button class="tab" onclick="switchTab('settings')">⚙️ 系統設定</button>
             </div>
 
             <!-- Alert Area -->
@@ -891,7 +890,34 @@
             </div>
 
             <!-- Overview Tab -->
-            <div id="overviewTab" class="tab-content active">
+            <!-- ========================================== -->
+            <!-- Threads Bot Section -->
+            <!-- ========================================== -->
+            <div id="threadsTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">🤖 Threads Bot</h2>
+
+                <!-- Threads Sub-tabs -->
+                <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
+                    <button class="threads-sub-tab active" onclick="switchThreadsSubTab('overview')"
+                        style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                        📊 總覽
+                    </button>
+                    <button class="threads-sub-tab" onclick="switchThreadsSubTab('scheduling')"
+                        style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                        📅 發文排程
+                    </button>
+                    <button class="threads-sub-tab" onclick="switchThreadsSubTab('templates')"
+                        style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                        ✨ 提示詞設定
+                    </button>
+                    <button class="threads-sub-tab" onclick="switchThreadsSubTab('accounts')"
+                        style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                        👤 帳號管理
+                    </button>
+                </div>
+
+                <!-- Threads Overview Sub-tab -->
+                <div id="threadsOverviewSubTab" class="threads-sub-content active">
                 <!-- System Overview -->
                 <div style="margin-bottom: 30px;">
                     <h2 style="margin-bottom: 20px;">系統總覽</h2>
@@ -1171,10 +1197,11 @@
                 </div>
 
                 <div id="postsGrid" class="posts-grid"></div>
-            </div>
+                </div>
+                <!-- End of threadsOverviewSubTab -->
 
-            <!-- Scheduling Tab (with sub-tabs) -->
-            <div id="schedulingTab" class="tab-content">
+                <!-- Threads Scheduling Sub-tab -->
+                <div id="threadsSchedulingSubTab" class="threads-sub-content" style="display: none;">
                 <h2 style="margin-bottom: 20px;">發文排程管理</h2>
 
                 <!-- Internal Sub-tabs -->
@@ -1325,12 +1352,12 @@
                         <div id="schedule-history-container"></div>
                     </div>
                 </div>
-            </div>
+                </div>
+                <!-- End of threadsSchedulingSubTab -->
 
-
-            <!-- Threads Accounts Tab -->
-            <div id="accountsTab" class="tab-content">
-                <h2 style="margin-bottom: 20px;">帳號管理</h2>
+                <!-- Threads Accounts Sub-tab -->
+                <div id="threadsAccountsSubTab" class="threads-sub-content" style="display: none;">
+                <h3 style="margin-bottom: 20px;">帳號管理</h3>
 
                 <!-- AI 發文設定 -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
@@ -1466,11 +1493,11 @@
                 <div id="pendingPostsList" style="display: grid; gap: 15px;">
                     <p style="text-align: center; color: #999;">載入中...</p>
                 </div>
-            </div>
-        </div>
+                </div>
+                <!-- End of threadsAccountsSubTab -->
 
-        <!-- Prompt Settings Tab (原模板設定) -->
-        <div id="templatesTab" class="tab-content">
+                <!-- Threads Templates Sub-tab (提示詞設定) -->
+                <div id="threadsTemplatesSubTab" class="threads-sub-content" style="display: none;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
                 <!-- 左側：提示詞編輯區 -->
                 <div
@@ -1609,12 +1636,17 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+                </div>
+                <!-- End of threadsTemplatesSubTab -->
 
-        <!-- Monitor Tab (聲量監控) -->
-        <div id="monitorTab" class="tab-content">
-            <h2 style="margin-bottom: 20px;">🔔 聲量監控</h2>
+            </div>
+            <!-- End of threadsTab -->
+
+        <!-- ========================================== -->
+        <!-- Monitor Tab (聲量監控) - Now first/active -->
+        <!-- ========================================== -->
+        <div id="monitorTab" class="tab-content active">
+            <h2 style="margin-bottom: 20px;">📊 聲量監控</h2>
 
             <!-- Monitor Sub-tabs -->
             <!-- 監控功能總覽 -->
@@ -1658,8 +1690,12 @@
             </div>
 
             <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
-                <button class="monitor-sub-tab active" onclick="switchMonitorTab('mentions')"
+                <button class="monitor-sub-tab active" onclick="switchMonitorTab('stats')"
                     style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    📊 聲量統計
+                </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('mentions')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     📋 提及列表
                 </button>
                 <button class="monitor-sub-tab" onclick="switchMonitorTab('brands')"
@@ -1670,14 +1706,10 @@
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     🌐 來源管理
                 </button>
-                <button class="monitor-sub-tab" onclick="switchMonitorTab('stats')"
-                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    📊 聲量統計
-                </button>
             </div>
 
             <!-- Mentions Sub-tab -->
-            <div id="monitorMentionsTab" class="sub-tab-content active">
+            <div id="monitorMentionsTab" class="sub-tab-content" style="display: none;">
                 <!-- 頁面說明 -->
                 <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #1e40af;">
                     <strong>📋 提及列表</strong>：顯示所有匹配關鍵字的文章，可逐篇閱讀、標記已讀、查看分類。這是你處理每筆提及的工作台。
@@ -1949,7 +1981,7 @@
 
 
             <!-- Stats Sub-tab -->
-            <div id="monitorStatsTab" class="sub-tab-content" style="display: none;">
+            <div id="monitorStatsTab" class="sub-tab-content active">
                 <!-- 頁面說明 -->
                 <div style="background: #fdf4ff; border-left: 4px solid #a855f7; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #6b21a8;">
                     <strong>📊 聲量統計</strong>：彙總所有提及的數據分析。看哪個關鍵字組被提及最多、哪個來源最活躍，以及爬取日誌和 Google 趨勢。
@@ -2035,6 +2067,214 @@
                     </div>
                     <div id="dailyTrendsList" style="display: grid; gap: 10px;">
                         <p style="color: #999; text-align: center; padding: 20px 0;">按下「重新整理」載入即時熱門搜尋</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- Influencer Detection Tab (網黃偵測) -->
+        <!-- ========================================== -->
+        <div id="influencerTab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">🔍 網黃偵測</h2>
+
+            <!-- 功能說明 -->
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 16px;">📖 網黃偵測功能說明</h3>
+                <div style="font-size: 13px; opacity: 0.95;">
+                    <p style="margin: 0 0 10px 0;">自動掃描 Dcard 西斯版，偵測作者個人頁面是否有 Twitter/X 或其他社群連結。</p>
+                    <ol style="margin: 0; padding-left: 20px;">
+                        <li><strong>自動掃描</strong>：定時爬取西斯版最新文章</li>
+                        <li><strong>作者分析</strong>：進入作者頁面檢查是否有社群連結</li>
+                        <li><strong>連結偵測</strong>：識別 Twitter/X、Instagram 等社群平台連結</li>
+                        <li><strong>名單管理</strong>：建立並管理偵測到的網黃作者名單</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- 網黃偵測子分頁 -->
+            <div style="display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; overflow-x: auto;">
+                <button class="influencer-sub-tab active" onclick="switchInfluencerSubTab('authors')"
+                    style="padding: 8px 12px; border: none; background: #f59e0b; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    👤 作者名單
+                </button>
+                <button class="influencer-sub-tab" onclick="switchInfluencerSubTab('sources')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    📋 來源貼文
+                </button>
+                <button class="influencer-sub-tab" onclick="switchInfluencerSubTab('contacts')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    💼 聯繫記錄
+                </button>
+                <button class="influencer-sub-tab" onclick="switchInfluencerSubTab('settings')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    ⚙️ 偵測設定
+                </button>
+            </div>
+
+            <!-- 作者名單 Sub-tab -->
+            <div id="influencerAuthorsTab" class="influencer-sub-content active">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="influencerStatusFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="">全部狀態</option>
+                            <option value="new">🆕 新發現</option>
+                            <option value="contacted">📧 已聯繫</option>
+                            <option value="cooperating">🤝 合作中</option>
+                            <option value="rejected">❌ 已拒絕</option>
+                            <option value="blacklist">🚫 黑名單</option>
+                        </select>
+                        <select id="influencerPlatformFilter" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="">全部平台</option>
+                            <option value="twitter">Twitter/X</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="other">其他</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-success" onclick="triggerInfluencerScan()">🔍 立即掃描</button>
+                        <button class="btn btn-secondary" onclick="loadInfluencerAuthors()">🔄 重新整理</button>
+                    </div>
+                </div>
+
+                <div id="influencerAuthorsList" style="display: grid; gap: 15px;">
+                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                </div>
+            </div>
+
+            <!-- 來源貼文 Sub-tab -->
+            <div id="influencerSourcesTab" class="influencer-sub-content" style="display: none;">
+                <div id="influencerSourcesList" style="display: grid; gap: 15px;">
+                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                </div>
+            </div>
+
+            <!-- 聯繫記錄 Sub-tab -->
+            <div id="influencerContactsTab" class="influencer-sub-content" style="display: none;">
+                <div id="influencerContactsList" style="display: grid; gap: 15px;">
+                    <p style="text-align: center; color: #999; padding: 40px 0;">功能開發中，敬請期待...</p>
+                </div>
+            </div>
+
+            <!-- 偵測設定 Sub-tab -->
+            <div id="influencerSettingsTab" class="influencer-sub-content" style="display: none;">
+                <div style="max-width: 600px;">
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px;">🔄 自動掃描設定</h3>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="influencerAutoScan" style="width: 18px; height: 18px;">
+                                <span>啟用自動掃描</span>
+                            </label>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0 0 28px;">每小時自動掃描一次 Dcard 西斯版最新文章</p>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px;">掃描間隔（小時）</label>
+                            <input type="number" id="influencerScanInterval" value="1" min="1" max="24"
+                                style="padding: 10px; border: 1px solid #ddd; border-radius: 8px; width: 100px;">
+                        </div>
+                        <button class="btn" onclick="saveInfluencerSettings()">💾 儲存設定</button>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <h3 style="margin: 0 0 15px 0; font-size: 16px;">🔗 社群平台偵測</h3>
+                        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">系統會偵測以下平台的連結：</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <span style="padding: 5px 12px; background: #1da1f2; color: white; border-radius: 20px; font-size: 12px;">Twitter/X</span>
+                            <span style="padding: 5px 12px; background: #e1306c; color: white; border-radius: 20px; font-size: 12px;">Instagram</span>
+                            <span style="padding: 5px 12px; background: #ff0050; color: white; border-radius: 20px; font-size: 12px;">TikTok</span>
+                            <span style="padding: 5px 12px; background: #25d366; color: white; border-radius: 20px; font-size: 12px;">WhatsApp</span>
+                            <span style="padding: 5px 12px; background: #0088cc; color: white; border-radius: 20px; font-size: 12px;">Telegram</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- System Settings Tab (系統設定) -->
+        <!-- ========================================== -->
+        <div id="settingsTab" class="tab-content">
+            <h2 style="margin-bottom: 20px;">⚙️ 系統設定</h2>
+
+            <!-- LINE 通知設定 -->
+            <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #00c300;">💬 LINE 通知設定</h3>
+                <p style="color: #666; margin-bottom: 20px; font-size: 14px;">設定 LINE 通知，當發現產品痛點或新網黃時自動推送通知。</p>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-group">
+                        <label>LINE User ID</label>
+                        <input type="text" id="settingsLineUserId" placeholder="請輸入 LINE User ID"
+                            style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+                        <small style="color: #666;">發送「/myid」給 LINE Bot 即可取得 ID</small>
+                    </div>
+                    <div class="form-group">
+                        <label>通知設定</label>
+                        <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 5px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="settingsNotifyPainPoint" checked style="width: 16px; height: 16px;">
+                                <span>產品痛點通知</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="settingsNotifyInfluencer" checked style="width: 16px; height: 16px;">
+                                <span>新網黃偵測通知</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button class="btn" onclick="saveLineSettings()">💾 儲存設定</button>
+                    <button class="btn btn-secondary" onclick="testLineNotification()">📨 測試通知</button>
+                </div>
+            </div>
+
+            <!-- API 金鑰設定 -->
+            <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 25px;">
+                <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #374151;">🔑 API 金鑰設定</h3>
+                <p style="color: #666; margin-bottom: 20px; font-size: 14px;">管理系統使用的 API 金鑰。</p>
+
+                <div style="display: grid; gap: 20px;">
+                    <div class="form-group">
+                        <label>ZenRows API Key（用於爬取 Dcard）</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="settingsZenrowsKey" placeholder="輸入 ZenRows API Key"
+                                style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+                            <button class="btn btn-secondary" onclick="togglePasswordVisibility('settingsZenrowsKey')">👁️</button>
+                        </div>
+                        <small style="color: #666;">從環境變數讀取，此處僅供查看狀態</small>
+                    </div>
+                    <div class="form-group">
+                        <label>ScrapingBee API Key（備用爬蟲）</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="settingsScrapingBeeKey" placeholder="輸入 ScrapingBee API Key"
+                                style="flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+                            <button class="btn btn-secondary" onclick="togglePasswordVisibility('settingsScrapingBeeKey')">👁️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系統資訊 -->
+            <div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #374151;">ℹ️ 系統資訊</h3>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; font-size: 14px;">
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <span style="color: #666;">版本</span>
+                        <div style="font-weight: bold; margin-top: 5px;">1.0.0</div>
+                    </div>
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <span style="color: #666;">最後更新</span>
+                        <div style="font-weight: bold; margin-top: 5px;">2025-01-25</div>
+                    </div>
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <span style="color: #666;">資料庫狀態</span>
+                        <div style="font-weight: bold; margin-top: 5px; color: #22c55e;">✓ 正常</div>
+                    </div>
+                    <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                        <span style="color: #666;">爬蟲狀態</span>
+                        <div style="font-weight: bold; margin-top: 5px; color: #22c55e;">✓ 運作中</div>
                     </div>
                 </div>
             </div>
@@ -2218,8 +2458,8 @@
                     document.getElementById('userRoles').textContent = user.roles.join(', ');
                 }
 
-                loadOverview();
-                loadPosts();
+                // 預設載入聲量監控資料（第一個 tab）
+                loadMonitorData();
             }
 
             // Tab switching
@@ -2231,23 +2471,109 @@
 
                 document.getElementById(tabName + 'Tab').classList.add('active');
 
-                if (tabName === 'overview') loadOverview();
-                if (tabName === 'posts') loadPosts();
-                if (tabName === 'scheduling') {
+                // Load data based on tab
+                if (tabName === 'monitor') {
+                    loadMonitorData();
+                }
+                if (tabName === 'threads') {
+                    loadOverview();
+                    loadPosts();
+                }
+                if (tabName === 'influencer') {
+                    loadInfluencerAuthors();
+                }
+                if (tabName === 'settings') {
+                    loadSettings();
+                }
+            }
+
+            // Threads sub-tab switching
+            function switchThreadsSubTab(subTabName) {
+                // Update sub-tab buttons
+                document.querySelectorAll('.threads-sub-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#333';
+                });
+                event.target.classList.add('active');
+                event.target.style.background = '#667eea';
+                event.target.style.color = 'white';
+
+                // Hide all sub-tab content
+                document.querySelectorAll('.threads-sub-content').forEach(c => {
+                    c.style.display = 'none';
+                });
+
+                // Show selected sub-tab
+                if (subTabName === 'overview') {
+                    document.getElementById('threadsOverviewSubTab').style.display = 'block';
+                    loadOverview();
+                }
+                if (subTabName === 'scheduling') {
+                    document.getElementById('threadsSchedulingSubTab').style.display = 'block';
                     loadScheduling();
                 }
-                if (tabName === 'templates') {
+                if (subTabName === 'templates') {
+                    document.getElementById('threadsTemplatesSubTab').style.display = 'block';
                     loadTemplates();
                 }
-                if (tabName === 'accounts') {
+                if (subTabName === 'accounts') {
+                    document.getElementById('threadsAccountsSubTab').style.display = 'block';
                     loadThreadsAccountsList();
                     loadThreadsAccountsForDropdowns();
                     loadUCBConfig();
                 }
-                if (tabName === 'monitor') {
-                    loadMentions();
-                    loadBrands();
+            }
+
+            // Influencer sub-tab switching
+            function switchInfluencerSubTab(subTabName) {
+                // Update sub-tab buttons
+                document.querySelectorAll('.influencer-sub-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.style.background = '#e5e7eb';
+                    btn.style.color = '#333';
+                });
+                event.target.classList.add('active');
+                event.target.style.background = '#f59e0b';
+                event.target.style.color = 'white';
+
+                // Hide all sub-tab content
+                document.querySelectorAll('.influencer-sub-content').forEach(c => {
+                    c.style.display = 'none';
+                });
+
+                // Show selected sub-tab
+                if (subTabName === 'authors') {
+                    document.getElementById('influencerAuthorsTab').style.display = 'block';
+                    loadInfluencerAuthors();
                 }
+                if (subTabName === 'sources') {
+                    document.getElementById('influencerSourcesTab').style.display = 'block';
+                }
+                if (subTabName === 'contacts') {
+                    document.getElementById('influencerContactsTab').style.display = 'block';
+                }
+                if (subTabName === 'settings') {
+                    document.getElementById('influencerSettingsTab').style.display = 'block';
+                }
+            }
+
+            // Helper function to load monitor data
+            function loadMonitorData() {
+                loadMonitorStats();  // 載入聲量統計（預設子分頁）
+                loadBrands();        // 預載入關鍵字組
+            }
+
+            // Helper function to load influencer authors
+            function loadInfluencerAuthors() {
+                // TODO: Implement when API is ready
+                console.log('Loading influencer authors...');
+            }
+
+            // Helper function to load settings
+            function loadSettings() {
+                // TODO: Load settings from API
+                console.log('Loading settings...');
             }
 
             // Sub-tab switching for scheduling tab
@@ -5961,7 +6287,7 @@
             // 聲量監控功能
             // ========================================
 
-            let currentMonitorTab = 'mentions';
+            let currentMonitorTab = 'stats';
 
             // 切換監控功能總覽展開/收起
             function toggleMonitorOverview() {
