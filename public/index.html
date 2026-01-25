@@ -1174,31 +1174,29 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Posts Management Section -->
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px;">貼文管理</h3>
+                    <div class="filter-bar">
+                        <select id="filterStatus" onchange="loadPosts()">
+                            <option value="">全部狀態</option>
+                            <option value="DRAFT">草稿</option>
+                            <option value="GENERATING">產生中</option>
+                            <option value="PENDING_REVIEW">待審核</option>
+                            <option value="APPROVED">已核准</option>
+                            <option value="POSTED">已發布</option>
+                            <option value="FAILED">失敗</option>
+                        </select>
+                        <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
+                        <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
+                        <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn"
+                            style="display: none;">🗑️ 批次刪除</button>
+                    </div>
+                    <div id="postsGrid" class="posts-grid"></div>
+                </div>
             </div>
-
-            <!-- Posts Tab -->
-            <div id="postsTab" class="tab-content">
-                <h2 style="margin-bottom: 20px;">貼文管理</h2>
-
-                <div class="filter-bar">
-                    <select id="filterStatus" onchange="loadPosts()">
-                        <option value="">全部狀態</option>
-                        <option value="DRAFT">草稿</option>
-                        <option value="GENERATING">產生中</option>
-                        <option value="PENDING_REVIEW">待審核</option>
-                        <option value="APPROVED">已核准</option>
-                        <option value="POSTED">已發布</option>
-                        <option value="FAILED">失敗</option>
-                    </select>
-                    <button class="btn btn-secondary btn-small" onclick="loadPosts()">🔄 重新整理</button>
-                    <button class="btn btn-secondary btn-small" onclick="toggleSelectAll()">☑️ 全選/反選</button>
-                    <button class="btn btn-danger btn-small" onclick="batchDeletePosts()" id="batchDeleteBtn"
-                        style="display: none;">🗑️ 批次刪除</button>
-                </div>
-
-                <div id="postsGrid" class="posts-grid"></div>
-                </div>
-                <!-- End of threadsOverviewSubTab -->
+            <!-- End of threadsOverviewSubTab -->
 
                 <!-- Threads Scheduling Sub-tab -->
                 <div id="threadsSchedulingSubTab" class="threads-sub-content" style="display: none;">
@@ -1635,6 +1633,7 @@
                             <p>載入中...</p>
                         </div>
                     </div>
+                </div>
                 </div>
                 </div>
                 <!-- End of threadsTemplatesSubTab -->
@@ -2275,7 +2274,6 @@
                     <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
                         <span style="color: #666;">爬蟲狀態</span>
                         <div style="font-weight: bold; margin-top: 5px; color: #22c55e;">✓ 運作中</div>
-                    </div>
                     </div>
                 </div>
             </div>
