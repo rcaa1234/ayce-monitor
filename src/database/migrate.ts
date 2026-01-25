@@ -1324,6 +1324,19 @@ const migrations = [
   INSERT IGNORE INTO influencer_detection_config (id, enabled, detection_source, check_interval_minutes)
   VALUES (UUID(), TRUE, 'latest', 30);
   `,
+
+  // Migration 63: 系統設定表
+  `
+  CREATE TABLE IF NOT EXISTS system_settings (
+    id CHAR(36) PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT,
+    setting_type VARCHAR(50) DEFAULT 'string',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_setting_key (setting_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `,
 ];
 
 async function runMigrations() {
