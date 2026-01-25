@@ -432,45 +432,58 @@ class MonitorService {
     async fetchPttPageViaHTTP(url: string): Promise<string> {
         logger.info(`[PTT HTTP] Fetching: ${url}`);
 
-        try {
-            const response = await fetch(url, {
+        // 使用 Node.js 原生 https 模組，更穩定
+        const https = await import('https');
+
+        return new Promise((resolve, reject) => {
+            const options = {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'zh-TW,zh;q=0.9',
                     'Cookie': 'over18=1',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache',
-                    'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-                    'Sec-Ch-Ua-Mobile': '?0',
-                    'Sec-Ch-Ua-Platform': '"Windows"',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Sec-Fetch-User': '?1',
-                    'Upgrade-Insecure-Requests': '1',
                 },
-                signal: AbortSignal.timeout(30000), // 30 秒超時
+            };
+
+            const req = https.get(url, options, (res) => {
+                let data = '';
+
+                // 處理重定向
+                if (res.statusCode === 301 || res.statusCode === 302) {
+                    const redirectUrl = res.headers.location;
+                    if (redirectUrl) {
+                        logger.info(`[PTT HTTP] Redirecting to: ${redirectUrl}`);
+                        this.fetchPttPageViaHTTP(redirectUrl).then(resolve).catch(reject);
+                        return;
+                    }
+                }
+
+                if (res.statusCode !== 200) {
+                    reject(new Error(`PTT 回應錯誤: ${res.statusCode}`));
+                    return;
+                }
+
+                res.setEncoding('utf8');
+                res.on('data', (chunk) => {
+                    data += chunk;
+                });
+
+                res.on('end', () => {
+                    logger.info(`[PTT HTTP] Got HTML, length: ${data.length}`);
+                    resolve(data);
+                });
             });
 
-            if (!response.ok) {
-                logger.error(`[PTT HTTP] Response not OK: ${response.status} ${response.statusText}`);
-                throw new Error(`PTT 回應錯誤: ${response.status} ${response.statusText}`);
-            }
+            req.on('error', (error: any) => {
+                logger.error(`[PTT HTTP] Request error: ${error.message}`);
+                reject(new Error(`PTT 連線失敗: ${error.message}`));
+            });
 
-            const html = await response.text();
-            logger.info(`[PTT HTTP] Got HTML, length: ${html.length}`);
-            return html;
-        } catch (error: any) {
-            logger.error(`[PTT HTTP] Fetch error: ${error.message}`);
-
-            // 如果是網路錯誤，提供更明確的訊息
-            if (error.message.includes('fetch failed') || error.message.includes('ENOTFOUND')) {
-                throw new Error('無法連線到 PTT，可能是網路問題或 PTT 封鎖了雲端 IP。建議：1) 稍後再試 2) 考慮使用 ZenRows 代理');
-            }
-            throw error;
-        }
+            req.setTimeout(30000, () => {
+                req.destroy();
+                reject(new Error('PTT 請求超時'));
+            });
+        });
     }
 
     /**
