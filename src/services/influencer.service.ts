@@ -998,62 +998,56 @@ class InfluencerService {
                 };
 
                 if (response.ok && responseText.length > 1000 && !result.scrapingBeeTest.isCloudflareBlocked) {
-                    // 解析 __NEXT_DATA__ 結構
                     const $ = cheerio.load(responseText);
+
+                    // 方法1: 從 HTML 元素解析文章連結
+                    const postLinks: string[] = [];
+                    $('a[href*="/f/"][href*="/p/"]').each((_, el) => {
+                        const href = $(el).attr('href');
+                        if (href && href.includes('/p/')) {
+                            const match = href.match(/\/p\/(\d+)/);
+                            if (match && !postLinks.includes(match[1])) {
+                                postLinks.push(match[1]);
+                            }
+                        }
+                    });
+                    result.scrapingBeeTest.htmlPostLinks = postLinks.length;
+                    if (postLinks.length > 0) {
+                        result.scrapingBeeTest.samplePostIds = postLinks.slice(0, 5);
+                    }
+
+                    // 方法2: 找文章標題元素
+                    const titles: string[] = [];
+                    $('article, [class*="PostEntry"], [class*="post-entry"], [data-key]').each((_, el) => {
+                        const title = $(el).find('h2, h3, [class*="title"]').first().text().trim();
+                        if (title && title.length > 5 && !titles.includes(title)) {
+                            titles.push(title.substring(0, 50));
+                        }
+                    });
+                    result.scrapingBeeTest.htmlTitles = titles.length;
+                    if (titles.length > 0) {
+                        result.scrapingBeeTest.sampleTitles = titles.slice(0, 3);
+                    }
+
+                    // 方法3: 檢查 __NEXT_DATA__
                     const nextDataScript = $('#__NEXT_DATA__').html();
                     if (nextDataScript) {
                         try {
                             const nextData = JSON.parse(nextDataScript);
                             const pageProps = nextData?.props?.pageProps || {};
                             result.scrapingBeeTest.nextDataKeys = Object.keys(pageProps);
-
-                            // 新版 Dcard 結構：檢查 componentInitialProps 和 layoutInitialProps
-                            const componentProps = pageProps?.componentInitialProps || {};
-                            const layoutProps = pageProps?.layoutInitialProps || {};
-
-                            result.scrapingBeeTest.componentKeys = Object.keys(componentProps);
-                            result.scrapingBeeTest.layoutKeys = Object.keys(layoutProps);
-
-                            // 嘗試各種可能的路徑找文章
-                            let foundPosts: any[] = [];
-
-                            // 路徑1: componentInitialProps.posts
-                            if (componentProps.posts && Array.isArray(componentProps.posts)) {
-                                foundPosts = componentProps.posts;
-                                result.scrapingBeeTest.postsSource = 'componentInitialProps.posts';
-                            }
-                            // 路徑2: componentInitialProps.data.posts
-                            else if (componentProps.data?.posts && Array.isArray(componentProps.data.posts)) {
-                                foundPosts = componentProps.data.posts;
-                                result.scrapingBeeTest.postsSource = 'componentInitialProps.data.posts';
-                            }
-                            // 路徑3: layoutInitialProps.posts
-                            else if (layoutProps.posts && Array.isArray(layoutProps.posts)) {
-                                foundPosts = layoutProps.posts;
-                                result.scrapingBeeTest.postsSource = 'layoutInitialProps.posts';
-                            }
-                            // 路徑4: 舊版 dehydratedState
-                            else if (pageProps?.dehydratedState?.queries?.[0]?.state?.data) {
-                                const data = pageProps.dehydratedState.queries[0].state.data;
-                                foundPosts = data.posts || data.items || data.pages?.[0]?.posts || [];
-                                result.scrapingBeeTest.postsSource = 'dehydratedState';
-                            }
-
-                            result.scrapingBeeTest.foundPostsCount = foundPosts.length;
-                            if (foundPosts.length > 0) {
-                                result.scrapingBeeTest.samplePostKeys = Object.keys(foundPosts[0] || {}).slice(0, 10);
-                                result.scrapingBeeTest.sampleTitle = foundPosts[0]?.title?.substring(0, 50);
-                            }
+                            result.scrapingBeeTest.componentKeys = Object.keys(pageProps?.componentInitialProps || {});
                         } catch (e: any) {
                             result.scrapingBeeTest.parseError = e.message;
                         }
                     }
 
-                    const posts = this.parseForumPosts(responseText);
-                    result.scrapingBeeTest.postsFound = posts.length;
-                    if (posts.length > 0) {
+                    // 最終結果
+                    if (postLinks.length > 0) {
                         result.finalResult = 'scrapingbee_success';
-                        result.scrapingBeeTest.samplePost = posts[0].title?.substring(0, 50);
+                        result.scrapingBeeTest.postsFound = postLinks.length;
+                    } else {
+                        result.scrapingBeeTest.postsFound = 0;
                     }
                 }
             } catch (error: any) {
