@@ -360,8 +360,8 @@ class PttBrainScraperService {
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             );
 
-            // 測試 PTT Brain
-            await page.goto('https://www.pttbrain.com/dcard/forum/sex', {
+            // 測試 PTT Brain (用感情版測試，因為西斯版可能被封鎖)
+            await page.goto('https://www.pttbrain.com/dcard/forum/relationship', {
                 waitUntil: 'networkidle0',  // 更嚴格的等待條件
                 timeout: 60000,
             });
