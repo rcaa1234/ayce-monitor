@@ -14,13 +14,9 @@ class InfluencerController {
         try {
             const config = await influencerService.getConfig();
             res.json({ success: true, data: config });
-        } catch (error: any) {
+        } catch (error) {
             logger.error('取得偵測設定失敗:', error);
-            res.status(500).json({
-                success: false,
-                error: '取得設定失敗',
-                detail: error.message || String(error)
-            });
+            res.status(500).json({ success: false, error: '取得設定失敗' });
         }
     }
 
@@ -68,13 +64,9 @@ class InfluencerController {
                 limit: parseInt(limit as string),
                 offset: parseInt(offset as string),
             });
-        } catch (error: any) {
+        } catch (error) {
             logger.error('取得作者列表失敗:', error);
-            res.status(500).json({
-                success: false,
-                error: '取得作者列表失敗',
-                detail: error.message || String(error)
-            });
+            res.status(500).json({ success: false, error: '取得作者列表失敗' });
         }
     }
 
@@ -159,13 +151,9 @@ class InfluencerController {
                 data: result.posts,
                 total: result.total,
             });
-        } catch (error: any) {
+        } catch (error) {
             logger.error('取得來源貼文失敗:', error);
-            res.status(500).json({
-                success: false,
-                error: '取得來源貼文失敗',
-                detail: error.message || String(error)
-            });
+            res.status(500).json({ success: false, error: '取得來源貼文失敗' });
         }
     }
 
@@ -215,13 +203,9 @@ class InfluencerController {
                 data: result.contacts,
                 total: result.total,
             });
-        } catch (error: any) {
+        } catch (error) {
             logger.error('取得聯繫記錄失敗:', error);
-            res.status(500).json({
-                success: false,
-                error: '取得聯繫記錄失敗',
-                detail: error.message || String(error)
-            });
+            res.status(500).json({ success: false, error: '取得聯繫記錄失敗' });
         }
     }
 
