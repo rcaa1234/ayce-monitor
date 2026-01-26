@@ -1007,21 +1007,42 @@ class InfluencerService {
                             const pageProps = nextData?.props?.pageProps || {};
                             result.scrapingBeeTest.nextDataKeys = Object.keys(pageProps);
 
-                            // 嘗試找到文章資料
-                            const dehydrated = pageProps?.dehydratedState;
-                            if (dehydrated?.queries) {
-                                result.scrapingBeeTest.queriesCount = dehydrated.queries.length;
-                                if (dehydrated.queries[0]) {
-                                    const q0 = dehydrated.queries[0];
-                                    result.scrapingBeeTest.query0Keys = Object.keys(q0?.state?.data || {});
-                                    // 嘗試多種路徑
-                                    const data = q0?.state?.data;
-                                    const possiblePosts = data?.posts || data?.items || data?.pages?.[0]?.posts || data?.pages?.[0]?.items || [];
-                                    result.scrapingBeeTest.possiblePostsLength = possiblePosts.length;
-                                    if (possiblePosts.length > 0) {
-                                        result.scrapingBeeTest.samplePostKeys = Object.keys(possiblePosts[0] || {});
-                                    }
-                                }
+                            // 新版 Dcard 結構：檢查 componentInitialProps 和 layoutInitialProps
+                            const componentProps = pageProps?.componentInitialProps || {};
+                            const layoutProps = pageProps?.layoutInitialProps || {};
+
+                            result.scrapingBeeTest.componentKeys = Object.keys(componentProps);
+                            result.scrapingBeeTest.layoutKeys = Object.keys(layoutProps);
+
+                            // 嘗試各種可能的路徑找文章
+                            let foundPosts: any[] = [];
+
+                            // 路徑1: componentInitialProps.posts
+                            if (componentProps.posts && Array.isArray(componentProps.posts)) {
+                                foundPosts = componentProps.posts;
+                                result.scrapingBeeTest.postsSource = 'componentInitialProps.posts';
+                            }
+                            // 路徑2: componentInitialProps.data.posts
+                            else if (componentProps.data?.posts && Array.isArray(componentProps.data.posts)) {
+                                foundPosts = componentProps.data.posts;
+                                result.scrapingBeeTest.postsSource = 'componentInitialProps.data.posts';
+                            }
+                            // 路徑3: layoutInitialProps.posts
+                            else if (layoutProps.posts && Array.isArray(layoutProps.posts)) {
+                                foundPosts = layoutProps.posts;
+                                result.scrapingBeeTest.postsSource = 'layoutInitialProps.posts';
+                            }
+                            // 路徑4: 舊版 dehydratedState
+                            else if (pageProps?.dehydratedState?.queries?.[0]?.state?.data) {
+                                const data = pageProps.dehydratedState.queries[0].state.data;
+                                foundPosts = data.posts || data.items || data.pages?.[0]?.posts || [];
+                                result.scrapingBeeTest.postsSource = 'dehydratedState';
+                            }
+
+                            result.scrapingBeeTest.foundPostsCount = foundPosts.length;
+                            if (foundPosts.length > 0) {
+                                result.scrapingBeeTest.samplePostKeys = Object.keys(foundPosts[0] || {}).slice(0, 10);
+                                result.scrapingBeeTest.sampleTitle = foundPosts[0]?.title?.substring(0, 50);
                             }
                         } catch (e: any) {
                             result.scrapingBeeTest.parseError = e.message;
