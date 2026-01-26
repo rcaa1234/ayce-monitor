@@ -998,6 +998,36 @@ class InfluencerService {
                 };
 
                 if (response.ok && responseText.length > 1000 && !result.scrapingBeeTest.isCloudflareBlocked) {
+                    // 解析 __NEXT_DATA__ 結構
+                    const $ = cheerio.load(responseText);
+                    const nextDataScript = $('#__NEXT_DATA__').html();
+                    if (nextDataScript) {
+                        try {
+                            const nextData = JSON.parse(nextDataScript);
+                            const pageProps = nextData?.props?.pageProps || {};
+                            result.scrapingBeeTest.nextDataKeys = Object.keys(pageProps);
+
+                            // 嘗試找到文章資料
+                            const dehydrated = pageProps?.dehydratedState;
+                            if (dehydrated?.queries) {
+                                result.scrapingBeeTest.queriesCount = dehydrated.queries.length;
+                                if (dehydrated.queries[0]) {
+                                    const q0 = dehydrated.queries[0];
+                                    result.scrapingBeeTest.query0Keys = Object.keys(q0?.state?.data || {});
+                                    // 嘗試多種路徑
+                                    const data = q0?.state?.data;
+                                    const possiblePosts = data?.posts || data?.items || data?.pages?.[0]?.posts || data?.pages?.[0]?.items || [];
+                                    result.scrapingBeeTest.possiblePostsLength = possiblePosts.length;
+                                    if (possiblePosts.length > 0) {
+                                        result.scrapingBeeTest.samplePostKeys = Object.keys(possiblePosts[0] || {});
+                                    }
+                                }
+                            }
+                        } catch (e: any) {
+                            result.scrapingBeeTest.parseError = e.message;
+                        }
+                    }
+
                     const posts = this.parseForumPosts(responseText);
                     result.scrapingBeeTest.postsFound = posts.length;
                     if (posts.length > 0) {
