@@ -115,33 +115,27 @@ class PttBrainScraperService {
      * 從頁面提取文章列表
      */
     private async extractPostsFromPage(page: Page): Promise<DcardPost[]> {
-        return await page.evaluate(() => {
-            const posts: any[] = [];
-
-            // 找所有文章連結
+        // 在瀏覽器上下文中執行，使用 Function 類型避免 TypeScript 錯誤
+        const extractFn = new Function(`
+            const posts = [];
             const postLinks = document.querySelectorAll('a[href*="/dcard/post/"]');
 
-            postLinks.forEach((link) => {
+            postLinks.forEach(function(link) {
                 const href = link.getAttribute('href') || '';
-                const postIdMatch = href.match(/\/dcard\/post\/(\d+)/);
+                const postIdMatch = href.match(/\\/dcard\\/post\\/(\\d+)/);
                 if (!postIdMatch) return;
 
                 const postId = postIdMatch[1];
-
-                // 嘗試找到標題
                 const titleEl = link.querySelector('h2, h3, [class*="title"]') || link;
-                const title = titleEl.textContent?.trim() || '';
+                const title = (titleEl.textContent || '').trim();
 
-                // 跳過沒有標題的
                 if (!title || title.length < 3) return;
-
-                // 避免重複
-                if (posts.some(p => p.postId === postId)) return;
+                if (posts.some(function(p) { return p.postId === postId; })) return;
 
                 posts.push({
-                    postId,
-                    title,
-                    url: `https://www.dcard.tw/f/sex/p/${postId}`,
+                    postId: postId,
+                    title: title,
+                    url: 'https://www.dcard.tw/f/sex/p/' + postId,
                     authorName: null,
                     authorId: null,
                     excerpt: null,
@@ -152,7 +146,10 @@ class PttBrainScraperService {
             });
 
             return posts;
-        });
+        `);
+
+        const result = await page.evaluate(`(${extractFn.toString()})()`);
+        return result as DcardPost[];
     }
 
     /**
@@ -160,29 +157,21 @@ class PttBrainScraperService {
      */
     private async goToNextPage(page: Page): Promise<boolean> {
         try {
-            // 尋找下一頁按鈕 (通常是 ">" 或 "下一頁")
-            const nextButton = await page.$('a:has-text("⟩"), a:has-text(">"), a:has-text("下一頁"), [aria-label="Next"]');
-
-            if (nextButton) {
-                await nextButton.click();
-                await new Promise(resolve => setTimeout(resolve, 2000)); // 等待頁面載入
-                return true;
-            }
-
-            // 嘗試用 evaluate 找下一頁連結
-            const clicked = await page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                const nextLink = links.find(a =>
-                    a.textContent?.includes('⟩') ||
-                    a.textContent?.includes('>') ||
-                    a.textContent?.includes('下一頁')
-                );
-                if (nextLink) {
-                    nextLink.click();
-                    return true;
-                }
-                return false;
-            });
+            // 使用 evaluate 來找並點擊下一頁連結
+            const clicked = await page.evaluate(`
+                (function() {
+                    var links = Array.from(document.querySelectorAll('a'));
+                    var nextLink = links.find(function(a) {
+                        var text = a.textContent || '';
+                        return text.includes('⟩') || text.includes('>') || text.includes('下一頁');
+                    });
+                    if (nextLink) {
+                        nextLink.click();
+                        return true;
+                    }
+                    return false;
+                })()
+            `);
 
             if (clicked) {
                 await new Promise(resolve => setTimeout(resolve, 2000));
@@ -218,29 +207,29 @@ class PttBrainScraperService {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             // 提取作者資訊和內容
-            const result = await page.evaluate(() => {
-                const content = document.body.innerText || '';
+            const result = await page.evaluate(`
+                (function() {
+                    var content = document.body.innerText || '';
+                    var authorLink = document.querySelector('a[href*="/@"]');
+                    var authorId = null;
+                    var nickname = null;
 
-                // 尋找作者連結
-                const authorLink = document.querySelector('a[href*="/@"]');
-                let authorId = null;
-                let nickname = null;
-
-                if (authorLink) {
-                    const href = authorLink.getAttribute('href') || '';
-                    const match = href.match(/\/@([^\/\?]+)/);
-                    if (match) {
-                        authorId = match[1];
+                    if (authorLink) {
+                        var href = authorLink.getAttribute('href') || '';
+                        var match = href.match(/\\/@([^\\/\\?]+)/);
+                        if (match) {
+                            authorId = match[1];
+                        }
+                        nickname = (authorLink.textContent || '').trim() || null;
                     }
-                    nickname = authorLink.textContent?.trim() || null;
-                }
 
-                return {
-                    authorId,
-                    nickname,
-                    content,
-                };
-            });
+                    return {
+                        authorId: authorId,
+                        nickname: nickname,
+                        content: content,
+                    };
+                })()
+            `) as { authorId: string | null; nickname: string | null; content: string };
 
             if (!result.authorId) {
                 return null;
@@ -342,7 +331,13 @@ class PttBrainScraperService {
         postsFound?: number;
         sampleTitles?: string[];
     }> {
-        const result: any = {
+        const result: {
+            success: boolean;
+            browserlessToken: boolean;
+            message: string;
+            postsFound?: number;
+            sampleTitles?: string[];
+        } = {
             success: false,
             browserlessToken: !!this.browserlessToken,
             message: '',
@@ -383,8 +378,9 @@ class PttBrainScraperService {
                 : '頁面載入成功但未找到文章';
 
             return result;
-        } catch (error: any) {
-            result.message = `連接失敗: ${error.message}`;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            result.message = `連接失敗: ${errorMessage}`;
             return result;
         } finally {
             if (browser) {
