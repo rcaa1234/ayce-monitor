@@ -196,24 +196,38 @@ class InfluencerService {
                 : ' AND NOT EXISTS (SELECT 1 FROM influencer_contacts c WHERE c.author_id = a.id)';
         }
 
-        // 取得總數
-        const [countRows] = await pool.execute<RowDataPacket[]>(
-            `SELECT COUNT(*) as total FROM influencer_authors a WHERE ${whereClause}`,
-            values
-        );
+        // 取得總數 - use query instead of execute for more reliable parameter handling
+        const [countRows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_authors a WHERE ${whereClause}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_authors a WHERE ${whereClause}`
+            );
         const total = Number(countRows[0].total) || 0;
 
         // 取得資料，包含聯繫統計
-        const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT a.*,
-                    (SELECT COUNT(*) FROM influencer_contacts c WHERE c.author_id = a.id) as contact_count,
-                    (SELECT MAX(contact_date) FROM influencer_contacts c WHERE c.author_id = a.id) as last_contact_date
-             FROM influencer_authors a
-             WHERE ${whereClause}
-             ORDER BY a.first_detected_at DESC
-             LIMIT ${limitInt} OFFSET ${offsetInt}`,
-            values
-        );
+        const [rows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT a.*,
+                        (SELECT COUNT(*) FROM influencer_contacts c WHERE c.author_id = a.id) as contact_count,
+                        (SELECT MAX(contact_date) FROM influencer_contacts c WHERE c.author_id = a.id) as last_contact_date
+                 FROM influencer_authors a
+                 WHERE ${whereClause}
+                 ORDER BY a.first_detected_at DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT a.*,
+                        (SELECT COUNT(*) FROM influencer_contacts c WHERE c.author_id = a.id) as contact_count,
+                        (SELECT MAX(contact_date) FROM influencer_contacts c WHERE c.author_id = a.id) as last_contact_date
+                 FROM influencer_authors a
+                 WHERE ${whereClause}
+                 ORDER BY a.first_detected_at DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`
+            );
 
         return {
             authors: rows as InfluencerAuthor[],
@@ -333,21 +347,35 @@ class InfluencerService {
             values.push(authorId);
         }
 
-        const [countRows] = await pool.execute<RowDataPacket[]>(
-            `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`,
-            values
-        );
+        // Use query when no parameters, execute when parameters exist
+        const [countRows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`
+            );
         const total = Number(countRows[0].total) || 0;
 
-        const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
-             FROM influencer_source_posts sp
-             LEFT JOIN influencer_authors a ON sp.author_id = a.id
-             WHERE ${whereClause}
-             ORDER BY sp.detected_at DESC
-             LIMIT ${limitInt} OFFSET ${offsetInt}`,
-            values
-        );
+        const [rows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
+                 FROM influencer_source_posts sp
+                 LEFT JOIN influencer_authors a ON sp.author_id = a.id
+                 WHERE ${whereClause}
+                 ORDER BY sp.detected_at DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
+                 FROM influencer_source_posts sp
+                 LEFT JOIN influencer_authors a ON sp.author_id = a.id
+                 WHERE ${whereClause}
+                 ORDER BY sp.detected_at DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`
+            );
 
         return {
             posts: rows as InfluencerSourcePost[],
@@ -418,21 +446,35 @@ class InfluencerService {
             values.push(authorId);
         }
 
-        const [countRows] = await pool.execute<RowDataPacket[]>(
-            `SELECT COUNT(*) as total FROM influencer_contacts c WHERE ${whereClause}`,
-            values
-        );
+        // Use query when no parameters, execute when parameters exist
+        const [countRows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_contacts c WHERE ${whereClause}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT COUNT(*) as total FROM influencer_contacts c WHERE ${whereClause}`
+            );
         const total = Number(countRows[0].total) || 0;
 
-        const [rows] = await pool.execute<RowDataPacket[]>(
-            `SELECT c.*, a.dcard_username as author_name, a.twitter_id
-             FROM influencer_contacts c
-             LEFT JOIN influencer_authors a ON c.author_id = a.id
-             WHERE ${whereClause}
-             ORDER BY c.contact_date DESC
-             LIMIT ${limitInt} OFFSET ${offsetInt}`,
-            values
-        );
+        const [rows] = values.length > 0
+            ? await pool.execute<RowDataPacket[]>(
+                `SELECT c.*, a.dcard_username as author_name, a.twitter_id
+                 FROM influencer_contacts c
+                 LEFT JOIN influencer_authors a ON c.author_id = a.id
+                 WHERE ${whereClause}
+                 ORDER BY c.contact_date DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`,
+                values
+            )
+            : await pool.query<RowDataPacket[]>(
+                `SELECT c.*, a.dcard_username as author_name, a.twitter_id
+                 FROM influencer_contacts c
+                 LEFT JOIN influencer_authors a ON c.author_id = a.id
+                 WHERE ${whereClause}
+                 ORDER BY c.contact_date DESC
+                 LIMIT ${limitInt} OFFSET ${offsetInt}`
+            );
 
         return {
             contacts: rows as InfluencerContact[],
