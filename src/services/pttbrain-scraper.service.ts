@@ -362,12 +362,27 @@ class PttBrainScraperService {
 
             // 測試 PTT Brain
             await page.goto('https://www.pttbrain.com/dcard/forum/sex', {
-                waitUntil: 'networkidle2',
-                timeout: 30000,
+                waitUntil: 'networkidle0',  // 更嚴格的等待條件
+                timeout: 60000,
             });
 
             // 等待頁面載入（更長的等待時間）
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // 嘗試滾動頁面來觸發懶載入
+            await page.evaluate(`
+                (function() {
+                    window.scrollTo(0, document.body.scrollHeight / 2);
+                })()
+            `);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            await page.evaluate(`
+                (function() {
+                    window.scrollTo(0, document.body.scrollHeight);
+                })()
+            `);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             // 取得頁面資訊用於 debug
             const pageInfo = await page.evaluate(`
