@@ -103,10 +103,19 @@ class InfluencerService {
         }
 
         const row = rows[0];
+        // MySQL JSON 欄位已經被 mysql2 自動解析，不需要 JSON.parse
+        let targetForums = row.target_forums;
+        if (typeof targetForums === 'string') {
+            try {
+                targetForums = JSON.parse(targetForums);
+            } catch {
+                targetForums = ['sex'];
+            }
+        }
         return {
             enabled: row.enabled === 1,
             check_interval_minutes: row.check_interval_minutes || 30,
-            target_forums: JSON.parse(row.target_forums || '["sex"]'),
+            target_forums: targetForums || ['sex'],
             max_posts_per_check: row.max_posts_per_check || 20,
             notify_on_new: row.notify_on_new === 1,
         };
