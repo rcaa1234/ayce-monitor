@@ -594,8 +594,10 @@ class InfluencerService {
      */
     private async fetchWithScrapingBee(url: string, apiKey: string): Promise<string | null> {
         try {
-            // 使用 JS 渲染 + stealth proxy 來繞過 Cloudflare (比 premium_proxy 更強)
-            const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(url)}&render_js=true&stealth_proxy=true&wait=5000`;
+            // 使用 JS 渲染 + stealth proxy + 等待文章元素出現
+            // wait_for: 等待包含文章連結的元素出現
+            // wait: 額外等待 8 秒讓 JS 完全載入
+            const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(url)}&render_js=true&stealth_proxy=true&wait=8000&wait_for=a[href*="/p/"]`;
 
             logger.info(`[ScrapingBee] 請求: ${url}`);
 
