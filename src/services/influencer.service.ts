@@ -567,34 +567,93 @@ class InfluencerService {
     }
 
     /**
-     * 使用 ZenRows 取得 Dcard 頁面
+     * 取得 Dcard 頁面 (優先使用 ScrapingBee，備用 ZenRows)
      */
     private async fetchDcardPage(url: string): Promise<string | null> {
+        const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
         const zenrowsApiKey = process.env.ZENROWS_API_KEY;
 
-        if (!zenrowsApiKey) {
-            logger.error('ZenRows API key 未設定');
-            return null;
+        // 優先使用 ScrapingBee
+        if (scrapingBeeKey) {
+            const result = await this.fetchWithScrapingBee(url, scrapingBeeKey);
+            if (result) return result;
+            logger.warn('ScrapingBee 失敗，嘗試 ZenRows...');
         }
 
+        // 備用 ZenRows
+        if (zenrowsApiKey) {
+            return await this.fetchWithZenRows(url, zenrowsApiKey);
+        }
+
+        logger.error('未設定 SCRAPINGBEE_API_KEY 或 ZENROWS_API_KEY');
+        return null;
+    }
+
+    /**
+     * 使用 ScrapingBee 取得頁面
+     */
+    private async fetchWithScrapingBee(url: string, apiKey: string): Promise<string | null> {
         try {
-            const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsApiKey}&url=${encodeURIComponent(url)}&js_render=true&wait=3000`;
+            // 使用 JS 渲染 + premium proxy 來繞過 Cloudflare
+            const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(url)}&render_js=true&premium_proxy=true&wait=5000`;
+
+            logger.info(`[ScrapingBee] 請求: ${url}`);
+
+            const response = await fetch(proxyUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(60000), // 60 秒超時
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => '');
+                logger.error(`[ScrapingBee] 請求失敗: ${response.status} - ${errorText.substring(0, 200)}`);
+                return null;
+            }
+
+            const html = await response.text();
+            logger.info(`[ScrapingBee] 成功取得 HTML, 長度: ${html.length}`);
+
+            // 檢查是否被 Cloudflare 阻擋
+            if (html.includes('Attention Required') || html.includes('Just a moment')) {
+                logger.error('[ScrapingBee] 仍被 Cloudflare 阻擋');
+                return null;
+            }
+
+            return html;
+        } catch (error: any) {
+            logger.error('[ScrapingBee] 請求錯誤:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * 使用 ZenRows 取得頁面
+     */
+    private async fetchWithZenRows(url: string, apiKey: string): Promise<string | null> {
+        try {
+            const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(url)}&js_render=true&wait=3000`;
+
+            logger.info(`[ZenRows] 請求: ${url}`);
 
             const response = await fetch(zenrowsUrl, {
                 method: 'GET',
                 headers: {
                     'Accept': 'text/html',
                 },
+                signal: AbortSignal.timeout(60000),
             });
 
             if (!response.ok) {
-                logger.error(`ZenRows 請求失敗: ${response.status}`);
+                logger.error(`[ZenRows] 請求失敗: ${response.status}`);
                 return null;
             }
 
-            return await response.text();
-        } catch (error) {
-            logger.error('ZenRows 請求錯誤:', error);
+            const html = await response.text();
+            logger.info(`[ZenRows] 成功取得 HTML, 長度: ${html.length}`);
+
+            return html;
+        } catch (error: any) {
+            logger.error('[ZenRows] 請求錯誤:', error.message);
             return null;
         }
     }
@@ -741,32 +800,57 @@ class InfluencerService {
     }
 
     /**
-     * 取得作者個人頁面資訊
+     * 取得作者個人頁面資訊 (透過代理服務)
      */
     private async fetchAuthorProfile(dcardUid: string): Promise<{
         nickname: string | null;
         bio: string | null;
     } | null> {
+        const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+        const zenrowsApiKey = process.env.ZENROWS_API_KEY;
+
+        // 使用作者頁面 URL 來取得資訊
+        const profileUrl = `https://www.dcard.tw/@${dcardUid}`;
+
         try {
-            const apiUrl = `https://www.dcard.tw/service/api/v2/members/${dcardUid}`;
-
-            const response = await fetch(apiUrl, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                logger.warn(`取得用戶資訊失敗: ${response.status}`);
+            // 取得 HTML 頁面
+            const html = await this.fetchDcardPage(profileUrl);
+            if (!html) {
                 return null;
             }
 
-            const data = await response.json() as { nickname?: string; description?: string; bio?: string };
-            return {
-                nickname: data.nickname || null,
-                bio: data.description || data.bio || null,
-            };
+            // 從 HTML 解析作者資訊
+            const $ = cheerio.load(html);
+
+            // 嘗試從 __NEXT_DATA__ 取得
+            const nextDataScript = $('#__NEXT_DATA__').html();
+            if (nextDataScript) {
+                try {
+                    const data = JSON.parse(nextDataScript);
+                    const member = data?.props?.pageProps?.member
+                        || data?.props?.pageProps?.profile
+                        || data?.props?.pageProps?.user;
+
+                    if (member) {
+                        return {
+                            nickname: member.nickname || member.name || null,
+                            bio: member.description || member.bio || member.about || null,
+                        };
+                    }
+                } catch (e) {
+                    logger.warn(`解析 __NEXT_DATA__ 失敗`);
+                }
+            }
+
+            // 備用：從 meta tags 或其他元素解析
+            const nickname = $('meta[property="og:title"]').attr('content')
+                || $('h1').first().text()
+                || null;
+            const bio = $('meta[property="og:description"]').attr('content')
+                || $('[class*="description"]').first().text()
+                || null;
+
+            return { nickname, bio };
         } catch (error) {
             logger.error(`取得作者資訊失敗 (${dcardUid}):`, error);
             return null;
