@@ -2212,7 +2212,6 @@
                         </div>
                     </div>
                 </div>
-                </div>
             </div>
 
             <!-- ========================================== -->
@@ -2582,6 +2581,7 @@
                 }
                 if (subTabName === 'settings') {
                     document.getElementById('influencerSettingsTab').style.display = 'block';
+                    loadInfluencerConfig();
                 }
             }
 
@@ -3084,6 +3084,23 @@
                 } catch (error) {
                     console.error('新增聯繫記錄失敗:', error);
                     showAlert('新增失敗', 'error');
+                }
+            }
+
+            async function loadInfluencerConfig() {
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/config`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) return;
+
+                    const result = await response.json();
+                    const config = result.data || {};
+
+                    document.getElementById('influencerAutoScan').checked = config.enabled || false;
+                    document.getElementById('influencerScanInterval').value = config.check_interval_minutes || 30;
+                } catch (error) {
+                    console.error('載入設定失敗:', error);
                 }
             }
 
