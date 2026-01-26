@@ -1096,8 +1096,8 @@ class InfluencerService {
         if (scrapingBeeKey && result.finalResult !== 'scrapingbee_success') {
             try {
                 const apiUrl = 'https://www.dcard.tw/service/api/v2/forums/sex/posts?limit=10';
-                // 不需要 render_js，直接請求 API
-                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(apiUrl)}&stealth_proxy=true`;
+                // 使用 premium_proxy 而不是 stealth_proxy (API 請求應該更快)
+                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(apiUrl)}&premium_proxy=true`;
 
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
