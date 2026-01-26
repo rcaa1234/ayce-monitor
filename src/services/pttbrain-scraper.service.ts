@@ -394,7 +394,9 @@ class PttBrainScraperService {
                     return {
                         title: document.title,
                         url: window.location.href,
+                        bodyText: document.body.innerText.substring(0, 500),
                         bodyLength: document.body.innerText.length,
+                        htmlLength: document.documentElement.outerHTML.length,
                         allLinksCount: allLinks.length,
                         dcardLinksCount: dcardLinks.length,
                         sampleLinks: dcardLinks.slice(0, 5).map(function(a) {
