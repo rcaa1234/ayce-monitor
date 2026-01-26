@@ -172,6 +172,10 @@ class InfluencerService {
         const pool = getPool();
         const { status, twitterVerified, hasContact, limit = 20, offset = 0 } = options;
 
+        // Ensure limit and offset are valid integers for mysql2 prepared statements
+        const limitInt = Math.max(1, Math.min(100, Number(limit) || 20));
+        const offsetInt = Math.max(0, Number(offset) || 0);
+
         let whereClause = 'a.twitter_id IS NOT NULL'; // 只顯示有 Twitter 的
         const values: any[] = [];
 
@@ -197,7 +201,7 @@ class InfluencerService {
             `SELECT COUNT(*) as total FROM influencer_authors a WHERE ${whereClause}`,
             values
         );
-        const total = countRows[0].total;
+        const total = Number(countRows[0].total) || 0;
 
         // 取得資料，包含聯繫統計
         const [rows] = await pool.execute<RowDataPacket[]>(
@@ -207,8 +211,8 @@ class InfluencerService {
              FROM influencer_authors a
              WHERE ${whereClause}
              ORDER BY a.first_detected_at DESC
-             LIMIT ? OFFSET ?`,
-            [...values, limit, offset]
+             LIMIT ${limitInt} OFFSET ${offsetInt}`,
+            values
         );
 
         return {
@@ -317,6 +321,10 @@ class InfluencerService {
         const pool = getPool();
         const { authorId, limit = 20, offset = 0 } = options;
 
+        // Ensure limit and offset are valid integers for mysql2 prepared statements
+        const limitInt = Math.max(1, Math.min(100, Number(limit) || 20));
+        const offsetInt = Math.max(0, Number(offset) || 0);
+
         let whereClause = '1=1';
         const values: any[] = [];
 
@@ -329,7 +337,7 @@ class InfluencerService {
             `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`,
             values
         );
-        const total = countRows[0].total;
+        const total = Number(countRows[0].total) || 0;
 
         const [rows] = await pool.execute<RowDataPacket[]>(
             `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
@@ -337,8 +345,8 @@ class InfluencerService {
              LEFT JOIN influencer_authors a ON sp.author_id = a.id
              WHERE ${whereClause}
              ORDER BY sp.detected_at DESC
-             LIMIT ? OFFSET ?`,
-            [...values, limit, offset]
+             LIMIT ${limitInt} OFFSET ${offsetInt}`,
+            values
         );
 
         return {
@@ -398,6 +406,10 @@ class InfluencerService {
         const pool = getPool();
         const { authorId, limit = 20, offset = 0 } = options;
 
+        // Ensure limit and offset are valid integers for mysql2 prepared statements
+        const limitInt = Math.max(1, Math.min(100, Number(limit) || 20));
+        const offsetInt = Math.max(0, Number(offset) || 0);
+
         let whereClause = '1=1';
         const values: any[] = [];
 
@@ -410,7 +422,7 @@ class InfluencerService {
             `SELECT COUNT(*) as total FROM influencer_contacts c WHERE ${whereClause}`,
             values
         );
-        const total = countRows[0].total;
+        const total = Number(countRows[0].total) || 0;
 
         const [rows] = await pool.execute<RowDataPacket[]>(
             `SELECT c.*, a.dcard_username as author_name, a.twitter_id
@@ -418,8 +430,8 @@ class InfluencerService {
              LEFT JOIN influencer_authors a ON c.author_id = a.id
              WHERE ${whereClause}
              ORDER BY c.contact_date DESC
-             LIMIT ? OFFSET ?`,
-            [...values, limit, offset]
+             LIMIT ${limitInt} OFFSET ${offsetInt}`,
+            values
         );
 
         return {
