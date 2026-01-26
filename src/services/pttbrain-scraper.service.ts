@@ -1,0 +1,397 @@
+/**
+ * PTT Brain 爬蟲服務
+ * 透過 PTT Brain 取得 Dcard 西斯版文章，繞過 Dcard 的防護
+ * 使用 Browserless.io 作為無頭瀏覽器服務
+ */
+
+import puppeteer, { Browser, Page } from 'puppeteer-core';
+import logger from '../utils/logger';
+
+interface DcardPost {
+    postId: string;
+    title: string;
+    url: string;
+    authorName: string | null;
+    authorId: string | null;
+    excerpt: string | null;
+    likesCount: number;
+    commentsCount: number;
+    publishedAt: Date | null;
+}
+
+interface AuthorProfile {
+    dcardId: string;
+    nickname: string | null;
+    bio: string | null;
+    twitterId: string | null;
+    twitterUrl: string | null;
+}
+
+class PttBrainScraperService {
+    private browserlessToken: string | null = null;
+
+    constructor() {
+        this.browserlessToken = process.env.BROWSERLESS_TOKEN || null;
+    }
+
+    /**
+     * 取得瀏覽器連接
+     */
+    private async getBrowser(): Promise<Browser> {
+        if (!this.browserlessToken) {
+            throw new Error('BROWSERLESS_TOKEN 環境變數未設定');
+        }
+
+        // 連接到 Browserless.io
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: `wss://chrome.browserless.io?token=${this.browserlessToken}`,
+        });
+
+        return browser;
+    }
+
+    /**
+     * 從 PTT Brain 取得 Dcard 西斯版文章列表
+     */
+    async fetchDcardSexPosts(maxPages: number = 3): Promise<DcardPost[]> {
+        logger.info(`[PTTBrain] 開始爬取西斯版，最多 ${maxPages} 頁`);
+
+        let browser: Browser | null = null;
+        const posts: DcardPost[] = [];
+
+        try {
+            browser = await this.getBrowser();
+            const page = await browser.newPage();
+
+            // 設定 User Agent
+            await page.setUserAgent(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            );
+
+            // 前往 PTT Brain 的 Dcard 西斯版
+            const baseUrl = 'https://www.pttbrain.com/dcard/forum/sex';
+            await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+            // 等待文章列表載入
+            await page.waitForSelector('a[href*="/dcard/post/"]', { timeout: 15000 }).catch(() => {
+                logger.warn('[PTTBrain] 找不到文章連結，可能頁面結構改變');
+            });
+
+            // 爬取多頁
+            for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+                logger.info(`[PTTBrain] 爬取第 ${pageNum} 頁`);
+
+                // 提取當前頁面的文章
+                const pagePosts = await this.extractPostsFromPage(page);
+                posts.push(...pagePosts);
+
+                logger.info(`[PTTBrain] 第 ${pageNum} 頁找到 ${pagePosts.length} 篇文章`);
+
+                // 如果還有下一頁，點擊下一頁
+                if (pageNum < maxPages) {
+                    const hasNextPage = await this.goToNextPage(page);
+                    if (!hasNextPage) {
+                        logger.info('[PTTBrain] 沒有更多頁面');
+                        break;
+                    }
+                    // 等待頁面載入
+                    await page.waitForSelector('a[href*="/dcard/post/"]', { timeout: 10000 }).catch(() => {});
+                }
+            }
+
+            logger.info(`[PTTBrain] 總共取得 ${posts.length} 篇文章`);
+            return posts;
+        } catch (error) {
+            logger.error('[PTTBrain] 爬取失敗:', error);
+            throw error;
+        } finally {
+            if (browser) {
+                await browser.close();
+            }
+        }
+    }
+
+    /**
+     * 從頁面提取文章列表
+     */
+    private async extractPostsFromPage(page: Page): Promise<DcardPost[]> {
+        return await page.evaluate(() => {
+            const posts: any[] = [];
+
+            // 找所有文章連結
+            const postLinks = document.querySelectorAll('a[href*="/dcard/post/"]');
+
+            postLinks.forEach((link) => {
+                const href = link.getAttribute('href') || '';
+                const postIdMatch = href.match(/\/dcard\/post\/(\d+)/);
+                if (!postIdMatch) return;
+
+                const postId = postIdMatch[1];
+
+                // 嘗試找到標題
+                const titleEl = link.querySelector('h2, h3, [class*="title"]') || link;
+                const title = titleEl.textContent?.trim() || '';
+
+                // 跳過沒有標題的
+                if (!title || title.length < 3) return;
+
+                // 避免重複
+                if (posts.some(p => p.postId === postId)) return;
+
+                posts.push({
+                    postId,
+                    title,
+                    url: `https://www.dcard.tw/f/sex/p/${postId}`,
+                    authorName: null,
+                    authorId: null,
+                    excerpt: null,
+                    likesCount: 0,
+                    commentsCount: 0,
+                    publishedAt: null,
+                });
+            });
+
+            return posts;
+        });
+    }
+
+    /**
+     * 點擊下一頁
+     */
+    private async goToNextPage(page: Page): Promise<boolean> {
+        try {
+            // 尋找下一頁按鈕 (通常是 ">" 或 "下一頁")
+            const nextButton = await page.$('a:has-text("⟩"), a:has-text(">"), a:has-text("下一頁"), [aria-label="Next"]');
+
+            if (nextButton) {
+                await nextButton.click();
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 等待頁面載入
+                return true;
+            }
+
+            // 嘗試用 evaluate 找下一頁連結
+            const clicked = await page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                const nextLink = links.find(a =>
+                    a.textContent?.includes('⟩') ||
+                    a.textContent?.includes('>') ||
+                    a.textContent?.includes('下一頁')
+                );
+                if (nextLink) {
+                    nextLink.click();
+                    return true;
+                }
+                return false;
+            });
+
+            if (clicked) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            logger.warn('[PTTBrain] 點擊下一頁失敗:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 從 Dcard 文章頁面取得作者資訊
+     */
+    async fetchAuthorFromPost(postId: string): Promise<AuthorProfile | null> {
+        let browser: Browser | null = null;
+
+        try {
+            browser = await this.getBrowser();
+            const page = await browser.newPage();
+
+            await page.setUserAgent(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            );
+
+            // 使用 PTT Brain 的文章頁面
+            const postUrl = `https://www.pttbrain.com/dcard/post/${postId}`;
+            await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+
+            // 等待內容載入
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // 提取作者資訊和內容
+            const result = await page.evaluate(() => {
+                const content = document.body.innerText || '';
+
+                // 尋找作者連結
+                const authorLink = document.querySelector('a[href*="/@"]');
+                let authorId = null;
+                let nickname = null;
+
+                if (authorLink) {
+                    const href = authorLink.getAttribute('href') || '';
+                    const match = href.match(/\/@([^\/\?]+)/);
+                    if (match) {
+                        authorId = match[1];
+                    }
+                    nickname = authorLink.textContent?.trim() || null;
+                }
+
+                return {
+                    authorId,
+                    nickname,
+                    content,
+                };
+            });
+
+            if (!result.authorId) {
+                return null;
+            }
+
+            // 檢測 Twitter ID
+            const twitterInfo = this.detectTwitterFromContent(result.content);
+
+            return {
+                dcardId: result.authorId,
+                nickname: result.nickname,
+                bio: null,
+                twitterId: twitterInfo?.username || null,
+                twitterUrl: twitterInfo?.url || null,
+            };
+        } catch (error) {
+            logger.error(`[PTTBrain] 取得文章 ${postId} 作者失敗:`, error);
+            return null;
+        } finally {
+            if (browser) {
+                await browser.close();
+            }
+        }
+    }
+
+    /**
+     * 從文字內容偵測 Twitter ID
+     */
+    private detectTwitterFromContent(content: string): { username: string; url: string } | null {
+        // Twitter/X 連結模式
+        const urlPatterns = [
+            /https?:\/\/(www\.)?(twitter\.com|x\.com)\/([a-zA-Z0-9_]{1,15})(?:\/|\?|$)/i,
+            /(twitter\.com|x\.com)\/([a-zA-Z0-9_]{1,15})(?:\/|\?|$)/i,
+        ];
+
+        for (const pattern of urlPatterns) {
+            const match = content.match(pattern);
+            if (match) {
+                const username = match[3] || match[2];
+                if (username && !this.isReservedTwitterPath(username)) {
+                    return {
+                        username,
+                        url: `https://x.com/${username}`,
+                    };
+                }
+            }
+        }
+
+        // @ 開頭的 ID
+        const atMentionPattern = /@([a-zA-Z0-9_]{4,15})\b/g;
+        const atMatches = content.match(atMentionPattern);
+        if (atMatches) {
+            for (const match of atMatches) {
+                const username = match.substring(1);
+                if (!this.isReservedTwitterPath(username)) {
+                    return {
+                        username,
+                        url: `https://x.com/${username}`,
+                    };
+                }
+            }
+        }
+
+        // 純 ID 格式（需要關鍵字提示）
+        const plainIdPattern = /\b(?:twitter|tw|X|推特|小藍鳥)[：:\s]*@?([a-zA-Z0-9_]{4,15})\b/i;
+        const plainMatch = content.match(plainIdPattern);
+        if (plainMatch) {
+            const username = plainMatch[1];
+            if (!this.isReservedTwitterPath(username)) {
+                return {
+                    username,
+                    url: `https://x.com/${username}`,
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 檢查是否為 Twitter 保留路徑
+     */
+    private isReservedTwitterPath(path: string): boolean {
+        const reserved = [
+            'home', 'explore', 'search', 'notifications', 'messages',
+            'settings', 'login', 'signup', 'i', 'intent', 'share',
+            'hashtag', 'compose', 'lists', 'bookmarks', 'communities',
+        ];
+        return reserved.includes(path.toLowerCase());
+    }
+
+    /**
+     * 測試連接
+     */
+    async testConnection(): Promise<{
+        success: boolean;
+        browserlessToken: boolean;
+        message: string;
+        postsFound?: number;
+        sampleTitles?: string[];
+    }> {
+        const result: any = {
+            success: false,
+            browserlessToken: !!this.browserlessToken,
+            message: '',
+        };
+
+        if (!this.browserlessToken) {
+            result.message = '未設定 BROWSERLESS_TOKEN 環境變數';
+            return result;
+        }
+
+        let browser: Browser | null = null;
+
+        try {
+            browser = await this.getBrowser();
+            const page = await browser.newPage();
+
+            await page.setUserAgent(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            );
+
+            // 測試 PTT Brain
+            await page.goto('https://www.pttbrain.com/dcard/forum/sex', {
+                waitUntil: 'networkidle2',
+                timeout: 30000,
+            });
+
+            // 等待文章載入
+            await page.waitForSelector('a[href*="/dcard/post/"]', { timeout: 15000 });
+
+            // 提取文章
+            const posts = await this.extractPostsFromPage(page);
+
+            result.success = posts.length > 0;
+            result.postsFound = posts.length;
+            result.sampleTitles = posts.slice(0, 3).map(p => p.title.substring(0, 40));
+            result.message = posts.length > 0
+                ? `成功取得 ${posts.length} 篇文章`
+                : '頁面載入成功但未找到文章';
+
+            return result;
+        } catch (error: any) {
+            result.message = `連接失敗: ${error.message}`;
+            return result;
+        } finally {
+            if (browser) {
+                await browser.close();
+            }
+        }
+    }
+}
+
+export default new PttBrainScraperService();
