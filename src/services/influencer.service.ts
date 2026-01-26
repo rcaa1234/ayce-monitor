@@ -1092,6 +1092,45 @@ class InfluencerService {
             }
         }
 
+        // 測試 Dcard API 直接請求 (透過 ScrapingBee，不需 JS 渲染)
+        if (scrapingBeeKey && result.finalResult !== 'scrapingbee_success') {
+            try {
+                const apiUrl = 'https://www.dcard.tw/service/api/v2/forums/sex/posts?limit=10';
+                // 不需要 render_js，直接請求 API
+                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(apiUrl)}&stealth_proxy=true`;
+
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(30000),
+                });
+
+                const responseText = await response.text();
+
+                result.dcardApiTest = {
+                    status: response.status,
+                    ok: response.ok,
+                    length: responseText.length,
+                    preview: responseText.substring(0, 200),
+                };
+
+                if (response.ok) {
+                    try {
+                        const posts = JSON.parse(responseText);
+                        if (Array.isArray(posts) && posts.length > 0) {
+                            result.dcardApiTest.postsFound = posts.length;
+                            result.dcardApiTest.sampleTitle = posts[0]?.title?.substring(0, 50);
+                            result.dcardApiTest.sampleAuthorId = posts[0]?.member?.uid || posts[0]?.authorId;
+                            result.finalResult = 'dcard_api_success';
+                        }
+                    } catch (e) {
+                        result.dcardApiTest.parseError = 'Not JSON';
+                    }
+                }
+            } catch (error: any) {
+                result.dcardApiTest = { error: error.message };
+            }
+        }
+
         if (result.finalResult === 'not_tested') {
             result.finalResult = 'all_failed';
         }
