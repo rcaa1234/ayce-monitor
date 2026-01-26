@@ -1098,16 +1098,22 @@ class InfluencerService {
             }
         }
 
-        // 測試 Dcard API 直接請求 (透過 ScrapingBee，不需 JS 渲染)
+        // 測試 Dcard API 直接請求 (透過 ScrapingBee)
         if (scrapingBeeKey && result.finalResult !== 'scrapingbee_success') {
             try {
                 const apiUrl = 'https://www.dcard.tw/service/api/v2/forums/sex/posts?limit=10';
-                // 使用 premium_proxy 而不是 stealth_proxy (API 請求應該更快)
-                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(apiUrl)}&premium_proxy=true`;
+                // 使用 stealth_proxy + 自訂 headers 來模擬瀏覽器請求
+                const customHeaders = JSON.stringify({
+                    'Accept': 'application/json',
+                    'Accept-Language': 'zh-TW,zh;q=0.9',
+                    'Referer': 'https://www.dcard.tw/f/sex',
+                    'Origin': 'https://www.dcard.tw',
+                });
+                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(apiUrl)}&stealth_proxy=true&forward_headers=true&custom_headers=${encodeURIComponent(customHeaders)}`;
 
                 const response = await fetch(proxyUrl, {
                     method: 'GET',
-                    signal: AbortSignal.timeout(30000),
+                    signal: AbortSignal.timeout(60000),
                 });
 
                 const responseText = await response.text();
