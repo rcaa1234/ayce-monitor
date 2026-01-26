@@ -961,71 +961,95 @@ class InfluencerService {
     }
 
     /**
-     * 測試爬蟲服務連接
+     * 測試爬蟲服務連接 (分別測試每個服務)
      */
-    async testCrawlerConnection(): Promise<{
-        scrapingBeeKey: boolean;
-        zenrowsKey: boolean;
-        testResult: string;
-        htmlLength?: number;
-        postsFound?: number;
-        error?: string;
-    }> {
+    async testCrawlerConnection(): Promise<any> {
         const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
         const zenrowsApiKey = process.env.ZENROWS_API_KEY;
+        const testUrl = 'https://www.dcard.tw/f/sex?tab=latest';
 
         const result: any = {
             scrapingBeeKey: !!scrapingBeeKey,
             zenrowsKey: !!zenrowsApiKey,
-            testResult: 'not_tested',
+            scrapingBeeTest: null,
+            zenrowsTest: null,
+            finalResult: 'not_tested',
         };
 
-        if (!scrapingBeeKey && !zenrowsApiKey) {
-            result.testResult = 'no_api_key';
-            result.error = '未設定任何 API Key (SCRAPINGBEE_API_KEY 或 ZENROWS_API_KEY)';
-            return result;
-        }
+        // 測試 ScrapingBee
+        if (scrapingBeeKey) {
+            try {
+                const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(testUrl)}&render_js=true&stealth_proxy=true&wait=5000`;
 
-        try {
-            // 測試取得 Dcard 頁面
-            const testUrl = 'https://www.dcard.tw/f/sex?tab=latest';
-            const html = await this.fetchDcardPage(testUrl);
+                const response = await fetch(proxyUrl, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(60000),
+                });
 
-            if (!html) {
-                result.testResult = 'fetch_failed';
-                result.error = '無法取得頁面內容';
-                return result;
-            }
+                const responseText = await response.text();
 
-            result.htmlLength = html.length;
-
-            // 嘗試解析文章
-            const posts = this.parseForumPosts(html);
-            result.postsFound = posts.length;
-
-            if (posts.length > 0) {
-                result.testResult = 'success';
-                result.samplePost = {
-                    title: posts[0].title?.substring(0, 50),
-                    authorId: posts[0].authorId,
+                result.scrapingBeeTest = {
+                    status: response.status,
+                    ok: response.ok,
+                    htmlLength: responseText.length,
+                    hasNextData: responseText.includes('__NEXT_DATA__'),
+                    isCloudflareBlocked: responseText.includes('Just a moment') || responseText.includes('Attention Required'),
+                    preview: responseText.substring(0, 300),
                 };
-            } else {
-                result.testResult = 'no_posts_parsed';
-                result.error = '取得 HTML 但無法解析文章';
-                // 檢查 HTML 內容
-                if (html.includes('Just a moment') || html.includes('Attention Required')) {
-                    result.error = '被 Cloudflare 阻擋';
-                } else if (html.includes('__NEXT_DATA__')) {
-                    result.error = '有 __NEXT_DATA__ 但解析失敗';
-                }
-            }
 
-            return result;
-        } catch (error: any) {
-            result.testResult = 'error';
-            result.error = error.message;
-            return result;
+                if (response.ok && responseText.length > 1000 && !result.scrapingBeeTest.isCloudflareBlocked) {
+                    const posts = this.parseForumPosts(responseText);
+                    result.scrapingBeeTest.postsFound = posts.length;
+                    if (posts.length > 0) {
+                        result.finalResult = 'scrapingbee_success';
+                        result.scrapingBeeTest.samplePost = posts[0].title?.substring(0, 50);
+                    }
+                }
+            } catch (error: any) {
+                result.scrapingBeeTest = { error: error.message };
+            }
         }
+
+        // 測試 ZenRows
+        if (zenrowsApiKey) {
+            try {
+                const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${zenrowsApiKey}&url=${encodeURIComponent(testUrl)}&js_render=true&wait=3000`;
+
+                const response = await fetch(zenrowsUrl, {
+                    method: 'GET',
+                    headers: { 'Accept': 'text/html' },
+                    signal: AbortSignal.timeout(60000),
+                });
+
+                const responseText = await response.text();
+
+                result.zenrowsTest = {
+                    status: response.status,
+                    ok: response.ok,
+                    htmlLength: responseText.length,
+                    hasNextData: responseText.includes('__NEXT_DATA__'),
+                    isCloudflareBlocked: responseText.includes('Just a moment') || responseText.includes('Attention Required'),
+                    preview: responseText.substring(0, 300),
+                };
+
+                if (response.ok && responseText.length > 1000 && !result.zenrowsTest.isCloudflareBlocked) {
+                    const posts = this.parseForumPosts(responseText);
+                    result.zenrowsTest.postsFound = posts.length;
+                    if (posts.length > 0 && result.finalResult === 'not_tested') {
+                        result.finalResult = 'zenrows_success';
+                        result.zenrowsTest.samplePost = posts[0].title?.substring(0, 50);
+                    }
+                }
+            } catch (error: any) {
+                result.zenrowsTest = { error: error.message };
+            }
+        }
+
+        if (result.finalResult === 'not_tested') {
+            result.finalResult = 'all_failed';
+        }
+
+        return result;
     }
 }
 
