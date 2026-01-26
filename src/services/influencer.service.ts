@@ -613,7 +613,7 @@ class InfluencerService {
 
             const response = await fetch(proxyUrl, {
                 method: 'GET',
-                signal: AbortSignal.timeout(60000), // 60 秒超時
+                signal: AbortSignal.timeout(120000), // 120 秒超時 (js_scenario 需要更長時間)
             });
 
             if (!response.ok) {
