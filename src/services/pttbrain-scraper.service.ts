@@ -330,6 +330,7 @@ class PttBrainScraperService {
         message: string;
         postsFound?: number;
         sampleTitles?: string[];
+        debug?: any;
     }> {
         const result: {
             success: boolean;
@@ -337,6 +338,7 @@ class PttBrainScraperService {
             message: string;
             postsFound?: number;
             sampleTitles?: string[];
+            debug?: any;
         } = {
             success: false,
             browserlessToken: !!this.browserlessToken,
@@ -364,8 +366,40 @@ class PttBrainScraperService {
                 timeout: 30000,
             });
 
-            // 等待文章載入
-            await page.waitForSelector('a[href*="/dcard/post/"]', { timeout: 15000 });
+            // 等待頁面載入（更長的等待時間）
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            // 取得頁面資訊用於 debug
+            const pageInfo = await page.evaluate(`
+                (function() {
+                    var allLinks = Array.from(document.querySelectorAll('a'));
+                    var dcardLinks = allLinks.filter(function(a) {
+                        return (a.href || '').includes('dcard');
+                    });
+                    return {
+                        title: document.title,
+                        url: window.location.href,
+                        bodyLength: document.body.innerText.length,
+                        allLinksCount: allLinks.length,
+                        dcardLinksCount: dcardLinks.length,
+                        sampleLinks: dcardLinks.slice(0, 5).map(function(a) {
+                            return { href: a.href, text: (a.textContent || '').substring(0, 50) };
+                        }),
+                        hasPostLinks: allLinks.some(function(a) {
+                            return (a.href || '').includes('/dcard/post/');
+                        }),
+                    };
+                })()
+            `) as any;
+
+            result.debug = pageInfo;
+
+            // 嘗試等待文章連結（可選）
+            try {
+                await page.waitForSelector('a[href*="/dcard/post/"]', { timeout: 5000 });
+            } catch {
+                // 忽略超時，繼續嘗試提取
+            }
 
             // 提取文章
             const posts = await this.extractPostsFromPage(page);
@@ -375,7 +409,7 @@ class PttBrainScraperService {
             result.sampleTitles = posts.slice(0, 3).map(p => p.title.substring(0, 40));
             result.message = posts.length > 0
                 ? `成功取得 ${posts.length} 篇文章`
-                : '頁面載入成功但未找到文章';
+                : `頁面載入成功但未找到文章 (頁面標題: ${pageInfo.title})`;
 
             return result;
         } catch (error: unknown) {
