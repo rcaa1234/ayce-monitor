@@ -37,6 +37,7 @@ router.put('/contacts/:id/result', influencerController.updateContactResult.bind
 // 掃描操作
 // ========================================
 router.post('/scan', influencerController.triggerScan.bind(influencerController));
+router.get('/test-crawler', influencerController.testCrawler.bind(influencerController));
 
 // ========================================
 // 統計

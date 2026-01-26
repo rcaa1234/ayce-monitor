@@ -959,6 +959,74 @@ class InfluencerService {
             cooperating: stats.cooperating || 0,
         };
     }
+
+    /**
+     * 測試爬蟲服務連接
+     */
+    async testCrawlerConnection(): Promise<{
+        scrapingBeeKey: boolean;
+        zenrowsKey: boolean;
+        testResult: string;
+        htmlLength?: number;
+        postsFound?: number;
+        error?: string;
+    }> {
+        const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
+        const zenrowsApiKey = process.env.ZENROWS_API_KEY;
+
+        const result: any = {
+            scrapingBeeKey: !!scrapingBeeKey,
+            zenrowsKey: !!zenrowsApiKey,
+            testResult: 'not_tested',
+        };
+
+        if (!scrapingBeeKey && !zenrowsApiKey) {
+            result.testResult = 'no_api_key';
+            result.error = '未設定任何 API Key (SCRAPINGBEE_API_KEY 或 ZENROWS_API_KEY)';
+            return result;
+        }
+
+        try {
+            // 測試取得 Dcard 頁面
+            const testUrl = 'https://www.dcard.tw/f/sex?tab=latest';
+            const html = await this.fetchDcardPage(testUrl);
+
+            if (!html) {
+                result.testResult = 'fetch_failed';
+                result.error = '無法取得頁面內容';
+                return result;
+            }
+
+            result.htmlLength = html.length;
+
+            // 嘗試解析文章
+            const posts = this.parseForumPosts(html);
+            result.postsFound = posts.length;
+
+            if (posts.length > 0) {
+                result.testResult = 'success';
+                result.samplePost = {
+                    title: posts[0].title?.substring(0, 50),
+                    authorId: posts[0].authorId,
+                };
+            } else {
+                result.testResult = 'no_posts_parsed';
+                result.error = '取得 HTML 但無法解析文章';
+                // 檢查 HTML 內容
+                if (html.includes('Just a moment') || html.includes('Attention Required')) {
+                    result.error = '被 Cloudflare 阻擋';
+                } else if (html.includes('__NEXT_DATA__')) {
+                    result.error = '有 __NEXT_DATA__ 但解析失敗';
+                }
+            }
+
+            return result;
+        } catch (error: any) {
+            result.testResult = 'error';
+            result.error = error.message;
+            return result;
+        }
+    }
 }
 
 export default new InfluencerService();

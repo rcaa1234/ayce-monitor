@@ -263,6 +263,19 @@ class InfluencerController {
             res.status(500).json({ success: false, error: '取得統計失敗' });
         }
     }
+
+    /**
+     * 測試爬蟲服務連接
+     */
+    async testCrawler(req: Request, res: Response) {
+        try {
+            const result = await influencerService.testCrawlerConnection();
+            res.json({ success: true, data: result });
+        } catch (error: any) {
+            logger.error('測試爬蟲失敗:', error);
+            res.status(500).json({ success: false, error: error.message || '測試失敗' });
+        }
+    }
 }
 
 export default new InfluencerController();
