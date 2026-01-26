@@ -594,12 +594,22 @@ class InfluencerService {
      */
     private async fetchWithScrapingBee(url: string, apiKey: string): Promise<string | null> {
         try {
-            // 使用 JS 渲染 + stealth proxy + 等待文章元素出現
-            // wait_for: 等待包含文章連結的元素出現
-            // wait: 額外等待 8 秒讓 JS 完全載入
-            const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(url)}&render_js=true&stealth_proxy=true&wait=8000&wait_for=a[href*="/p/"]`;
+            // 使用 js_scenario 來模擬滾動，觸發 Dcard 的懶載入
+            const jsScenario = JSON.stringify({
+                instructions: [
+                    { wait: 3000 },           // 等待頁面初始載入
+                    { scroll_y: 500 },        // 向下滾動
+                    { wait: 2000 },           // 等待內容載入
+                    { scroll_y: 1000 },       // 再滾動
+                    { wait: 2000 },           // 等待
+                    { scroll_y: 1500 },       // 再滾動
+                    { wait: 3000 },           // 最後等待
+                ]
+            });
 
-            logger.info(`[ScrapingBee] 請求: ${url}`);
+            const proxyUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(url)}&render_js=true&stealth_proxy=true&js_scenario=${encodeURIComponent(jsScenario)}`;
+
+            logger.info(`[ScrapingBee] 請求 (with js_scenario): ${url}`);
 
             const response = await fetch(proxyUrl, {
                 method: 'GET',
