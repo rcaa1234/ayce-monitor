@@ -375,6 +375,18 @@ class ScraperApiController {
         try {
             const pool = getPool();
 
+            // 確保資料表存在
+            await pool.execute(`
+                CREATE TABLE IF NOT EXISTS scraper_heartbeat (
+                    id INT PRIMARY KEY DEFAULT 1,
+                    version VARCHAR(50),
+                    last_scan_at DATETIME,
+                    next_scan_at DATETIME,
+                    status VARCHAR(50),
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+
             const [rows] = await pool.execute<RowDataPacket[]>(`
                 SELECT version, last_scan_at, next_scan_at, status, updated_at
                 FROM scraper_heartbeat
