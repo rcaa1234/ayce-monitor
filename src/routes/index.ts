@@ -3117,4 +3117,8 @@ router.use('/monitor', monitorRoutes);
 import influencerRoutes from './influencer.routes';
 router.use('/influencer', influencerRoutes);
 
+// Scraper API routes (本機爬蟲 API)
+import scraperApiRoutes from './scraper-api.routes';
+router.use('/scraper', scraperApiRoutes);
+
 export default router;

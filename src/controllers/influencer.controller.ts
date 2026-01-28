@@ -4,7 +4,6 @@
 
 import { Request, Response } from 'express';
 import influencerService from '../services/influencer.service';
-import pttbrainScraperService from '../services/pttbrain-scraper.service';
 import logger from '../utils/logger';
 
 class InfluencerController {
@@ -278,46 +277,7 @@ class InfluencerController {
         }
     }
 
-    /**
-     * 測試 PTT Brain + Browserless 爬蟲
-     */
-    async testPttBrain(req: Request, res: Response) {
-        try {
-            const result = await pttbrainScraperService.testConnection();
-            res.json({ success: true, data: result });
-        } catch (error: any) {
-            logger.error('測試 PTT Brain 失敗:', error);
-            res.status(500).json({ success: false, error: error.message || '測試失敗' });
-        }
-    }
-
-    /**
-     * 使用 PTT Brain 掃描 (Browserless)
-     */
-    async scanWithPttBrain(req: Request, res: Response) {
-        try {
-            const { maxPages = 2 } = req.body;
-
-            // 取得文章列表
-            const posts = await pttbrainScraperService.fetchDcardSexPosts(maxPages);
-
-            res.json({
-                success: true,
-                data: {
-                    postsFound: posts.length,
-                    posts: posts.slice(0, 10).map(p => ({
-                        postId: p.postId,
-                        title: p.title.substring(0, 50),
-                        url: p.url,
-                    })),
-                },
-                message: `從 PTT Brain 取得 ${posts.length} 篇文章`,
-            });
-        } catch (error: any) {
-            logger.error('PTT Brain 掃描失敗:', error);
-            res.status(500).json({ success: false, error: error.message || '掃描失敗' });
-        }
-    }
+    // testPttBrain, scanWithPttBrain 已移除（雲端代理爬蟲已移至本機爬蟲）
 }
 
 export default new InfluencerController();

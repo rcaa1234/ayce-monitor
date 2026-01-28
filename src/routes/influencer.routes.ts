@@ -40,12 +40,6 @@ router.post('/scan', influencerController.triggerScan.bind(influencerController)
 router.get('/test-crawler', influencerController.testCrawler.bind(influencerController));
 
 // ========================================
-// PTT Brain + Browserless 爬蟲
-// ========================================
-router.get('/test-pttbrain', influencerController.testPttBrain.bind(influencerController));
-router.post('/scan-pttbrain', influencerController.scanWithPttBrain.bind(influencerController));
-
-// ========================================
 // 統計
 // ========================================
 router.get('/stats', influencerController.getStats.bind(influencerController));
