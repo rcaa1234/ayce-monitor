@@ -336,7 +336,7 @@ class ScraperApiController {
             // 確保資料表存在
             await pool.execute(`
                 CREATE TABLE IF NOT EXISTS scraper_heartbeat (
-                    id INT PRIMARY KEY DEFAULT 1,
+                    id INT PRIMARY KEY,
                     version VARCHAR(50),
                     last_scan_at DATETIME,
                     next_scan_at DATETIME,
@@ -378,7 +378,7 @@ class ScraperApiController {
             // 確保資料表存在
             await pool.execute(`
                 CREATE TABLE IF NOT EXISTS scraper_heartbeat (
-                    id INT PRIMARY KEY DEFAULT 1,
+                    id INT PRIMARY KEY,
                     version VARCHAR(50),
                     last_scan_at DATETIME,
                     next_scan_at DATETIME,
