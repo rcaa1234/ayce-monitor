@@ -277,7 +277,132 @@ class InfluencerController {
         }
     }
 
-    // testPttBrain, scanWithPttBrain 已移除（雲端代理爬蟲已移至本機爬蟲）
+    // ==========================================
+    // 作者管理
+    // ==========================================
+
+    /**
+     * 更新作者資料
+     */
+    async updateAuthor(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { dcard_username, twitter_id, twitter_display_name, notes, priority } = req.body;
+
+            await influencerService.updateAuthor(id, {
+                dcard_username,
+                twitter_id,
+                twitter_display_name,
+                notes,
+                priority,
+            });
+
+            res.json({ success: true, message: '作者資料已更新' });
+        } catch (error) {
+            logger.error('更新作者資料失敗:', error);
+            res.status(500).json({ success: false, error: '更新作者資料失敗' });
+        }
+    }
+
+    /**
+     * 刪除作者
+     */
+    async deleteAuthor(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            await influencerService.deleteAuthor(id);
+            res.json({ success: true, message: '作者已刪除' });
+        } catch (error) {
+            logger.error('刪除作者失敗:', error);
+            res.status(500).json({ success: false, error: '刪除作者失敗' });
+        }
+    }
+
+    // ==========================================
+    // 合作記錄管理
+    // ==========================================
+
+    /**
+     * 取得作者的合作記錄
+     */
+    async getCooperations(req: Request, res: Response) {
+        try {
+            const { authorId } = req.params;
+            const cooperations = await influencerService.getCooperations(authorId);
+            res.json({ success: true, data: cooperations });
+        } catch (error) {
+            logger.error('取得合作記錄失敗:', error);
+            res.status(500).json({ success: false, error: '取得合作記錄失敗' });
+        }
+    }
+
+    /**
+     * 新增合作記錄
+     */
+    async addCooperation(req: Request, res: Response) {
+        try {
+            const { authorId } = req.params;
+            const { first_contact_at, cooperated, post_url, payment_amount, post_date, notes } = req.body;
+
+            if (!first_contact_at) {
+                res.status(400).json({ success: false, error: '首次聯絡時間為必填' });
+                return;
+            }
+
+            const id = await influencerService.addCooperation({
+                author_id: authorId,
+                first_contact_at: new Date(first_contact_at),
+                cooperated: cooperated || false,
+                post_url,
+                payment_amount,
+                post_date: post_date ? new Date(post_date) : undefined,
+                notes,
+            });
+
+            res.json({ success: true, data: { id }, message: '合作記錄已新增' });
+        } catch (error) {
+            logger.error('新增合作記錄失敗:', error);
+            res.status(500).json({ success: false, error: '新增合作記錄失敗' });
+        }
+    }
+
+    /**
+     * 更新合作記錄
+     */
+    async updateCooperation(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const { first_contact_at, cooperated, post_url, payment_amount, post_date, notes } = req.body;
+
+            await influencerService.updateCooperation(id, {
+                first_contact_at: first_contact_at ? new Date(first_contact_at) : undefined,
+                cooperated,
+                post_url,
+                payment_amount,
+                post_date: post_date ? new Date(post_date) : undefined,
+                notes,
+            });
+
+            res.json({ success: true, message: '合作記錄已更新' });
+        } catch (error) {
+            logger.error('更新合作記錄失敗:', error);
+            res.status(500).json({ success: false, error: '更新合作記錄失敗' });
+        }
+    }
+
+    /**
+     * 刪除合作記錄
+     */
+    async deleteCooperation(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            await influencerService.deleteCooperation(id);
+            res.json({ success: true, message: '合作記錄已刪除' });
+        } catch (error) {
+            logger.error('刪除合作記錄失敗:', error);
+            res.status(500).json({ success: false, error: '刪除合作記錄失敗' });
+        }
+    }
 }
 
 export default new InfluencerController();

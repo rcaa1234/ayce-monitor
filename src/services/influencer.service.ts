@@ -638,6 +638,186 @@ class InfluencerService {
         };
     }
 
+    // ==========================================
+    // 作者管理
+    // ==========================================
+
+    /**
+     * 更新作者資料
+     */
+    async updateAuthor(authorId: string, data: {
+        dcard_username?: string;
+        twitter_id?: string;
+        twitter_display_name?: string;
+        notes?: string;
+        priority?: string;
+    }): Promise<void> {
+        const pool = getPool();
+
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (data.dcard_username !== undefined) {
+            updates.push('dcard_username = ?');
+            values.push(data.dcard_username);
+        }
+        if (data.twitter_id !== undefined) {
+            updates.push('twitter_id = ?');
+            values.push(data.twitter_id);
+        }
+        if (data.twitter_display_name !== undefined) {
+            updates.push('twitter_display_name = ?');
+            values.push(data.twitter_display_name);
+        }
+        if (data.notes !== undefined) {
+            updates.push('notes = ?');
+            values.push(data.notes);
+        }
+        if (data.priority !== undefined) {
+            updates.push('priority = ?');
+            values.push(data.priority);
+        }
+
+        if (updates.length === 0) return;
+
+        updates.push('updated_at = NOW()');
+        values.push(authorId);
+
+        await pool.execute(
+            `UPDATE influencer_authors SET ${updates.join(', ')} WHERE id = ?`,
+            values
+        );
+    }
+
+    /**
+     * 刪除作者
+     */
+    async deleteAuthor(authorId: string): Promise<void> {
+        const pool = getPool();
+        await pool.execute('DELETE FROM influencer_authors WHERE id = ?', [authorId]);
+    }
+
+    // ==========================================
+    // 合作記錄管理
+    // ==========================================
+
+    /**
+     * 取得作者的合作記錄
+     */
+    async getCooperations(authorId: string): Promise<any[]> {
+        const pool = getPool();
+        const [rows] = await pool.execute<RowDataPacket[]>(
+            `SELECT id, author_id, first_contact_at, cooperated, post_url, payment_amount, post_date, notes, created_at
+             FROM influencer_cooperations
+             WHERE author_id = ?
+             ORDER BY first_contact_at DESC`,
+            [authorId]
+        );
+        return rows;
+    }
+
+    /**
+     * 新增合作記錄
+     */
+    async addCooperation(data: {
+        author_id: string;
+        first_contact_at: Date;
+        cooperated: boolean;
+        post_url?: string;
+        payment_amount?: number;
+        post_date?: Date;
+        notes?: string;
+    }): Promise<string> {
+        const pool = getPool();
+        const id = generateUUID();
+
+        await pool.execute(
+            `INSERT INTO influencer_cooperations (
+                id, author_id, first_contact_at, cooperated, post_url, payment_amount, post_date, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                id,
+                data.author_id,
+                data.first_contact_at,
+                data.cooperated,
+                data.post_url || null,
+                data.payment_amount || null,
+                data.post_date || null,
+                data.notes || null,
+            ]
+        );
+
+        // 如果合作成功，更新作者狀態為 cooperating
+        if (data.cooperated) {
+            await pool.execute(
+                `UPDATE influencer_authors SET status = 'cooperating', updated_at = NOW() WHERE id = ?`,
+                [data.author_id]
+            );
+        }
+
+        return id;
+    }
+
+    /**
+     * 更新合作記錄
+     */
+    async updateCooperation(cooperationId: string, data: {
+        first_contact_at?: Date;
+        cooperated?: boolean;
+        post_url?: string;
+        payment_amount?: number;
+        post_date?: Date;
+        notes?: string;
+    }): Promise<void> {
+        const pool = getPool();
+
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (data.first_contact_at !== undefined) {
+            updates.push('first_contact_at = ?');
+            values.push(data.first_contact_at);
+        }
+        if (data.cooperated !== undefined) {
+            updates.push('cooperated = ?');
+            values.push(data.cooperated);
+        }
+        if (data.post_url !== undefined) {
+            updates.push('post_url = ?');
+            values.push(data.post_url);
+        }
+        if (data.payment_amount !== undefined) {
+            updates.push('payment_amount = ?');
+            values.push(data.payment_amount);
+        }
+        if (data.post_date !== undefined) {
+            updates.push('post_date = ?');
+            values.push(data.post_date);
+        }
+        if (data.notes !== undefined) {
+            updates.push('notes = ?');
+            values.push(data.notes);
+        }
+
+        if (updates.length === 0) return;
+
+        updates.push('updated_at = NOW()');
+        values.push(cooperationId);
+
+        await pool.execute(
+            `UPDATE influencer_cooperations SET ${updates.join(', ')} WHERE id = ?`,
+            values
+        );
+    }
+
+    /**
+     * 刪除合作記錄
+     */
+    async deleteCooperation(cooperationId: string): Promise<void> {
+        const pool = getPool();
+        await pool.execute('DELETE FROM influencer_cooperations WHERE id = ?', [cooperationId]);
+    }
+
 }
 
 export default new InfluencerService();

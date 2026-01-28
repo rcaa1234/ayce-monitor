@@ -18,16 +18,26 @@ router.put('/config', influencerController.updateConfig.bind(influencerControlle
 // ========================================
 router.get('/authors', influencerController.getAuthors.bind(influencerController));
 router.get('/authors/:id', influencerController.getAuthorById.bind(influencerController));
+router.put('/authors/:id', influencerController.updateAuthor.bind(influencerController));
+router.delete('/authors/:id', influencerController.deleteAuthor.bind(influencerController));
 router.put('/authors/:id/status', influencerController.updateAuthorStatus.bind(influencerController));
 router.post('/authors/:id/verify-twitter', influencerController.verifyAuthorTwitter.bind(influencerController));
 
 // ========================================
-// 來源貼文
+// 合作記錄
+// ========================================
+router.get('/authors/:authorId/cooperations', influencerController.getCooperations.bind(influencerController));
+router.post('/authors/:authorId/cooperations', influencerController.addCooperation.bind(influencerController));
+router.put('/cooperations/:id', influencerController.updateCooperation.bind(influencerController));
+router.delete('/cooperations/:id', influencerController.deleteCooperation.bind(influencerController));
+
+// ========================================
+// 來源貼文（保留但不再使用）
 // ========================================
 router.get('/source-posts', influencerController.getSourcePosts.bind(influencerController));
 
 // ========================================
-// 聯繫記錄
+// 聯繫記錄（舊版，保留向下相容）
 // ========================================
 router.get('/contacts', influencerController.getContacts.bind(influencerController));
 router.post('/contacts', influencerController.addContact.bind(influencerController));

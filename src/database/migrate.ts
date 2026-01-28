@@ -1340,6 +1340,37 @@ const migrations = [
 
   // Migration 64: 新增 Twitter 驗證時間欄位
   `ALTER TABLE influencer_authors ADD COLUMN twitter_verified_at DATETIME NULL COMMENT 'Twitter ID 驗證時間' AFTER twitter_verified`,
+
+  // Migration 65: 合作記錄表（簡化版）
+  `
+  CREATE TABLE IF NOT EXISTS influencer_cooperations (
+    id CHAR(36) PRIMARY KEY,
+    author_id CHAR(36) NOT NULL COMMENT '作者 ID',
+
+    -- 聯絡資訊
+    first_contact_at DATETIME NOT NULL COMMENT '首次聯絡時間',
+
+    -- 合作狀態
+    cooperated BOOLEAN DEFAULT FALSE COMMENT '是否合作',
+
+    -- 發文資訊（合作成功時填寫）
+    post_url VARCHAR(500) NULL COMMENT '發文網址',
+    payment_amount DECIMAL(10, 2) NULL COMMENT '合作金額',
+    post_date DATE NULL COMMENT '發文日期',
+
+    -- 備註
+    notes TEXT NULL COMMENT '備註',
+
+    -- 時間戳記
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (author_id) REFERENCES influencer_authors(id) ON DELETE CASCADE,
+    INDEX idx_author (author_id),
+    INDEX idx_cooperated (cooperated),
+    INDEX idx_post_date (post_date DESC)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='網黃合作記錄';
+  `,
 ];
 
 async function runMigrations() {
