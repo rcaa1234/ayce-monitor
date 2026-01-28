@@ -329,7 +329,94 @@ class ScraperApiController {
     async heartbeat(req: Request, res: Response) {
         const { version, last_scan_at, next_scan_at, status } = req.body;
         logger.info(`[ScraperAPI] 心跳: version=${version}, status=${status}, last_scan=${last_scan_at}, next_scan=${next_scan_at}`);
+
+        try {
+            const pool = getPool();
+
+            // 確保資料表存在
+            await pool.execute(`
+                CREATE TABLE IF NOT EXISTS scraper_heartbeat (
+                    id INT PRIMARY KEY DEFAULT 1,
+                    version VARCHAR(50),
+                    last_scan_at DATETIME,
+                    next_scan_at DATETIME,
+                    status VARCHAR(50),
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+
+            // 更新或插入心跳資訊
+            await pool.execute(`
+                INSERT INTO scraper_heartbeat (id, version, last_scan_at, next_scan_at, status, updated_at)
+                VALUES (1, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE
+                    version = VALUES(version),
+                    last_scan_at = VALUES(last_scan_at),
+                    next_scan_at = VALUES(next_scan_at),
+                    status = VALUES(status),
+                    updated_at = NOW()
+            `, [
+                version || null,
+                last_scan_at ? new Date(last_scan_at) : null,
+                next_scan_at ? new Date(next_scan_at) : null,
+                status || 'unknown'
+            ]);
+        } catch (err) {
+            logger.error('[ScraperAPI] 儲存心跳失敗:', err);
+        }
+
         res.json({ success: true, message: 'heartbeat received' });
+    }
+
+    /**
+     * 取得本機爬蟲狀態（供前台查詢）
+     */
+    async getStatus(_req: Request, res: Response) {
+        try {
+            const pool = getPool();
+
+            const [rows] = await pool.execute<RowDataPacket[]>(`
+                SELECT version, last_scan_at, next_scan_at, status, updated_at
+                FROM scraper_heartbeat
+                WHERE id = 1
+                LIMIT 1
+            `);
+
+            if (rows.length === 0) {
+                res.json({
+                    success: true,
+                    data: {
+                        online: false,
+                        message: '本機爬蟲尚未連線'
+                    }
+                });
+                return;
+            }
+
+            const heartbeat = rows[0];
+            const updatedAt = new Date(heartbeat.updated_at);
+            const now = new Date();
+            const diffMinutes = (now.getTime() - updatedAt.getTime()) / 1000 / 60;
+
+            // 超過 10 分鐘沒收到心跳視為離線
+            const online = diffMinutes < 10;
+
+            res.json({
+                success: true,
+                data: {
+                    online,
+                    version: heartbeat.version,
+                    status: heartbeat.status,
+                    last_scan_at: heartbeat.last_scan_at,
+                    next_scan_at: heartbeat.next_scan_at,
+                    last_heartbeat_at: heartbeat.updated_at,
+                    message: online ? '本機爬蟲運作中' : '本機爬蟲已離線'
+                }
+            });
+        } catch (error) {
+            logger.error('[ScraperAPI] 取得狀態失敗:', error);
+            res.status(500).json({ success: false, error: '取得狀態失敗' });
+        }
     }
 }
 

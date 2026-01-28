@@ -9,7 +9,11 @@ import scraperApiController from '../controllers/scraper-api.controller';
 
 const router = Router();
 
-// 所有路由都需要 API Key 驗證
+// === 公開路由（不需要 API Key）===
+// 取得本機爬蟲狀態（供前台查詢）
+router.get('/status', scraperApiController.getStatus.bind(scraperApiController));
+
+// === 以下路由需要 API Key 驗證 ===
 router.use(scraperAuth);
 
 // 健康檢查
