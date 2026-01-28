@@ -237,11 +237,10 @@ class ScraperApiController {
             const pool = getPool();
             let newAuthors = 0;
             let updated = 0;
-            let sourcePosts = 0;
 
             for (const author of authors) {
                 try {
-                    const { dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, source_forum, source_posts } = author;
+                    const { dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, source_forum } = author;
 
                     if (!dcard_id) continue;
 
@@ -251,10 +250,7 @@ class ScraperApiController {
                         [dcard_id]
                     );
 
-                    let authorId: string;
-
                     if (existing.length > 0) {
-                        authorId = existing[0].id;
                         // 更新現有作者
                         await pool.execute(
                             `UPDATE influencer_authors SET
@@ -264,14 +260,14 @@ class ScraperApiController {
                                 twitter_id = COALESCE(?, twitter_id),
                                 twitter_url = COALESCE(?, twitter_url),
                                 last_seen_at = NOW(),
+                                detection_count = detection_count + 1,
                                 updated_at = NOW()
                             WHERE id = ?`,
-                            [dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, authorId]
+                            [dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, existing[0].id]
                         );
                         updated++;
                     } else {
                         // 新增作者
-                        authorId = generateUUID();
                         await pool.execute(
                             `INSERT INTO influencer_authors (
                                 id, dcard_id, dcard_username, dcard_bio, dcard_url,
@@ -279,44 +275,17 @@ class ScraperApiController {
                                 source_forum, status, first_detected_at, last_seen_at,
                                 created_at, updated_at
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
-                            [authorId, dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, source_forum]
+                            [generateUUID(), dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_url, source_forum]
                         );
                         newAuthors++;
-                    }
-
-                    // 儲存來源貼文
-                    if (Array.isArray(source_posts)) {
-                        for (const post of source_posts) {
-                            try {
-                                // 檢查貼文是否已存在
-                                const [existingPost] = await pool.execute<RowDataPacket[]>(
-                                    `SELECT id FROM influencer_source_posts WHERE post_id = ? AND author_id = ? LIMIT 1`,
-                                    [post.post_id, authorId]
-                                );
-
-                                if (existingPost.length === 0) {
-                                    await pool.execute(
-                                        `INSERT INTO influencer_source_posts (
-                                            id, author_id, post_id, post_url, post_title,
-                                            likes_count, comments_count, detected_at
-                                        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-                                        [generateUUID(), authorId, post.post_id, post.post_url, post.post_title,
-                                         post.likes_count || 0, post.comments_count || 0]
-                                    );
-                                    sourcePosts++;
-                                }
-                            } catch (err) {
-                                logger.error(`[ScraperAPI] 儲存來源貼文失敗:`, err);
-                            }
-                        }
                     }
                 } catch (err) {
                     logger.error('[ScraperAPI] 儲存作者失敗:', err);
                 }
             }
 
-            logger.info(`[ScraperAPI] 接收 authors: ${newAuthors} 新增, ${updated} 更新, ${sourcePosts} 來源貼文`);
-            res.json({ success: true, data: { newAuthors, updated, sourcePosts, total: authors.length } });
+            logger.info(`[ScraperAPI] 接收 authors: ${newAuthors} 新增, ${updated} 更新`);
+            res.json({ success: true, data: { newAuthors, updated, total: authors.length } });
         } catch (error) {
             logger.error('[ScraperAPI] 接收 authors 失敗:', error);
             res.status(500).json({ success: false, error: '接收 authors 失敗' });
