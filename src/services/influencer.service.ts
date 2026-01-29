@@ -29,6 +29,7 @@ interface InfluencerAuthor {
     dcard_url: string | null;
     dcard_bio: string | null;
     twitter_id: string | null;
+    twitter_display_name: string | null;
     twitter_url: string | null;
     twitter_verified: boolean;
     twitter_verified_at: Date | null;
@@ -37,24 +38,11 @@ interface InfluencerAuthor {
     notes: string | null;
     first_detected_at: Date;
     last_seen_at: Date | null;
+    last_dcard_post_at: Date | null;
+    last_twitter_post_at: Date | null;
     // 關聯資料
     contact_count?: number;
     last_contact_date?: Date | null;
-}
-
-interface InfluencerSourcePost {
-    id: string;
-    author_id: string;
-    post_id: string;
-    post_url: string;
-    post_title: string | null;
-    post_excerpt: string | null;
-    likes_count: number;
-    comments_count: number;
-    detected_at: Date;
-    // 關聯資料
-    author_name?: string;
-    twitter_id?: string;
 }
 
 interface InfluencerContact {
@@ -322,65 +310,6 @@ class InfluencerService {
         );
 
         return result;
-    }
-
-    /**
-     * 取得來源貼文
-     */
-    async getSourcePosts(options: {
-        authorId?: string;
-        limit?: number;
-        offset?: number;
-    } = {}): Promise<{ posts: InfluencerSourcePost[]; total: number }> {
-        const pool = getPool();
-        const { authorId, limit = 20, offset = 0 } = options;
-
-        // Ensure limit and offset are valid integers for mysql2 prepared statements
-        const limitInt = Math.max(1, Math.min(100, Number(limit) || 20));
-        const offsetInt = Math.max(0, Number(offset) || 0);
-
-        let whereClause = '1=1';
-        const values: any[] = [];
-
-        if (authorId) {
-            whereClause += ' AND sp.author_id = ?';
-            values.push(authorId);
-        }
-
-        // Use query when no parameters, execute when parameters exist
-        const [countRows] = values.length > 0
-            ? await pool.execute<RowDataPacket[]>(
-                `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`,
-                values
-            )
-            : await pool.query<RowDataPacket[]>(
-                `SELECT COUNT(*) as total FROM influencer_source_posts sp WHERE ${whereClause}`
-            );
-        const total = Number(countRows[0].total) || 0;
-
-        const [rows] = values.length > 0
-            ? await pool.execute<RowDataPacket[]>(
-                `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
-                 FROM influencer_source_posts sp
-                 LEFT JOIN influencer_authors a ON sp.author_id = a.id
-                 WHERE ${whereClause}
-                 ORDER BY sp.detected_at DESC
-                 LIMIT ${limitInt} OFFSET ${offsetInt}`,
-                values
-            )
-            : await pool.query<RowDataPacket[]>(
-                `SELECT sp.*, a.dcard_username as author_name, a.twitter_id
-                 FROM influencer_source_posts sp
-                 LEFT JOIN influencer_authors a ON sp.author_id = a.id
-                 WHERE ${whereClause}
-                 ORDER BY sp.detected_at DESC
-                 LIMIT ${limitInt} OFFSET ${offsetInt}`
-            );
-
-        return {
-            posts: rows as InfluencerSourcePost[],
-            total,
-        };
     }
 
     /**

@@ -32,11 +32,6 @@ router.put('/cooperations/:id', influencerController.updateCooperation.bind(infl
 router.delete('/cooperations/:id', influencerController.deleteCooperation.bind(influencerController));
 
 // ========================================
-// 來源貼文（保留但不再使用）
-// ========================================
-router.get('/source-posts', influencerController.getSourcePosts.bind(influencerController));
-
-// ========================================
 // 聯繫記錄（舊版，保留向下相容）
 // ========================================
 router.get('/contacts', influencerController.getContacts.bind(influencerController));

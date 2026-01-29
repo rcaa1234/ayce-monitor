@@ -134,30 +134,6 @@ class InfluencerController {
     }
 
     /**
-     * 取得來源貼文
-     */
-    async getSourcePosts(req: Request, res: Response) {
-        try {
-            const { authorId, limit = '20', offset = '0' } = req.query;
-
-            const result = await influencerService.getSourcePosts({
-                authorId: authorId as string,
-                limit: parseInt(limit as string),
-                offset: parseInt(offset as string),
-            });
-
-            res.json({
-                success: true,
-                data: result.posts,
-                total: result.total,
-            });
-        } catch (error) {
-            logger.error('取得來源貼文失敗:', error);
-            res.status(500).json({ success: false, error: '取得來源貼文失敗' });
-        }
-    }
-
-    /**
      * 新增聯繫記錄
      */
     async addContact(req: Request, res: Response) {
