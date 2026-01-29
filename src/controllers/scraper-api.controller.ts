@@ -240,7 +240,7 @@ class ScraperApiController {
 
             for (const author of authors) {
                 try {
-                    const { dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_display_name, twitter_url, source_forum } = author;
+                    const { dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_display_name, twitter_url, last_dcard_post_at, last_twitter_post_at, source_forum } = author;
 
                     if (!dcard_id) continue;
 
@@ -260,11 +260,19 @@ class ScraperApiController {
                                 twitter_id = COALESCE(?, twitter_id),
                                 twitter_display_name = COALESCE(?, twitter_display_name),
                                 twitter_url = COALESCE(?, twitter_url),
+                                last_dcard_post_at = COALESCE(?, last_dcard_post_at),
+                                last_twitter_post_at = COALESCE(?, last_twitter_post_at),
                                 last_seen_at = NOW(),
                                 detection_count = detection_count + 1,
                                 updated_at = NOW()
                             WHERE id = ?`,
-                            [dcard_username, dcard_bio, dcard_url, twitter_id, twitter_display_name, twitter_url, existing[0].id]
+                            [
+                                dcard_username, dcard_bio, dcard_url,
+                                twitter_id, twitter_display_name, twitter_url,
+                                last_dcard_post_at ? new Date(last_dcard_post_at) : null,
+                                last_twitter_post_at ? new Date(last_twitter_post_at) : null,
+                                existing[0].id
+                            ]
                         );
                         updated++;
                     } else {
@@ -273,10 +281,17 @@ class ScraperApiController {
                             `INSERT INTO influencer_authors (
                                 id, dcard_id, dcard_username, dcard_bio, dcard_url,
                                 twitter_id, twitter_display_name, twitter_url,
+                                last_dcard_post_at, last_twitter_post_at,
                                 source_forum, status, first_detected_at, last_seen_at,
                                 created_at, updated_at
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
-                            [generateUUID(), dcard_id, dcard_username, dcard_bio, dcard_url, twitter_id, twitter_display_name, twitter_url, source_forum]
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
+                            [
+                                generateUUID(), dcard_id, dcard_username, dcard_bio, dcard_url,
+                                twitter_id, twitter_display_name, twitter_url,
+                                last_dcard_post_at ? new Date(last_dcard_post_at) : null,
+                                last_twitter_post_at ? new Date(last_twitter_post_at) : null,
+                                source_forum
+                            ]
                         );
                         newAuthors++;
                     }

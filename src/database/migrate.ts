@@ -1341,7 +1341,12 @@ const migrations = [
   // Migration 64: 新增 Twitter 驗證時間欄位
   `ALTER TABLE influencer_authors ADD COLUMN twitter_verified_at DATETIME NULL COMMENT 'Twitter ID 驗證時間' AFTER twitter_verified`,
 
-  // Migration 65: 合作記錄表（簡化版）
+  // Migration 65: 新增活躍度欄位
+  `ALTER TABLE influencer_authors
+   ADD COLUMN last_dcard_post_at DATETIME NULL COMMENT 'Dcard 最後發文時間' AFTER last_seen_at,
+   ADD COLUMN last_twitter_post_at DATETIME NULL COMMENT 'Twitter 最後發文時間' AFTER last_dcard_post_at`,
+
+  // Migration 66: 合作記錄表（簡化版）
   `
   CREATE TABLE IF NOT EXISTS influencer_cooperations (
     id CHAR(36) PRIMARY KEY,
