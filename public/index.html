@@ -2103,10 +2103,6 @@
                     style="padding: 8px 12px; border: none; background: #f59e0b; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     👤 作者名單
                 </button>
-                <button class="influencer-sub-tab" onclick="switchInfluencerSubTab('sources')"
-                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                    📋 來源貼文
-                </button>
                 <button class="influencer-sub-tab" onclick="switchInfluencerSubTab('contacts')"
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     💼 聯繫記錄
@@ -2152,17 +2148,6 @@
 
                 <!-- 分頁 -->
                 <div id="influencerAuthorsPagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
-            </div>
-
-            <!-- 來源貼文 Sub-tab -->
-            <div id="influencerSourcesTab" class="influencer-sub-content" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0;">📋 來源貼文列表</h3>
-                    <button class="btn btn-secondary" onclick="loadInfluencerSourcePosts()">🔄 重新整理</button>
-                </div>
-                <div id="influencerSourcesList" style="display: grid; gap: 15px;">
-                    <p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>
-                </div>
             </div>
 
             <!-- 聯繫記錄 Sub-tab -->
@@ -2502,10 +2487,6 @@
                     document.getElementById('influencerAuthorsTab').style.display = 'block';
                     loadInfluencerAuthors();
                 }
-                if (subTabName === 'sources') {
-                    document.getElementById('influencerSourcesTab').style.display = 'block';
-                    loadInfluencerSourcePosts();
-                }
                 if (subTabName === 'contacts') {
                     document.getElementById('influencerContactsTab').style.display = 'block';
                     loadInfluencerContacts();
@@ -2622,7 +2603,8 @@
 
                                     <!-- 狀態資訊 -->
                                     <div style="display: flex; gap: 15px; font-size: 12px; color: #666; flex-wrap: wrap;">
-                                        <span>📅 最後發文: ${author.last_seen_at ? formatRelativeTime(author.last_seen_at) : '未知'}</span>
+                                        <span>🎴 Dcard: ${author.last_dcard_post_at ? formatRelativeTime(author.last_dcard_post_at) : '未知'}</span>
+                                        <span>🐦 Twitter: ${author.last_twitter_post_at ? formatRelativeTime(author.last_twitter_post_at) : '未知'}</span>
                                         <span>${author.contact_count > 0 ? '📧 已聯繫 (' + author.contact_count + '次)' : '- 未聯繫'}</span>
                                     </div>
                                 </div>
@@ -2793,49 +2775,6 @@
                 } finally {
                     btn.disabled = false;
                     btn.innerHTML = originalText;
-                }
-            }
-
-            // 來源貼文
-            async function loadInfluencerSourcePosts() {
-                const container = document.getElementById('influencerSourcesList');
-                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
-
-                try {
-                    const response = await fetch(`${API_BASE}/influencer/source-posts?limit=50`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (!response.ok) throw new Error('載入失敗');
-
-                    const result = await response.json();
-                    const posts = result.data || [];
-
-                    if (posts.length === 0) {
-                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">尚無來源貼文</p>';
-                        return;
-                    }
-
-                    container.innerHTML = posts.map(post => `
-                        <div style="background: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
-                                <div>
-                                    <a href="${post.post_url}" target="_blank" style="font-size: 14px; color: #1d4ed8; text-decoration: none; font-weight: 500;">
-                                        ${escapeHtml(post.post_title || '無標題')}
-                                    </a>
-                                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                                        作者: ${post.author_name || '匿名'} ${post.twitter_id ? '(@' + post.twitter_id + ')' : ''}
-                                    </div>
-                                </div>
-                                <div style="text-align: right; font-size: 12px; color: #999;">
-                                    <div>👍 ${post.likes_count || 0} · 💬 ${post.comments_count || 0}</div>
-                                    <div style="margin-top: 3px;">${formatRelativeTime(post.detected_at)}</div>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (error) {
-                    console.error('載入來源貼文失敗:', error);
-                    container.innerHTML = '<p style="text-align: center; color: #dc3545; padding: 40px 0;">載入失敗</p>';
                 }
             }
 
