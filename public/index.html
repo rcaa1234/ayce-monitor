@@ -2582,12 +2582,15 @@
                                     </div>
 
                                     <!-- Twitter 資訊 -->
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
                                         ${author.twitter_id ? `
                                             <a href="${author.twitter_url || 'https://x.com/' + author.twitter_id}" target="_blank"
                                                style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: #1da1f2; color: white; border-radius: 15px; font-size: 13px; text-decoration: none;">
                                                 🐦 @${author.twitter_id}
                                             </a>
+                                            ${author.twitter_display_name ? `
+                                                <span style="font-size: 12px; color: #666;">${escapeHtml(author.twitter_display_name)}</span>
+                                            ` : ''}
                                             <span style="font-size: 12px; padding: 3px 8px; border-radius: 10px;
                                                 ${author.twitter_verified ? 'background: #dcfce7; color: #16a34a;' : 'background: #fef3c7; color: #d97706;'}">
                                                 ${author.twitter_verified ? '✓ 已驗證' : '⚠️ 待驗證'}
