@@ -670,6 +670,8 @@ class MonitorController {
             { name: 'Dcard 女孩 (最新)', url: 'https://www.dcard.tw/f/girl?tab=latest', platform: 'dcard', platform_category: 'girl', description: '抓取最新文章' },
             { name: 'Dcard 感情 (最新)', url: 'https://www.dcard.tw/f/relationship?tab=latest', platform: 'dcard', platform_category: 'relationship', description: '抓取最新文章' },
             { name: 'Dcard 美妝 (最新)', url: 'https://www.dcard.tw/f/makeup?tab=latest', platform: 'dcard', platform_category: 'makeup', description: '抓取最新文章' },
+            { name: 'Dcard 女孩西斯 (最新)', url: 'https://www.dcard.tw/f/girlsex?tab=latest', platform: 'dcard', platform_category: 'girlsex', description: '抓取最新文章' },
+            { name: 'Dcard 西斯玩具 (最新)', url: 'https://www.dcard.tw/f/sex_toys?tab=latest', platform: 'dcard', platform_category: 'sex_toys', description: '抓取最新文章' },
             { name: 'PTT 八卦板', url: 'https://www.ptt.cc/bbs/Gossiping/index.html', platform: 'ptt', platform_category: 'Gossiping' },
             { name: 'PTT WomenTalk', url: 'https://www.ptt.cc/bbs/WomenTalk/index.html', platform: 'ptt', platform_category: 'WomenTalk' },
             { name: 'PTT Sex', url: 'https://www.ptt.cc/bbs/sex/index.html', platform: 'ptt', platform_category: 'sex' },
