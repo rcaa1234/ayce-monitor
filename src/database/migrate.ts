@@ -1390,6 +1390,9 @@ const migrations = [
   // Migration 68: 插入預設爬蟲設定
   `INSERT IGNORE INTO scraper_config (id, poll_interval_seconds, max_concurrent_tasks, offline_fallback_hours)
    VALUES (1, 60, 3, 4)`,
+
+  // Migration 69: 品牌表新增 last_trends_at 欄位
+  `ALTER TABLE monitor_brands ADD COLUMN last_trends_at DATETIME NULL COMMENT '最後趨勢更新時間' AFTER last_crawled_at`,
 ];
 
 async function runMigrations() {

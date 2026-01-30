@@ -471,6 +471,50 @@ class ScraperApiController {
                 });
             }
 
+            // 3. 檢查 Google Trends 是否需要更新（每 6 小時一次）
+            if (tasks.length < scraperConfig.max_concurrent_tasks) {
+                try {
+                    // 取得需要抓取趨勢的品牌（有關鍵字且最近 6 小時沒更新過）
+                    const [brandsTrends] = await pool.execute<RowDataPacket[]>(
+                        `SELECT mb.id, mb.name, mb.keywords
+                         FROM monitor_brands mb
+                         WHERE mb.is_active = 1
+                           AND mb.keywords IS NOT NULL
+                           AND mb.keywords != '[]'
+                           AND (
+                               mb.last_trends_at IS NULL
+                               OR mb.last_trends_at < DATE_SUB(NOW(), INTERVAL 6 HOUR)
+                           )
+                         ORDER BY mb.last_trends_at ASC
+                         LIMIT 1`
+                    );
+
+                    if (brandsTrends.length > 0) {
+                        const brand = brandsTrends[0];
+                        let keywords: string[] = [];
+                        try {
+                            keywords = typeof brand.keywords === 'string' ? JSON.parse(brand.keywords) : (brand.keywords || []);
+                        } catch { keywords = []; }
+
+                        if (keywords.length > 0) {
+                            tasks.push({
+                                task_id: generateUUID(),
+                                task_type: 'trends',
+                                trends_config: {
+                                    brand_id: brand.id,
+                                    brand_name: brand.name,
+                                    keywords: keywords.slice(0, 5), // 最多 5 個關鍵字
+                                    geo: 'TW',
+                                },
+                            });
+                        }
+                    }
+                } catch (err) {
+                    // 若 last_trends_at 欄位不存在，忽略錯誤
+                    logger.debug('[ScraperAPI] Trends 任務檢查跳過（欄位可能不存在）');
+                }
+            }
+
             logger.info(`[ScraperAPI] getTasks: 回傳 ${tasks.length} 個任務`);
 
             res.json({
@@ -562,12 +606,141 @@ class ScraperApiController {
                         next_check_at: nextCheckAt?.toISOString(),
                     },
                 });
+            } else if (task_type === 'trends') {
+                // 更新品牌的 last_trends_at（從 req.body 取得 brand_id）
+                const { brand_id: trendsBrandId } = req.body;
+                if (trendsBrandId) {
+                    await pool.execute(
+                        `UPDATE monitor_brands SET last_trends_at = ? WHERE id = ?`,
+                        [completedAt, trendsBrandId]
+                    ).catch(() => {});
+                }
+
+                logger.info(`[ScraperAPI] 任務完成: type=trends, brand=${trendsBrandId}, status=${status}, duration=${duration_ms}ms`);
+
+                res.json({
+                    success: true,
+                    data: {
+                        acknowledged: true,
+                        next_check_at: new Date(completedAt.getTime() + 6 * 60 * 60 * 1000).toISOString(),
+                    },
+                });
             } else {
                 res.status(400).json({ success: false, error: '無效的 task_type' });
             }
         } catch (error) {
             logger.error('[ScraperAPI] 回報任務完成失敗:', error);
             res.status(500).json({ success: false, error: '回報任務完成失敗' });
+        }
+    }
+
+    /**
+     * 接收 Google Trends 數據
+     */
+    async receiveTrends(req: Request, res: Response) {
+        try {
+            const { trends } = req.body;
+
+            if (!Array.isArray(trends) || trends.length === 0) {
+                res.status(400).json({ success: false, error: 'trends 必須是非空陣列' });
+                return;
+            }
+
+            const pool = getPool();
+            let saved = 0;
+
+            for (const trend of trends) {
+                try {
+                    const {
+                        brand_id, keyword, trend_date, trend_value,
+                        region = 'TW', region_breakdown, related_queries, rising_queries
+                    } = trend;
+
+                    if (!brand_id || !keyword || !trend_date) continue;
+
+                    const id = generateUUID();
+
+                    await pool.execute(
+                        `INSERT INTO monitor_trends (
+                            id, brand_id, source, keyword, trend_date, trend_value,
+                            region, region_breakdown, related_queries, rising_queries, fetched_at
+                        ) VALUES (?, ?, 'google_trends', ?, ?, ?, ?, ?, ?, ?, NOW())
+                        ON DUPLICATE KEY UPDATE
+                            trend_value = VALUES(trend_value),
+                            region_breakdown = VALUES(region_breakdown),
+                            related_queries = VALUES(related_queries),
+                            rising_queries = VALUES(rising_queries),
+                            fetched_at = NOW()`,
+                        [
+                            id, brand_id, keyword, trend_date, trend_value || 0,
+                            region,
+                            region_breakdown ? JSON.stringify(region_breakdown) : null,
+                            related_queries ? JSON.stringify(related_queries) : null,
+                            rising_queries ? JSON.stringify(rising_queries) : null,
+                        ]
+                    );
+
+                    saved++;
+                } catch (err) {
+                    logger.error('[ScraperAPI] 儲存趨勢數據失敗:', err);
+                }
+            }
+
+            logger.info(`[ScraperAPI] 接收 trends: ${saved} 筆已儲存`);
+            res.json({ success: true, data: { saved, total: trends.length } });
+        } catch (error) {
+            logger.error('[ScraperAPI] 接收 trends 失敗:', error);
+            res.status(500).json({ success: false, error: '接收 trends 失敗' });
+        }
+    }
+
+    /**
+     * 接收每日熱門搜尋
+     */
+    async receiveDailyTrends(req: Request, res: Response) {
+        try {
+            const { daily_trends, geo = 'TW' } = req.body;
+
+            if (!Array.isArray(daily_trends)) {
+                res.status(400).json({ success: false, error: 'daily_trends 必須是陣列' });
+                return;
+            }
+
+            const pool = getPool();
+
+            // 確保資料表存在
+            await pool.execute(`
+                CREATE TABLE IF NOT EXISTS google_daily_trends (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    geo VARCHAR(10) DEFAULT 'TW',
+                    title VARCHAR(500) NOT NULL,
+                    traffic VARCHAR(50),
+                    articles JSON,
+                    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_geo_date (geo, fetched_at)
+                )
+            `);
+
+            // 刪除當天舊資料
+            await pool.execute(
+                `DELETE FROM google_daily_trends WHERE geo = ? AND DATE(fetched_at) = CURDATE()`,
+                [geo]
+            );
+
+            // 插入新資料
+            for (const trend of daily_trends) {
+                await pool.execute(
+                    `INSERT INTO google_daily_trends (geo, title, traffic, articles)
+                     VALUES (?, ?, ?, ?)`,
+                    [geo, trend.title, trend.traffic, JSON.stringify(trend.articles || [])]
+                );
+            }
+
+            logger.info(`[ScraperAPI] 接收每日熱門搜尋: ${daily_trends.length} 筆 (${geo})`);
+            res.json({ success: true, data: { saved: daily_trends.length } });
+        } catch (error) {
+            logger.error('[ScraperAPI] 接收每日熱門搜尋失敗:', error);
+            res.status(500).json({ success: false, error: '接收每日熱門搜尋失敗' });
         }
     }
 

@@ -31,6 +31,8 @@ router.post('/tasks/complete', scraperApiController.completeTask.bind(scraperApi
 // 接收爬取結果
 router.post('/results/mentions', scraperApiController.receiveMentions.bind(scraperApiController));
 router.post('/results/authors', scraperApiController.receiveAuthors.bind(scraperApiController));
+router.post('/results/trends', scraperApiController.receiveTrends.bind(scraperApiController));
+router.post('/results/daily-trends', scraperApiController.receiveDailyTrends.bind(scraperApiController));
 
 // 心跳回報
 router.post('/heartbeat', scraperApiController.heartbeat.bind(scraperApiController));
