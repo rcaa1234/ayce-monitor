@@ -479,9 +479,9 @@ class ScraperApiController {
                     server_time: new Date().toISOString(),
                 },
             });
-        } catch (error) {
+        } catch (error: any) {
             logger.error('[ScraperAPI] 取得任務失敗:', error);
-            res.status(500).json({ success: false, error: '取得任務失敗' });
+            res.status(500).json({ success: false, error: `取得任務失敗: ${error.message || error}` });
         }
     }
 
