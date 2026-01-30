@@ -66,4 +66,10 @@ router.delete('/classifier-rules/:topic/:ruleId', monitorController.deleteClassi
 // ========================================
 router.post('/relink-all', monitorController.relinkAllBrandsSources.bind(monitorController));
 
+// ========================================
+// 週報
+// ========================================
+router.get('/weekly-report', monitorController.getWeeklyReport.bind(monitorController));
+router.post('/weekly-report/send', monitorController.sendWeeklyReport.bind(monitorController));
+
 export default router;

@@ -738,6 +738,25 @@ export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
 });
 
 /**
+ * 聲量週報
+ * Runs every Sunday at 10:00 - 每週日早上發送週報
+ */
+export const weeklyReportScheduler = cron.schedule('0 10 * * 0', async () => {
+  logger.info('[WeeklyReport] Generating weekly report...');
+
+  try {
+    const weeklyReportService = (await import('../services/weekly-report.service')).default;
+    const report = await weeklyReportService.generateReport();
+    await weeklyReportService.sendReportToLine(report);
+    logger.info('[WeeklyReport] Weekly report sent successfully');
+  } catch (error) {
+    logger.error('[WeeklyReport] Failed to generate/send weekly report:', error);
+  }
+}, {
+  scheduled: false,
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
@@ -774,11 +793,16 @@ export async function startSchedulers() {
     logger.info('[Monitor] Starting monitorCrawlScheduler (every 30 minutes)...');
     monitorCrawlScheduler.start();
 
+    // Start Weekly Report scheduler
+    logger.info('[WeeklyReport] Starting weeklyReportScheduler (Sunday at 10:00)...');
+    weeklyReportScheduler.start();
+
     logger.info('✓ All schedulers started successfully');
     logger.info('  - Fixed schedulers: 6 jobs');
     logger.info('  - Auto schedulers: 2 jobs');
     logger.info('  - Monitor schedulers: 2 jobs');
-    logger.info('  - Total: 10 cron jobs running');
+    logger.info('  - Weekly report: 1 job');
+    logger.info('  - Total: 11 cron jobs running');
   } catch (error) {
     logger.error('[Scheduler] Failed to start schedulers:', error);
     throw error;
@@ -803,6 +827,9 @@ export function stopSchedulers() {
 
   // Stop Monitor scheduler
   monitorCrawlScheduler.stop();
+
+  // Stop Weekly Report scheduler
+  weeklyReportScheduler.stop();
 
   logger.info('✓ All schedulers stopped');
 }

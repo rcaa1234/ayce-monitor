@@ -973,6 +973,49 @@ class MonitorController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+
+    // ========================================
+    // 週報 API
+    // ========================================
+
+    /**
+     * GET /api/monitor/weekly-report - 取得週報數據
+     * Query: weeks_ago (default: 0, 本週)
+     */
+    async getWeeklyReport(req: Request, res: Response): Promise<void> {
+        try {
+            const { weeks_ago = 0 } = req.query;
+            const weeklyReportService = (await import('../services/weekly-report.service')).default;
+            const report = await weeklyReportService.generateReport(Number(weeks_ago));
+
+            res.json({ success: true, data: report });
+        } catch (error: any) {
+            logger.error('Failed to get weekly report:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/weekly-report/send - 手動發送週報到 LINE
+     */
+    async sendWeeklyReport(req: Request, res: Response): Promise<void> {
+        try {
+            const { weeks_ago = 0 } = req.body;
+            const weeklyReportService = (await import('../services/weekly-report.service')).default;
+
+            const report = await weeklyReportService.generateReport(Number(weeks_ago));
+            const sent = await weeklyReportService.sendReportToLine(report);
+
+            if (sent) {
+                res.json({ success: true, message: '週報已發送到 LINE' });
+            } else {
+                res.status(500).json({ success: false, error: '發送失敗，請確認 LINE 設定' });
+            }
+        } catch (error: any) {
+            logger.error('Failed to send weekly report:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }
 
 export default new MonitorController();
