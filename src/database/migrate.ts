@@ -1393,6 +1393,18 @@ const migrations = [
 
   // Migration 69: 品牌表新增 last_trends_at 欄位
   `ALTER TABLE monitor_brands ADD COLUMN last_trends_at DATETIME NULL COMMENT '最後趨勢更新時間'`,
+
+  // Migration 70: scraper_config 新增 trends 設定
+  `ALTER TABLE scraper_config ADD COLUMN trends_interval_hours INT DEFAULT 6 COMMENT 'Google Trends 更新間隔（小時）'`,
+
+  // Migration 71: 新增 trends 立即執行標記表
+  `CREATE TABLE IF NOT EXISTS scraper_triggers (
+    id VARCHAR(50) PRIMARY KEY,
+    triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    triggered_by VARCHAR(100) DEFAULT 'web',
+    status ENUM('pending', 'processing', 'done') DEFAULT 'pending',
+    INDEX idx_status (status, triggered_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='爬蟲任務觸發記錄'`,
 ];
 
 async function runMigrations() {

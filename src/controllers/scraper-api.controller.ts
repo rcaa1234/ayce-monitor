@@ -363,17 +363,32 @@ class ScraperApiController {
             const tasks: any[] = [];
 
             // 取得爬蟲設定（若資料表不存在則使用預設值）
-            let scraperConfig = { poll_interval_seconds: 60, max_concurrent_tasks: 3 };
+            let scraperConfig = { poll_interval_seconds: 60, max_concurrent_tasks: 3, trends_interval_hours: 6 };
             try {
                 const [configRows] = await pool.execute<RowDataPacket[]>(
-                    `SELECT poll_interval_seconds, max_concurrent_tasks FROM scraper_config WHERE id = 1`
+                    `SELECT poll_interval_seconds, max_concurrent_tasks, trends_interval_hours FROM scraper_config WHERE id = 1`
                 );
                 if (configRows[0]) {
-                    scraperConfig = configRows[0] as any;
+                    scraperConfig = { ...scraperConfig, ...configRows[0] as any };
                 }
             } catch {
                 // 資料表不存在，使用預設值
                 logger.warn('[ScraperAPI] scraper_config 資料表不存在，使用預設值');
+            }
+
+            // 檢查是否有立即執行的觸發
+            let hasTrendsTrigger = false;
+            try {
+                const [triggers] = await pool.execute<RowDataPacket[]>(
+                    `SELECT id FROM scraper_triggers WHERE id = 'trends' AND status = 'pending' LIMIT 1`
+                );
+                if (triggers.length > 0) {
+                    hasTrendsTrigger = true;
+                    // 標記為處理中
+                    await pool.execute(`UPDATE scraper_triggers SET status = 'processing' WHERE id = 'trends'`);
+                }
+            } catch {
+                // 資料表可能不存在
             }
 
             // 1. 檢查需要爬取的 monitor sources（包含 Dcard 和 PTT）
@@ -471,20 +486,22 @@ class ScraperApiController {
                 });
             }
 
-            // 3. 檢查 Google Trends 是否需要更新（每 6 小時一次）
+            // 3. 檢查 Google Trends 是否需要更新
+            const trendsIntervalHours = Number(scraperConfig.trends_interval_hours) || 6;
             if (tasks.length < scraperConfig.max_concurrent_tasks) {
                 try {
-                    // 取得需要抓取趨勢的品牌（有關鍵字且最近 6 小時沒更新過）
+                    // 如果有立即觸發，或到達更新間隔
+                    const intervalCondition = hasTrendsTrigger
+                        ? '1=1' // 有觸發時忽略時間條件
+                        : `(mb.last_trends_at IS NULL OR mb.last_trends_at < DATE_SUB(NOW(), INTERVAL ${trendsIntervalHours} HOUR))`;
+
                     const [brandsTrends] = await pool.execute<RowDataPacket[]>(
                         `SELECT mb.id, mb.name, mb.keywords
                          FROM monitor_brands mb
                          WHERE mb.is_active = 1
                            AND mb.keywords IS NOT NULL
                            AND mb.keywords != '[]'
-                           AND (
-                               mb.last_trends_at IS NULL
-                               OR mb.last_trends_at < DATE_SUB(NOW(), INTERVAL 6 HOUR)
-                           )
+                           AND ${intervalCondition}
                          ORDER BY mb.last_trends_at ASC
                          LIMIT 1`
                     );
@@ -507,6 +524,11 @@ class ScraperApiController {
                                     geo: 'TW',
                                 },
                             });
+
+                            // 清除觸發標記
+                            if (hasTrendsTrigger) {
+                                await pool.execute(`UPDATE scraper_triggers SET status = 'done' WHERE id = 'trends'`).catch(() => {});
+                            }
                         }
                     }
                 } catch (err) {
@@ -741,6 +763,102 @@ class ScraperApiController {
         } catch (error) {
             logger.error('[ScraperAPI] 接收每日熱門搜尋失敗:', error);
             res.status(500).json({ success: false, error: '接收每日熱門搜尋失敗' });
+        }
+    }
+
+    /**
+     * 觸發立即抓取 Google Trends
+     * 網頁端呼叫此端點，本機爬蟲下次輪詢時會收到任務
+     */
+    async triggerTrends(_req: Request, res: Response) {
+        try {
+            const pool = getPool();
+
+            // 確保資料表存在
+            await pool.execute(`
+                CREATE TABLE IF NOT EXISTS scraper_triggers (
+                    id VARCHAR(50) PRIMARY KEY,
+                    triggered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    triggered_by VARCHAR(100) DEFAULT 'web',
+                    status ENUM('pending', 'processing', 'done') DEFAULT 'pending',
+                    INDEX idx_status (status, triggered_at)
+                )
+            `);
+
+            // 插入或更新觸發記錄
+            await pool.execute(`
+                INSERT INTO scraper_triggers (id, triggered_at, triggered_by, status)
+                VALUES ('trends', NOW(), 'web', 'pending')
+                ON DUPLICATE KEY UPDATE
+                    triggered_at = NOW(),
+                    triggered_by = 'web',
+                    status = 'pending'
+            `);
+
+            logger.info('[ScraperAPI] 已觸發 Google Trends 立即抓取');
+            res.json({
+                success: true,
+                message: '已觸發，本機爬蟲將在下次輪詢時執行（約 1 分鐘內）',
+            });
+        } catch (error) {
+            logger.error('[ScraperAPI] 觸發 Trends 失敗:', error);
+            res.status(500).json({ success: false, error: '觸發失敗' });
+        }
+    }
+
+    /**
+     * 取得/更新爬蟲全域設定
+     */
+    async getScraperSettings(_req: Request, res: Response) {
+        try {
+            const pool = getPool();
+
+            const [rows] = await pool.execute<RowDataPacket[]>(
+                `SELECT poll_interval_seconds, max_concurrent_tasks, offline_fallback_hours, trends_interval_hours
+                 FROM scraper_config WHERE id = 1`
+            );
+
+            if (rows.length === 0) {
+                res.json({
+                    success: true,
+                    data: {
+                        poll_interval_seconds: 60,
+                        max_concurrent_tasks: 3,
+                        offline_fallback_hours: 4,
+                        trends_interval_hours: 6,
+                    },
+                });
+                return;
+            }
+
+            res.json({ success: true, data: rows[0] });
+        } catch (error) {
+            logger.error('[ScraperAPI] 取得爬蟲設定失敗:', error);
+            res.status(500).json({ success: false, error: '取得設定失敗' });
+        }
+    }
+
+    async updateScraperSettings(req: Request, res: Response) {
+        try {
+            const { poll_interval_seconds, max_concurrent_tasks, offline_fallback_hours, trends_interval_hours } = req.body;
+
+            const pool = getPool();
+
+            await pool.execute(`
+                UPDATE scraper_config SET
+                    poll_interval_seconds = COALESCE(?, poll_interval_seconds),
+                    max_concurrent_tasks = COALESCE(?, max_concurrent_tasks),
+                    offline_fallback_hours = COALESCE(?, offline_fallback_hours),
+                    trends_interval_hours = COALESCE(?, trends_interval_hours),
+                    updated_at = NOW()
+                WHERE id = 1
+            `, [poll_interval_seconds, max_concurrent_tasks, offline_fallback_hours, trends_interval_hours]);
+
+            logger.info('[ScraperAPI] 爬蟲設定已更新');
+            res.json({ success: true, message: '設定已更新' });
+        } catch (error) {
+            logger.error('[ScraperAPI] 更新爬蟲設定失敗:', error);
+            res.status(500).json({ success: false, error: '更新設定失敗' });
         }
     }
 

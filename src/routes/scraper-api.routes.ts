@@ -34,6 +34,13 @@ router.post('/results/authors', scraperApiController.receiveAuthors.bind(scraper
 router.post('/results/trends', scraperApiController.receiveTrends.bind(scraperApiController));
 router.post('/results/daily-trends', scraperApiController.receiveDailyTrends.bind(scraperApiController));
 
+// 立即觸發任務
+router.post('/trigger/trends', scraperApiController.triggerTrends.bind(scraperApiController));
+
+// 爬蟲全域設定
+router.get('/settings', scraperApiController.getScraperSettings.bind(scraperApiController));
+router.put('/settings', scraperApiController.updateScraperSettings.bind(scraperApiController));
+
 // 心跳回報
 router.post('/heartbeat', scraperApiController.heartbeat.bind(scraperApiController));
 
