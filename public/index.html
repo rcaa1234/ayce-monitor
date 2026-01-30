@@ -1983,7 +1983,7 @@
             <div id="monitorStatsTab" class="sub-tab-content active">
                 <!-- 頁面說明 -->
                 <div style="background: #fdf4ff; border-left: 4px solid #a855f7; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #6b21a8;">
-                    <strong>📊 聲量統計</strong>：彙總所有提及的數據分析。看哪個關鍵字組被提及最多、哪個來源最活躍，以及爬取日誌和 Google 趨勢。
+                    <strong>📊 聲量統計</strong>：彙總所有提及的數據分析。看哪個關鍵字組被提及最多、哪個來源最活躍，以及爬取日誌。
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -2027,20 +2027,6 @@
                     </div>
                 </div>
 
-                <!-- Google Trends 區塊 -->
-                <div
-                    style="margin-top: 30px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4 style="margin: 0;">📈 Google 搜尋趨勢</h4>
-                        <button class="btn btn-secondary" onclick="fetchGoogleTrends()"
-                            style="padding: 8px 15px; font-size: 12px;">🔄 抓取最新趨勢</button>
-                    </div>
-                    <div id="googleTrendsChart" style="min-height: 200px;">
-                        <p style="color: #999; text-align: center; padding: 40px 0;">點擊「抓取最新趨勢」按鈕開始收集數據</p>
-                    </div>
-                </div>
-
                 <!-- 爬取日誌 -->
                 <div
                     style="margin-top: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -2055,19 +2041,6 @@
                     </div>
                 </div>
 
-                <!-- 每日熱門搜尋 -->
-                <div
-                    style="margin-top: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4 style="margin: 0;">🔥 台灣即時熱門搜尋</h4>
-                        <button class="btn btn-secondary" onclick="loadDailyTrends()"
-                            style="padding: 8px 15px; font-size: 12px;">🔄 重新整理</button>
-                    </div>
-                    <div id="dailyTrendsList" style="display: grid; gap: 10px;">
-                        <p style="color: #999; text-align: center; padding: 20px 0;">按下「重新整理」載入即時熱門搜尋</p>
-                    </div>
-                </div>
                 </div>
             </div>
 
@@ -7615,88 +7588,6 @@
 
             // ========================================
             // Google Trends 功能
-            // ========================================
-
-            async function fetchGoogleTrends() {
-                const container = document.getElementById('googleTrendsChart');
-                container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">正在抓取趨勢數據...</p>';
-
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/trends/fetch`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-
-                    container.innerHTML = `
-                    <div style="padding: 20px; text-align: center; background: #d4edda; border-radius: 8px; color: #155724;">
-                        ✅ ${result.message}<br>
-                        <small>數據會在背景持續抓取，請稍後重新整理查看結果</small>
-                    </div>
-                `;
-
-                } catch (error) {
-                    container.innerHTML = `<p style="color: #dc3545; text-align: center; padding: 40px 0;">抓取失敗: ${error.message}</p>`;
-                }
-            }
-
-            async function loadDailyTrends() {
-                const container = document.getElementById('dailyTrendsList');
-                container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px 0;">載入中...</p>';
-
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/trends/daily`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-
-                    const trends = result.data || [];
-
-                    if (trends.length === 0) {
-                        container.innerHTML = '<p style="color: #999; text-align: center; padding: 20px 0;">暫無熱門搜尋數據</p>';
-                        return;
-                    }
-
-                    container.innerHTML = trends.slice(0, 10).map((t, idx) => `
-                    <div style="display: flex; align-items: center; padding: 12px; background: ${idx < 3 ? '#fef3c7' : '#f8f9fa'}; border-radius: 8px; border-left: 4px solid ${idx < 3 ? '#f59e0b' : '#d1d5db'};">
-                        <span style="font-weight: bold; font-size: 18px; width: 30px; color: ${idx < 3 ? '#d97706' : '#6b7280'};">${idx + 1}</span>
-                        <div style="flex: 1;">
-                            <div style="font-weight: 500;">${t.title || '未知'}</div>
-                            <div style="font-size: 12px; color: #666;">${t.traffic || ''}</div>
-                        </div>
-                        <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px;" 
-                            onclick="searchRelatedQueries('${(t.title || '').replace(/'/g, "\\'")}')">🔍 相關詞</button>
-                    </div>
-                `).join('');
-
-                } catch (error) {
-                    container.innerHTML = `<p style="color: #dc3545; text-align: center; padding: 20px 0;">載入失敗: ${error.message}</p>`;
-                }
-            }
-
-            async function searchRelatedQueries(keyword) {
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/trends/related/${encodeURIComponent(keyword)}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    const result = await response.json();
-                    if (!result.success) throw new Error(result.error);
-
-                    const data = result.data;
-                    const topList = (data.top || []).slice(0, 5).map(q => q.query).join(', ') || '無';
-                    const risingList = (data.rising || []).slice(0, 5).map(q => `${q.query} (${q.value})`).join(', ') || '無';
-
-                    alert(`🔍 「${keyword}」相關搜尋\n\n📊 熱門搜尋詞：\n${topList}\n\n🚀 快速上升：\n${risingList}`);
-                } catch (error) {
-                    alert('查詢失敗: ' + error.message);
-                }
-            }
-
         </script>
 </body>
 
