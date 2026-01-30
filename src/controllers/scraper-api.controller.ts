@@ -376,13 +376,13 @@ class ScraperApiController {
                 logger.warn('[ScraperAPI] scraper_config 資料表不存在，使用預設值');
             }
 
-            // 1. 檢查需要爬取的 monitor sources
+            // 1. 檢查需要爬取的 monitor sources（包含 Dcard 和 PTT）
             const maxTasks = Number(scraperConfig.max_concurrent_tasks) || 3;
             const [dueSources] = await pool.execute<RowDataPacket[]>(
                 `SELECT ms.id, ms.name, ms.url, ms.platform, ms.max_items_per_check, ms.check_interval_hours
                  FROM monitor_sources ms
                  WHERE ms.is_active = 1
-                   AND ms.platform = 'dcard'
+                   AND ms.platform IN ('dcard', 'ptt')
                    AND (
                        ms.last_checked_at IS NULL
                        OR ms.last_checked_at < DATE_SUB(NOW(), INTERVAL ms.check_interval_hours HOUR)
@@ -438,6 +438,8 @@ class ScraperApiController {
                     source: {
                         id: source.id,
                         name: source.name,
+                        url: source.url,
+                        platform: source.platform,
                         forum_alias: forumAlias,
                         max_items_per_check: source.max_items_per_check || 30,
                     },
