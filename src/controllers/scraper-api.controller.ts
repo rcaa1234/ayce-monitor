@@ -362,11 +362,19 @@ class ScraperApiController {
             const pool = getPool();
             const tasks: any[] = [];
 
-            // 取得爬蟲設定
-            const [configRows] = await pool.execute<RowDataPacket[]>(
-                `SELECT poll_interval_seconds, max_concurrent_tasks FROM scraper_config WHERE id = 1`
-            );
-            const scraperConfig = configRows[0] || { poll_interval_seconds: 60, max_concurrent_tasks: 3 };
+            // 取得爬蟲設定（若資料表不存在則使用預設值）
+            let scraperConfig = { poll_interval_seconds: 60, max_concurrent_tasks: 3 };
+            try {
+                const [configRows] = await pool.execute<RowDataPacket[]>(
+                    `SELECT poll_interval_seconds, max_concurrent_tasks FROM scraper_config WHERE id = 1`
+                );
+                if (configRows[0]) {
+                    scraperConfig = configRows[0] as any;
+                }
+            } catch {
+                // 資料表不存在，使用預設值
+                logger.warn('[ScraperAPI] scraper_config 資料表不存在，使用預設值');
+            }
 
             // 1. 檢查需要爬取的 monitor sources
             const [dueSources] = await pool.execute<RowDataPacket[]>(
