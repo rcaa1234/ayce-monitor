@@ -53,15 +53,6 @@ router.post('/reclassify', monitorController.reclassifyMentions.bind(monitorCont
 router.get('/templates', monitorController.getSourceTemplates.bind(monitorController));
 
 // ========================================
-// Google Trends
-// ========================================
-router.get('/trends/compare', monitorController.compareTrends.bind(monitorController));
-router.get('/trends/daily', monitorController.getDailyTrends.bind(monitorController));
-router.get('/trends/related/:keyword', monitorController.getRelatedQueries.bind(monitorController));
-router.get('/trends/:brandId', monitorController.getBrandTrends.bind(monitorController));
-router.post('/trends/fetch', monitorController.fetchTrends.bind(monitorController));
-
-// ========================================
 // 分類設定
 // ========================================
 router.get('/classifier-config', monitorController.getClassifierConfig.bind(monitorController));
