@@ -377,6 +377,7 @@ class ScraperApiController {
             }
 
             // 1. 檢查需要爬取的 monitor sources
+            const maxTasks = Number(scraperConfig.max_concurrent_tasks) || 3;
             const [dueSources] = await pool.execute<RowDataPacket[]>(
                 `SELECT ms.id, ms.name, ms.url, ms.platform, ms.max_items_per_check, ms.check_interval_hours
                  FROM monitor_sources ms
@@ -387,8 +388,7 @@ class ScraperApiController {
                        OR ms.last_checked_at < DATE_SUB(NOW(), INTERVAL ms.check_interval_hours HOUR)
                    )
                  ORDER BY ms.last_checked_at ASC
-                 LIMIT ?`,
-                [scraperConfig.max_concurrent_tasks]
+                 LIMIT ${maxTasks}`
             );
 
             // 取得品牌資料
