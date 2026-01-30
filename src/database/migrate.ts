@@ -1392,7 +1392,7 @@ const migrations = [
    VALUES (1, 60, 3, 4)`,
 
   // Migration 69: 品牌表新增 last_trends_at 欄位
-  `ALTER TABLE monitor_brands ADD COLUMN last_trends_at DATETIME NULL COMMENT '最後趨勢更新時間' AFTER last_crawled_at`,
+  `ALTER TABLE monitor_brands ADD COLUMN last_trends_at DATETIME NULL COMMENT '最後趨勢更新時間'`,
 ];
 
 async function runMigrations() {
