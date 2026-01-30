@@ -626,6 +626,17 @@ class InfluencerService {
         await pool.execute('DELETE FROM influencer_authors WHERE id = ?', [authorId]);
     }
 
+    /**
+     * 刪除所有沒有 Twitter ID 的作者
+     */
+    async deleteAuthorsWithoutTwitter(): Promise<number> {
+        const pool = getPool();
+        const [result] = await pool.execute<any>(
+            'DELETE FROM influencer_authors WHERE twitter_id IS NULL OR twitter_id = ""'
+        );
+        return result.affectedRows || 0;
+    }
+
     // ==========================================
     // 合作記錄管理
     // ==========================================

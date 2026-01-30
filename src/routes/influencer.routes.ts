@@ -17,6 +17,7 @@ router.put('/config', influencerController.updateConfig.bind(influencerControlle
 // 作者管理
 // ========================================
 router.get('/authors', influencerController.getAuthors.bind(influencerController));
+router.delete('/authors/cleanup/no-twitter', influencerController.deleteAuthorsWithoutTwitter.bind(influencerController));
 router.get('/authors/:id', influencerController.getAuthorById.bind(influencerController));
 router.put('/authors/:id', influencerController.updateAuthor.bind(influencerController));
 router.delete('/authors/:id', influencerController.deleteAuthor.bind(influencerController));

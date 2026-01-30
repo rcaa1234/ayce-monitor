@@ -2566,76 +2566,68 @@
                         return;
                     }
 
-                    container.innerHTML = authors.map(author => `
-                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid ${getAuthorStatusColor(author.status)};">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
-                                <div style="flex: 1; min-width: 250px;">
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                        <h3 style="margin: 0; font-size: 16px; color: #333;">
-                                            <a href="${author.dcard_url || '#'}" target="_blank" style="text-decoration: none; color: inherit;">
+                    // 緊湊的單行表格佈局
+                    container.innerHTML = `
+                        <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <thead>
+                                <tr style="background: #f8f9fa; font-size: 12px; color: #666;">
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid #eee;">Dcard</th>
+                                    <th style="padding: 10px; text-align: left; border-bottom: 1px solid #eee;">Twitter</th>
+                                    <th style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">Dcard 發文</th>
+                                    <th style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">Twitter 發文</th>
+                                    <th style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">狀態</th>
+                                    <th style="padding: 10px; text-align: center; border-bottom: 1px solid #eee;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${authors.map(author => `
+                                    <tr style="border-bottom: 1px solid #f0f0f0; font-size: 13px;">
+                                        <td style="padding: 10px;">
+                                            <a href="${author.dcard_url || '#'}" target="_blank" style="color: #333; text-decoration: none; font-weight: 500;">
                                                 ${author.dcard_username || '匿名'}
                                             </a>
-                                        </h3>
-                                        <span style="font-size: 11px; color: #999; background: #f3f4f6; padding: 2px 8px; border-radius: 10px;">
-                                            ${author.dcard_id || ''}
-                                        </span>
-                                    </div>
-
-                                    <!-- Twitter 資訊 -->
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
-                                        ${author.twitter_id ? `
-                                            <a href="${author.twitter_url || 'https://x.com/' + author.twitter_id}" target="_blank"
-                                               style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; background: #1da1f2; color: white; border-radius: 15px; font-size: 13px; text-decoration: none;">
-                                                🐦 @${author.twitter_id}
-                                            </a>
-                                            ${author.twitter_display_name ? `
-                                                <span style="font-size: 12px; color: #666;">${escapeHtml(author.twitter_display_name)}</span>
-                                            ` : ''}
-                                            <span style="font-size: 12px; padding: 3px 8px; border-radius: 10px;
-                                                ${author.twitter_verified ? 'background: #dcfce7; color: #16a34a;' : 'background: #fef3c7; color: #d97706;'}">
-                                                ${author.twitter_verified ? '✓ 已驗證' : '⚠️ 待驗證'}
-                                            </span>
-                                            ${!author.twitter_verified ? `
-                                                <button onclick="verifyAuthorTwitter('${author.id}')"
-                                                    style="padding: 3px 8px; background: #e5e7eb; border: none; border-radius: 5px; cursor: pointer; font-size: 11px;">
-                                                    驗證
-                                                </button>
-                                            ` : ''}
-                                        ` : ''}
-                                    </div>
-
-                                    <!-- 狀態資訊 -->
-                                    <div style="display: flex; gap: 15px; font-size: 12px; color: #666; flex-wrap: wrap;">
-                                        <span>🎴 Dcard: ${author.last_dcard_post_at ? formatRelativeTime(author.last_dcard_post_at) : '未知'}</span>
-                                        <span>🐦 Twitter: ${author.last_twitter_post_at ? formatRelativeTime(author.last_twitter_post_at) : '未知'}</span>
-                                        <span>${author.contact_count > 0 ? '📧 已聯繫 (' + author.contact_count + '次)' : '- 未聯繫'}</span>
-                                    </div>
-                                </div>
-
-                                <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                                    <span style="padding: 4px 12px; border-radius: 15px; font-size: 12px; background: ${getAuthorStatusColor(author.status)}20; color: ${getAuthorStatusColor(author.status)}; font-weight: 500;">
-                                        ${getAuthorStatusLabel(author.status)}
-                                    </span>
-                                    <div style="display: flex; gap: 5px;">
-                                        <select onchange="updateAuthorStatus('${author.id}', this.value)" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; cursor: pointer;">
-                                            <option value="new" ${author.status === 'new' ? 'selected' : ''}>🆕 新發現</option>
-                                            <option value="contacted" ${author.status === 'contacted' ? 'selected' : ''}>📧 已聯繫</option>
-                                            <option value="cooperating" ${author.status === 'cooperating' ? 'selected' : ''}>🤝 合作中</option>
-                                            <option value="rejected" ${author.status === 'rejected' ? 'selected' : ''}>❌ 已拒絕</option>
-                                            <option value="blacklisted" ${author.status === 'blacklisted' ? 'selected' : ''}>🚫 黑名單</option>
-                                        </select>
-                                        <button onclick="showAddContactModal('${author.id}', '${author.dcard_username || '匿名'}')"
-                                            style="padding: 6px 10px; background: #3b82f6; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">
-                                            + 聯繫
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="margin-top: 10px; font-size: 11px; color: #999;">
-                                首次發現: ${new Date(author.first_detected_at).toLocaleString('zh-TW')}
-                            </div>
-                        </div>
-                    `).join('');
+                                            <span style="font-size: 10px; color: #999; margin-left: 5px;">@${author.dcard_id || ''}</span>
+                                        </td>
+                                        <td style="padding: 10px;">
+                                            ${author.twitter_id ? `
+                                                <a href="${author.twitter_url || 'https://x.com/' + author.twitter_id}" target="_blank"
+                                                   style="color: #1da1f2; text-decoration: none; font-weight: 500;">
+                                                    @${author.twitter_id}
+                                                </a>
+                                                ${author.twitter_display_name ? `<span style="font-size: 11px; color: #666; margin-left: 5px;">(${escapeHtml(author.twitter_display_name)})</span>` : ''}
+                                            ` : '<span style="color: #ccc;">-</span>'}
+                                        </td>
+                                        <td style="padding: 10px; text-align: center; font-size: 12px; color: #666;">
+                                            ${author.last_dcard_post_at ? formatRelativeTime(author.last_dcard_post_at) : '-'}
+                                        </td>
+                                        <td style="padding: 10px; text-align: center; font-size: 12px; color: #666;">
+                                            ${author.last_twitter_post_at ? formatRelativeTime(author.last_twitter_post_at) : '-'}
+                                        </td>
+                                        <td style="padding: 10px; text-align: center;">
+                                            <select onchange="updateAuthorStatus('${author.id}', this.value)"
+                                                style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 11px; cursor: pointer; background: ${getAuthorStatusColor(author.status)}15;">
+                                                <option value="new" ${author.status === 'new' ? 'selected' : ''}>新發現</option>
+                                                <option value="contacted" ${author.status === 'contacted' ? 'selected' : ''}>已聯繫</option>
+                                                <option value="cooperating" ${author.status === 'cooperating' ? 'selected' : ''}>合作中</option>
+                                                <option value="rejected" ${author.status === 'rejected' ? 'selected' : ''}>已拒絕</option>
+                                                <option value="blacklisted" ${author.status === 'blacklisted' ? 'selected' : ''}>黑名單</option>
+                                            </select>
+                                        </td>
+                                        <td style="padding: 10px; text-align: center;">
+                                            <button onclick="showAddContactModal('${author.id}', '${author.dcard_username || '匿名'}')"
+                                                style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                                                聯繫
+                                            </button>
+                                            <button onclick="deleteAuthor('${author.id}', '${author.dcard_username || '匿名'}')"
+                                                style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: 4px;">
+                                                刪
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
 
                     // 分頁
                     renderInfluencerPagination(total);
@@ -2724,6 +2716,24 @@
                 } catch (error) {
                     console.error('更新狀態失敗:', error);
                     showAlert('更新失敗', 'error');
+                }
+            }
+
+            async function deleteAuthor(authorId, authorName) {
+                if (!confirm(`確定要刪除作者「${authorName}」嗎？`)) return;
+
+                try {
+                    const response = await fetch(`${API_BASE}/influencer/authors/${authorId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) throw new Error('刪除失敗');
+                    showAlert('作者已刪除', 'success');
+                    loadInfluencerAuthors();
+                } catch (error) {
+                    console.error('刪除作者失敗:', error);
+                    showAlert('刪除失敗', 'error');
                 }
             }
 

@@ -294,6 +294,19 @@ class InfluencerController {
         }
     }
 
+    /**
+     * 刪除所有沒有 Twitter 的作者
+     */
+    async deleteAuthorsWithoutTwitter(req: Request, res: Response) {
+        try {
+            const count = await influencerService.deleteAuthorsWithoutTwitter();
+            res.json({ success: true, message: `已刪除 ${count} 位沒有 Twitter 的作者`, count });
+        } catch (error) {
+            logger.error('批量刪除作者失敗:', error);
+            res.status(500).json({ success: false, error: '批量刪除失敗' });
+        }
+    }
+
     // ==========================================
     // 合作記錄管理
     // ==========================================
