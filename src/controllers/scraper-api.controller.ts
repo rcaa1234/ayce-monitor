@@ -354,6 +354,214 @@ class ScraperApiController {
     }
 
     /**
+     * 取得待執行任務
+     * 本機爬蟲定期呼叫此端點，取得需要執行的爬取任務
+     */
+    async getTasks(_req: Request, res: Response) {
+        try {
+            const pool = getPool();
+            const tasks: any[] = [];
+
+            // 取得爬蟲設定
+            const [configRows] = await pool.execute<RowDataPacket[]>(
+                `SELECT poll_interval_seconds, max_concurrent_tasks FROM scraper_config WHERE id = 1`
+            );
+            const scraperConfig = configRows[0] || { poll_interval_seconds: 60, max_concurrent_tasks: 3 };
+
+            // 1. 檢查需要爬取的 monitor sources
+            const [dueSources] = await pool.execute<RowDataPacket[]>(
+                `SELECT ms.id, ms.name, ms.url, ms.platform, ms.max_items_per_check, ms.check_interval_hours
+                 FROM monitor_sources ms
+                 WHERE ms.is_active = 1
+                   AND ms.platform = 'dcard'
+                   AND (
+                       ms.last_checked_at IS NULL
+                       OR ms.last_checked_at < DATE_SUB(NOW(), INTERVAL ms.check_interval_hours HOUR)
+                   )
+                 ORDER BY ms.last_checked_at ASC
+                 LIMIT ?`,
+                [scraperConfig.max_concurrent_tasks]
+            );
+
+            // 取得品牌資料
+            const [brands] = await pool.execute<RowDataPacket[]>(
+                `SELECT b.id, b.name, b.keywords, b.exclude_keywords, b.notify_enabled, b.engagement_threshold
+                 FROM monitor_brands b
+                 WHERE b.is_active = 1`
+            );
+
+            const [brandSources] = await pool.execute<RowDataPacket[]>(
+                `SELECT brand_id, source_id FROM monitor_brand_sources`
+            );
+
+            // 為每個到期來源建立任務
+            for (const source of dueSources) {
+                const match = source.url?.match(/\/f\/([a-zA-Z0-9_-]+)/);
+                const forumAlias = match ? match[1] : '';
+
+                // 取得該來源關聯的品牌
+                const sourceBrandIds = brandSources
+                    .filter((bs: any) => bs.source_id === source.id)
+                    .map((bs: any) => bs.brand_id);
+
+                const sourceBrands = brands
+                    .filter((b: any) => sourceBrandIds.includes(b.id))
+                    .map((b: any) => {
+                        let keywords: string[] = [];
+                        let excludeKeywords: string[] = [];
+                        try {
+                            keywords = typeof b.keywords === 'string' ? JSON.parse(b.keywords) : (b.keywords || []);
+                        } catch { keywords = []; }
+                        try {
+                            excludeKeywords = typeof b.exclude_keywords === 'string' ? JSON.parse(b.exclude_keywords) : (b.exclude_keywords || []);
+                        } catch { excludeKeywords = []; }
+
+                        return {
+                            id: b.id,
+                            name: b.name,
+                            keywords,
+                            exclude_keywords: excludeKeywords,
+                        };
+                    });
+
+                tasks.push({
+                    task_id: generateUUID(),
+                    task_type: 'monitor',
+                    source: {
+                        id: source.id,
+                        name: source.name,
+                        forum_alias: forumAlias,
+                        max_items_per_check: source.max_items_per_check || 30,
+                    },
+                    brands: sourceBrands,
+                });
+            }
+
+            // 2. 檢查網黃偵測是否到期
+            const [influencerConfig] = await pool.execute<RowDataPacket[]>(
+                `SELECT enabled, target_forums, max_posts_per_check, check_interval_minutes, last_check_at
+                 FROM influencer_detection_config
+                 WHERE enabled = 1
+                   AND (
+                       last_check_at IS NULL
+                       OR last_check_at < DATE_SUB(NOW(), INTERVAL check_interval_minutes MINUTE)
+                   )
+                 LIMIT 1`
+            );
+
+            if (influencerConfig.length > 0 && tasks.length < scraperConfig.max_concurrent_tasks) {
+                const cfg = influencerConfig[0];
+                tasks.push({
+                    task_id: generateUUID(),
+                    task_type: 'influencer',
+                    influencer_config: {
+                        target_forums: typeof cfg.target_forums === 'string' ? JSON.parse(cfg.target_forums) : (cfg.target_forums || ['sex']),
+                        max_posts_per_check: cfg.max_posts_per_check || 20,
+                    },
+                });
+            }
+
+            logger.info(`[ScraperAPI] getTasks: 回傳 ${tasks.length} 個任務`);
+
+            res.json({
+                success: true,
+                data: {
+                    tasks,
+                    poll_interval_seconds: scraperConfig.poll_interval_seconds,
+                    server_time: new Date().toISOString(),
+                },
+            });
+        } catch (error) {
+            logger.error('[ScraperAPI] 取得任務失敗:', error);
+            res.status(500).json({ success: false, error: '取得任務失敗' });
+        }
+    }
+
+    /**
+     * 回報任務完成
+     * 本機爬蟲完成任務後呼叫此端點更新狀態
+     */
+    async completeTask(req: Request, res: Response) {
+        try {
+            const { task_id, task_type, source_id, status, articles_found, new_mentions, new_authors, duration_ms, error_message } = req.body;
+
+            if (!task_type || !status) {
+                res.status(400).json({ success: false, error: 'task_type 和 status 為必填' });
+                return;
+            }
+
+            const pool = getPool();
+            const completedAt = new Date();
+
+            if (task_type === 'monitor' && source_id) {
+                // 更新來源的 last_checked_at
+                await pool.execute(
+                    `UPDATE monitor_sources
+                     SET last_checked_at = ?,
+                         health_status = ?,
+                         consecutive_failures = CASE WHEN ? = 'success' THEN 0 ELSE consecutive_failures + 1 END
+                     WHERE id = ?`,
+                    [completedAt, status === 'success' ? 'healthy' : 'warning', status, source_id]
+                );
+
+                // 取得下次檢查時間
+                const [source] = await pool.execute<RowDataPacket[]>(
+                    `SELECT check_interval_hours, last_checked_at FROM monitor_sources WHERE id = ?`,
+                    [source_id]
+                );
+
+                let nextCheckAt = null;
+                if (source.length > 0) {
+                    const intervalMs = (source[0].check_interval_hours || 1) * 60 * 60 * 1000;
+                    nextCheckAt = new Date(completedAt.getTime() + intervalMs);
+                }
+
+                logger.info(`[ScraperAPI] 任務完成: type=monitor, source=${source_id}, status=${status}, articles=${articles_found}, mentions=${new_mentions}, duration=${duration_ms}ms`);
+
+                res.json({
+                    success: true,
+                    data: {
+                        acknowledged: true,
+                        next_check_at: nextCheckAt?.toISOString(),
+                    },
+                });
+            } else if (task_type === 'influencer') {
+                // 更新網黃偵測的 last_check_at
+                await pool.execute(
+                    `UPDATE influencer_detection_config SET last_check_at = ?`,
+                    [completedAt]
+                );
+
+                // 取得下次檢查時間
+                const [config] = await pool.execute<RowDataPacket[]>(
+                    `SELECT check_interval_minutes FROM influencer_detection_config LIMIT 1`
+                );
+
+                let nextCheckAt = null;
+                if (config.length > 0) {
+                    const intervalMs = (config[0].check_interval_minutes || 30) * 60 * 1000;
+                    nextCheckAt = new Date(completedAt.getTime() + intervalMs);
+                }
+
+                logger.info(`[ScraperAPI] 任務完成: type=influencer, status=${status}, new_authors=${new_authors}, duration=${duration_ms}ms`);
+
+                res.json({
+                    success: true,
+                    data: {
+                        acknowledged: true,
+                        next_check_at: nextCheckAt?.toISOString(),
+                    },
+                });
+            } else {
+                res.status(400).json({ success: false, error: '無效的 task_type' });
+            }
+        } catch (error) {
+            logger.error('[ScraperAPI] 回報任務完成失敗:', error);
+            res.status(500).json({ success: false, error: '回報任務完成失敗' });
+        }
+    }
+
+    /**
      * 取得本機爬蟲狀態（供前台查詢）
      */
     async getStatus(_req: Request, res: Response) {

@@ -1376,6 +1376,20 @@ const migrations = [
   `ALTER TABLE influencer_authors
    ADD COLUMN last_dcard_post_at DATETIME NULL COMMENT 'Dcard 最後發文時間' AFTER last_seen_at,
    ADD COLUMN last_twitter_post_at DATETIME NULL COMMENT 'Twitter 最後發文時間' AFTER last_dcard_post_at`,
+
+  // Migration 67: 爬蟲全域設定表
+  `CREATE TABLE IF NOT EXISTS scraper_config (
+    id INT PRIMARY KEY DEFAULT 1,
+    poll_interval_seconds INT DEFAULT 60 COMMENT '爬蟲輪詢間隔（秒）',
+    max_concurrent_tasks INT DEFAULT 3 COMMENT '每次最多回傳幾個任務',
+    offline_fallback_hours INT DEFAULT 4 COMMENT '離線時的備用間隔（小時）',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='爬蟲全域設定'`,
+
+  // Migration 68: 插入預設爬蟲設定
+  `INSERT IGNORE INTO scraper_config (id, poll_interval_seconds, max_concurrent_tasks, offline_fallback_hours)
+   VALUES (1, 60, 3, 4)`,
 ];
 
 async function runMigrations() {

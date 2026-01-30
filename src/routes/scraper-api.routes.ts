@@ -19,8 +19,14 @@ router.use(scraperAuth);
 // 健康檢查
 router.get('/health', scraperApiController.health.bind(scraperApiController));
 
-// 取得爬取設定
+// 取得爬取設定（舊版爬蟲相容）
 router.get('/config', scraperApiController.getConfig.bind(scraperApiController));
+
+// 取得待執行任務（新版爬蟲使用）
+router.get('/tasks', scraperApiController.getTasks.bind(scraperApiController));
+
+// 回報任務完成
+router.post('/tasks/complete', scraperApiController.completeTask.bind(scraperApiController));
 
 // 接收爬取結果
 router.post('/results/mentions', scraperApiController.receiveMentions.bind(scraperApiController));
