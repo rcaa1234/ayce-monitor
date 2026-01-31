@@ -72,4 +72,25 @@ router.post('/relink-all', monitorController.relinkAllBrandsSources.bind(monitor
 router.get('/weekly-report', monitorController.getWeeklyReport.bind(monitorController));
 router.post('/weekly-report/send', monitorController.sendWeeklyReport.bind(monitorController));
 
+// ========================================
+// 危機預警
+// ========================================
+router.get('/crisis/config', monitorController.getCrisisConfigs.bind(monitorController));
+router.get('/crisis/config/:brandId', monitorController.getCrisisConfig.bind(monitorController));
+router.put('/crisis/config/:brandId', monitorController.updateCrisisConfig.bind(monitorController));
+router.get('/crisis/logs', monitorController.getCrisisLogs.bind(monitorController));
+router.put('/crisis/logs/:id/resolve', monitorController.resolveCrisisAlert.bind(monitorController));
+router.post('/crisis/check', monitorController.triggerCrisisCheck.bind(monitorController));
+
+// ========================================
+// 內容推薦
+// ========================================
+router.get('/recommendations/profile', monitorController.getBrandProfile.bind(monitorController));
+router.put('/recommendations/profile', monitorController.updateBrandProfile.bind(monitorController));
+router.get('/recommendations/topics', monitorController.getTopics.bind(monitorController));
+router.get('/recommendations/suggestions', monitorController.getSuggestions.bind(monitorController));
+router.post('/recommendations/suggestions/:id/adopt', monitorController.adoptSuggestion.bind(monitorController));
+router.post('/recommendations/suggestions/:id/reject', monitorController.rejectSuggestion.bind(monitorController));
+router.post('/recommendations/generate', monitorController.triggerRecommendationGeneration.bind(monitorController));
+
 export default router;

@@ -1405,6 +1405,206 @@ const migrations = [
     status ENUM('pending', 'processing', 'done') DEFAULT 'pending',
     INDEX idx_status (status, triggered_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='爬蟲任務觸發記錄'`,
+
+  // ========================================
+  // Migration 72-78: 危機預警 + 內容推薦系統
+  // ========================================
+
+  // Migration 72: 危機預警設定表
+  `
+  CREATE TABLE IF NOT EXISTS crisis_alert_config (
+    id CHAR(36) PRIMARY KEY,
+    brand_id CHAR(36) NOT NULL COMMENT '品牌 ID',
+
+    -- 基準設定
+    baseline_days INT DEFAULT 7 COMMENT '比較基準天數 (7/30)',
+    trigger_multiplier DECIMAL(3,1) DEFAULT 2.0 COMMENT '觸發倍數 (1.5/2.0/3.0)',
+    only_negative BOOLEAN DEFAULT true COMMENT '只看負面',
+
+    -- 高互動閾值
+    high_engagement_threshold INT NULL COMMENT '覆蓋品牌設定的高互動閾值',
+
+    -- 通知設定
+    alert_enabled BOOLEAN DEFAULT true COMMENT '是否啟用警報',
+    cooldown_minutes INT DEFAULT 60 COMMENT '同品牌警報冷卻時間（分鐘）',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_brand (brand_id),
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='危機預警設定'
+  `,
+
+  // Migration 73: 危機警報日誌表
+  `
+  CREATE TABLE IF NOT EXISTS crisis_alert_logs (
+    id CHAR(36) PRIMARY KEY,
+    brand_id CHAR(36) NOT NULL,
+
+    -- 警報類型
+    alert_type ENUM('negative_surge', 'high_engagement_negative', 'manual') NOT NULL COMMENT '警報類型',
+
+    -- 觸發數據
+    current_count INT NOT NULL COMMENT '當前數量',
+    baseline_avg DECIMAL(10,2) NOT NULL COMMENT '基準平均',
+    trigger_ratio DECIMAL(5,2) NOT NULL COMMENT '觸發比率',
+
+    -- 相關提及
+    mention_ids JSON NOT NULL COMMENT '相關提及 ID 列表',
+
+    -- 通知狀態
+    notified BOOLEAN DEFAULT false,
+    notified_at DATETIME NULL,
+    notification_id CHAR(36) NULL,
+
+    -- 處理狀態
+    status ENUM('new', 'acknowledged', 'resolved', 'ignored') DEFAULT 'new',
+    resolved_at DATETIME NULL,
+    resolved_by CHAR(36) NULL,
+    resolution_notes TEXT NULL,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_brand_date (brand_id, created_at DESC),
+    INDEX idx_status (status, created_at DESC),
+    INDEX idx_type (alert_type, created_at DESC),
+
+    FOREIGN KEY (brand_id) REFERENCES monitor_brands(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='危機警報日誌'
+  `,
+
+  // Migration 74: 品牌 Profile 表（讓 AI 判斷相關性）
+  `
+  CREATE TABLE IF NOT EXISTS brand_profiles (
+    id CHAR(36) PRIMARY KEY,
+
+    -- 基本資訊
+    name VARCHAR(100) NOT NULL DEFAULT '預設品牌' COMMENT '品牌名稱',
+    industry VARCHAR(100) NOT NULL COMMENT '產業',
+
+    -- 產品資訊
+    products JSON NOT NULL COMMENT '主要產品列表',
+    product_keywords JSON NOT NULL COMMENT '產品相關關鍵字',
+
+    -- 目標客群
+    target_audience JSON NOT NULL COMMENT '目標客群描述',
+    age_range VARCHAR(20) NOT NULL COMMENT '年齡範圍',
+
+    -- 相關話題
+    relevant_topics JSON NOT NULL COMMENT '相關話題範圍',
+    topic_exclusions JSON NULL COMMENT '排除話題',
+
+    -- 語調風格
+    tone_style VARCHAR(100) NULL COMMENT '語調風格',
+    content_taboos JSON NULL COMMENT '內容禁區',
+
+    -- 狀態
+    is_active BOOLEAN DEFAULT true,
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='品牌 Profile'
+  `,
+
+  // Migration 75: 插入預設品牌 Profile（成人用品/情趣產業）
+  `
+  INSERT IGNORE INTO brand_profiles (
+    id, name, industry, products, product_keywords,
+    target_audience, age_range, relevant_topics, topic_exclusions,
+    tone_style, content_taboos
+  ) VALUES (
+    UUID(),
+    'AYCE',
+    '成人用品/情趣產業',
+    '["飛機杯", "按摩棒", "潤滑液", "跳蛋", "自慰器", "情趣玩具"]',
+    '["情趣", "成人", "私密", "震動", "吸吮", "潤滑", "高潮", "快感", "解壓", "自慰"]',
+    '{"description": "對性健康有興趣的族群", "characteristics": ["開放討論性話題", "重視產品品質", "在意隱私保護", "價格敏感度中等"]}',
+    '20-40',
+    '["性生活", "親密關係", "自慰", "情趣用品", "性健康", "伴侶互動", "獨處時光", "壓力釋放", "生理需求", "產品開箱", "使用心得"]',
+    '["未成年", "暴力", "非自願", "違法內容"]',
+    '直白坦率但不低俗',
+    '["過度煽情", "虛假宣傳", "攻擊競品"]'
+  )
+  `,
+
+  // Migration 76: 熱門話題表
+  `
+  CREATE TABLE IF NOT EXISTS content_topics (
+    id CHAR(36) PRIMARY KEY,
+
+    -- 話題資訊
+    topic_title VARCHAR(200) NOT NULL COMMENT '話題標題',
+    topic_summary TEXT NULL COMMENT '話題摘要',
+    source_mentions JSON NOT NULL COMMENT '來源提及 ID 列表',
+    mention_count INT DEFAULT 1 COMMENT '提及次數',
+
+    -- AI 分析
+    relevance_score DECIMAL(3,2) NULL COMMENT '與品牌相關性 0-1',
+    relevance_reason TEXT NULL COMMENT '相關性說明',
+    content_angle TEXT NULL COMMENT 'AI 建議的切入角度',
+    suggested_hooks JSON NULL COMMENT '建議的開頭句式',
+
+    -- 績效參考
+    avg_engagement DECIMAL(10,2) NULL COMMENT '來源平均互動',
+    peak_engagement INT NULL COMMENT '最高互動',
+
+    -- 狀態
+    status ENUM('new', 'reviewed', 'used', 'rejected') DEFAULT 'new',
+    used_post_id CHAR(36) NULL COMMENT '使用此話題的貼文 ID',
+
+    -- 時間
+    discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    analyzed_at DATETIME NULL,
+    expires_at DATETIME NULL COMMENT '過期時間',
+
+    INDEX idx_status (status, discovered_at DESC),
+    INDEX idx_relevance (relevance_score DESC),
+    INDEX idx_engagement (avg_engagement DESC)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='熱門話題庫'
+  `,
+
+  // Migration 77: 內容建議表
+  `
+  CREATE TABLE IF NOT EXISTS content_suggestions (
+    id CHAR(36) PRIMARY KEY,
+
+    -- 關聯
+    topic_id CHAR(36) NULL COMMENT '關聯話題',
+
+    -- 建議內容
+    suggestion_type ENUM('topic_based', 'performance_based', 'trending', 'seasonal') NOT NULL DEFAULT 'topic_based',
+    title VARCHAR(200) NOT NULL COMMENT '建議標題',
+    description TEXT NULL COMMENT '建議說明',
+
+    -- AI 生成的具體內容
+    suggested_hooks JSON NULL COMMENT '建議的開頭',
+    suggested_angles JSON NULL COMMENT '建議的切角',
+    example_post TEXT NULL COMMENT 'AI 生成的範例貼文',
+
+    -- 績效預測
+    predicted_engagement DECIMAL(5,2) NULL COMMENT '預測互動率',
+    confidence_score DECIMAL(3,2) NULL COMMENT '信心度',
+
+    -- 參考數據
+    reference_posts JSON NULL COMMENT '參考的高績效貼文',
+
+    -- 狀態
+    status ENUM('new', 'adopted', 'rejected', 'expired') DEFAULT 'new',
+    adopted_post_id CHAR(36) NULL,
+
+    -- 時間
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL COMMENT '過期時間',
+
+    INDEX idx_type_status (suggestion_type, status),
+    INDEX idx_created (created_at DESC),
+    INDEX idx_topic (topic_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='內容建議'
+  `,
+
+  // Migration 78: posts 表新增 used_topic_id 欄位（追蹤內容推薦引擎話題）
+  `ALTER TABLE posts ADD COLUMN used_topic_id CHAR(36) NULL COMMENT '使用的話題上下文 ID' AFTER generation_plan`,
 ];
 
 async function runMigrations() {

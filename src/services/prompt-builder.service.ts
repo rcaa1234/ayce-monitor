@@ -8,7 +8,17 @@
 import { GenerationPlan } from './planner.service';
 import plannerService from './planner.service';
 import aiLearningService from './ai-learning.service';
+import contentRecommendationService from './content-recommendation.service';
 import logger from '../utils/logger';
+
+// Topic Context（從內容推薦引擎注入）
+export interface TopicContext {
+    topicId: string;
+    topicTitle: string;
+    contentAngle: string;
+    suggestedHooks: string[];
+    relevanceScore: number;
+}
 
 // 禁用詞/句型清單
 const BANNED_PHRASES = [
@@ -53,37 +63,79 @@ const BANNED_STARTS = [
 class PromptBuilderService {
     /**
      * 組裝完整提示詞
+     * @param masterPrompt - 用戶維護的主提示詞
+     * @param plan - 生成計劃（維度組合）
+     * @param topicContext - 可選的話題上下文（從內容推薦引擎注入）
      */
-    async buildFullPrompt(masterPrompt: string, plan: GenerationPlan): Promise<string> {
+    async buildFullPrompt(masterPrompt: string, plan: GenerationPlan, topicContext?: TopicContext | null): Promise<string> {
         let fullPrompt = '';
 
         // 1. Master Prompt（用戶維護的主提示詞）
         fullPrompt += masterPrompt;
 
-        // 2. Plan Block（今日生成計劃）
+        // 2. Topic Context Block（市場熱點參考 - 來自內容推薦引擎）
+        if (topicContext) {
+            fullPrompt += '\n\n' + this.buildTopicContextBlock(topicContext);
+        }
+
+        // 3. Plan Block（今日生成計劃）
         fullPrompt += '\n\n' + this.buildPlanBlock(plan);
 
-        // 3. Avoid Block（避免重複）
+        // 4. Avoid Block（避免重複）
         const avoidBlock = await this.buildAvoidBlock();
         if (avoidBlock) {
             fullPrompt += '\n\n' + avoidBlock;
         }
 
-        // 4. Examples Block（成功範例）
+        // 5. Examples Block（成功範例）
         const examplesBlock = await this.buildExamplesBlock();
         if (examplesBlock) {
             fullPrompt += '\n\n' + examplesBlock;
         }
 
-        // 5. Output Contract（輸出格式要求）
+        // 6. Output Contract（輸出格式要求）
         fullPrompt += '\n\n' + this.buildOutputContract(plan);
 
         // 處理佔位符
         fullPrompt = this.replacePlaceholders(fullPrompt, plan);
 
-        logger.info(`[PromptBuilder] Built prompt with ${fullPrompt.length} characters`);
+        logger.info(`[PromptBuilder] Built prompt with ${fullPrompt.length} characters${topicContext ? ' (with topic context)' : ''}`);
 
         return fullPrompt;
+    }
+
+    /**
+     * 構建 Topic Context Block（市場熱點參考）
+     * 將內容推薦引擎的話題分析注入到 Prompt 中
+     */
+    buildTopicContextBlock(topic: TopicContext): string {
+        let block = '═══════════════════════════════════════\n';
+        block += '📢 【市場熱點參考】（來自聲量監控分析）\n';
+        block += '═══════════════════════════════════════\n\n';
+
+        block += `🔥 近期熱門話題：【${topic.topicTitle}】\n`;
+        block += `   相關性：${(topic.relevanceScore * 100).toFixed(0)}%\n\n`;
+
+        if (topic.contentAngle) {
+            block += `💡 建議切入角度：\n`;
+            block += `   → ${topic.contentAngle}\n\n`;
+        }
+
+        if (topic.suggestedHooks && topic.suggestedHooks.length > 0) {
+            block += `📝 可參考開頭：\n`;
+            topic.suggestedHooks.slice(0, 3).forEach(hook => {
+                block += `   • 「${hook}...」\n`;
+            });
+            block += '\n';
+        }
+
+        block += '💬 這是市場上正在討論的話題，你可以選擇：\n';
+        block += '   1. 直接呼應這個話題（如果與今日維度相容）\n';
+        block += '   2. 只參考話題的切入角度，不直接提及\n';
+        block += '   3. 完全忽略，專注於今日計劃的維度組合\n';
+        block += '\n   注意：不要為了蹭熱點而強行關聯，自然就好。';
+
+        return block;
     }
 
     /**
@@ -238,6 +290,39 @@ class PromptBuilderService {
      */
     getBannedStarts(): string[] {
         return BANNED_STARTS;
+    }
+
+    /**
+     * 取得今日話題上下文（自動從內容推薦引擎取得）
+     * @returns TopicContext 或 null（無合適話題時）
+     */
+    async getTodayTopicContext(): Promise<TopicContext | null> {
+        try {
+            const topic = await contentRecommendationService.getTodayTopTopic();
+            if (!topic) {
+                logger.debug('[PromptBuilder] No topic context available today');
+                return null;
+            }
+
+            logger.info(`[PromptBuilder] Loaded topic context: ${topic.topicTitle} (relevance: ${topic.relevanceScore})`);
+            return {
+                topicId: topic.topicId,
+                topicTitle: topic.topicTitle,
+                contentAngle: topic.contentAngle,
+                suggestedHooks: topic.suggestedHooks,
+                relevanceScore: topic.relevanceScore,
+            };
+        } catch (error) {
+            logger.error('[PromptBuilder] Failed to get topic context:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 標記話題已被使用（在貼文生成成功後調用）
+     */
+    async markTopicAsUsed(topicId: string, postId?: string): Promise<void> {
+        await contentRecommendationService.markTopicAsUsed(topicId, postId);
     }
 }
 

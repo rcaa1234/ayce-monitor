@@ -1705,6 +1705,14 @@
                     style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                     🌐 來源管理
                 </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('crisis')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    🚨 危機預警
+                </button>
+                <button class="monitor-sub-tab" onclick="switchMonitorTab('recommend')"
+                    style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                    💡 內容推薦
+                </button>
             </div>
 
             <!-- Mentions Sub-tab -->
@@ -2066,6 +2074,224 @@
                 </div>
 
                 </div>
+
+            <!-- Crisis Alert Sub-tab (危機預警) -->
+            <div id="monitorCrisisTab" class="sub-tab-content" style="display: none;">
+                <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #991b1b;">
+                    <strong>🚨 危機預警</strong>：監控負面聲量突增，即時發送 LINE 通知。系統每 15 分鐘自動檢查。
+                </div>
+
+                <!-- 危機預警統計卡片 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="crisisStatAlerts">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">待處理警報</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="crisisStatToday">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">今日負面提及</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="crisisStatResolved">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">已解決警報</div>
+                    </div>
+                </div>
+
+                <!-- 危機預警設定 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 16px;">⚙️ 預警設定</h3>
+                        <button class="btn btn-primary" onclick="triggerCrisisCheck()" style="padding: 8px 16px;">
+                            🔍 立即檢查
+                        </button>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div class="form-group">
+                            <label>比較基準天數</label>
+                            <input type="number" id="crisisBaselineDays" value="7" min="1" max="30"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">與過去 N 天的平均值比較</small>
+                        </div>
+                        <div class="form-group">
+                            <label>觸發倍數</label>
+                            <input type="number" id="crisisTriggerMultiplier" value="2.0" min="1.5" max="10" step="0.5"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">今日 ≥ 平均 × 倍數時觸發</small>
+                        </div>
+                        <div class="form-group">
+                            <label>冷卻時間（分鐘）</label>
+                            <input type="number" id="crisisCooldownMinutes" value="60" min="15" max="1440"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">同類警報的最小間隔</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: block; margin-bottom: 10px;">選項</label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                <input type="checkbox" id="crisisOnlyNegative" checked style="width: 16px; height: 16px;">
+                                <span>只監控負面內容</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="crisisAlertEnabled" checked style="width: 16px; height: 16px;">
+                                <span>啟用警報通知</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-success" onclick="saveCrisisConfig()">💾 儲存設定</button>
+                    </div>
+                </div>
+
+                <!-- 警報日誌 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 16px;">📋 警報日誌</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="crisisLogStatusFilter" onchange="loadCrisisLogs()" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                                <option value="">全部狀態</option>
+                                <option value="new">🔴 新警報</option>
+                                <option value="acknowledged">🟡 已確認</option>
+                                <option value="resolved">🟢 已解決</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="loadCrisisLogs()" style="padding: 8px 12px;">🔄 重新整理</button>
+                        </div>
+                    </div>
+                    <div id="crisisLogsList" style="max-height: 500px; overflow-y: auto;">
+                        <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Recommendation Sub-tab (內容推薦) -->
+            <div id="monitorRecommendTab" class="sub-tab-content" style="display: none;">
+                <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 12px 15px; margin-bottom: 20px; font-size: 13px; color: #166534;">
+                    <strong>💡 內容推薦</strong>：根據聲量監控分析熱門話題，AI 自動判斷與品牌的相關性，生成內容建議。系統每天 08:00 自動更新。
+                </div>
+
+                <!-- 內容推薦統計卡片 -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="recommendStatTopics">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">可用話題</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="recommendStatSuggestions">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">內容建議</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 20px; border-radius: 12px;">
+                        <div style="font-size: 28px; font-weight: bold;" id="recommendStatAdopted">0</div>
+                        <div style="font-size: 13px; opacity: 0.9;">已採用</div>
+                    </div>
+                </div>
+
+                <!-- Brand Profile 設定 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="margin: 0; font-size: 16px;">🏢 品牌 Profile</h3>
+                        <button class="btn btn-primary" onclick="triggerRecommendation()" style="padding: 8px 16px;">
+                            🔄 立即生成推薦
+                        </button>
+                    </div>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 20px;">
+                        設定品牌資訊，讓 AI 能更準確判斷話題與品牌的相關性。
+                    </p>
+
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                        <div class="form-group">
+                            <label>品牌名稱</label>
+                            <input type="text" id="profileName" placeholder="例：AYCE"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>產業類別</label>
+                            <input type="text" id="profileIndustry" placeholder="例：成人用品/情趣產業"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>主要產品（逗號分隔）</label>
+                            <input type="text" id="profileProducts" placeholder="例：飛機杯, 按摩棒, 潤滑液"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>產品關鍵字（逗號分隔）</label>
+                            <input type="text" id="profileProductKeywords" placeholder="例：情趣, 震動, 吸吮, 潤滑"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>目標年齡範圍</label>
+                            <input type="text" id="profileAgeRange" placeholder="例：20-40"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label>語調風格</label>
+                            <input type="text" id="profileToneStyle" placeholder="例：直白坦率但不低俗"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>相關話題範圍（逗號分隔）</label>
+                            <input type="text" id="profileRelevantTopics" placeholder="例：性生活, 親密關係, 自慰, 情趣用品, 性健康"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">AI 會優先推薦這些話題範圍內的內容</small>
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>話題排除清單（逗號分隔）</label>
+                            <input type="text" id="profileTopicExclusions" placeholder="例：未成年, 暴力, 非自願"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">包含這些詞的話題會被自動過濾</small>
+                        </div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>內容禁區（逗號分隔）</label>
+                            <input type="text" id="profileContentTaboos" placeholder="例：過度煽情, 虛假宣傳, 攻擊競品"
+                                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            <small style="color: #666;">AI 生成內容時會避免這些方向</small>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-success" onclick="saveBrandProfile()">💾 儲存 Profile</button>
+                    </div>
+                </div>
+
+                <!-- 熱門話題列表 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 16px;">🔥 熱門話題</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="topicStatusFilter" onchange="loadTopics()" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                                <option value="">全部狀態</option>
+                                <option value="new">🆕 新話題</option>
+                                <option value="used">✅ 已使用</option>
+                                <option value="rejected">❌ 已拒絕</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="loadTopics()" style="padding: 8px 12px;">🔄 重新整理</button>
+                        </div>
+                    </div>
+                    <div id="topicsList" style="display: grid; gap: 15px;">
+                        <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                    </div>
+                </div>
+
+                <!-- 內容建議列表 -->
+                <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; font-size: 16px;">📝 內容建議</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="suggestionStatusFilter" onchange="loadSuggestions()" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd;">
+                                <option value="">全部狀態</option>
+                                <option value="new">🆕 待處理</option>
+                                <option value="adopted">✅ 已採用</option>
+                                <option value="rejected">❌ 已拒絕</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="loadSuggestions()" style="padding: 8px 12px;">🔄 重新整理</button>
+                        </div>
+                    </div>
+                    <div id="suggestionsList" style="display: grid; gap: 15px;">
+                        <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
+                    </div>
+                </div>
+            </div>
+
             </div>
 
             <!-- ========================================== -->
@@ -6361,6 +6587,8 @@
                 document.getElementById('monitorBrandsTab').style.display = 'none';
                 document.getElementById('monitorSourcesTab').style.display = 'none';
                 document.getElementById('monitorStatsTab').style.display = 'none';
+                document.getElementById('monitorCrisisTab').style.display = 'none';
+                document.getElementById('monitorRecommendTab').style.display = 'none';
 
                 // 顯示選中的 sub-tab
                 if (tabName === 'mentions') {
@@ -6377,6 +6605,12 @@
                 } else if (tabName === 'stats') {
                     document.getElementById('monitorStatsTab').style.display = 'block';
                     loadMonitorStats();
+                } else if (tabName === 'crisis') {
+                    document.getElementById('monitorCrisisTab').style.display = 'block';
+                    loadCrisisData();
+                } else if (tabName === 'recommend') {
+                    document.getElementById('monitorRecommendTab').style.display = 'block';
+                    loadRecommendData();
                 }
             }
 
@@ -6989,6 +7223,517 @@
 
                 } catch (error) {
                     console.error('Failed to load monitor stats:', error);
+                }
+            }
+
+            // ========================================
+            // 危機預警功能
+            // ========================================
+            async function loadCrisisData() {
+                await Promise.all([
+                    loadCrisisConfig(),
+                    loadCrisisLogs(),
+                    loadCrisisStats()
+                ]);
+            }
+
+            async function loadCrisisStats() {
+                try {
+                    // 取得今日負面提及數
+                    const mentionsRes = await fetch(`${API_BASE}/monitor/mentions?topic_filter=pain_point&limit=1`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const mentionsData = await mentionsRes.json();
+
+                    // 取得警報日誌
+                    const logsRes = await fetch(`${API_BASE}/monitor/crisis/logs?limit=100`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const logsData = await logsRes.json();
+
+                    if (logsData.success) {
+                        const logs = logsData.data.logs || [];
+                        const newAlerts = logs.filter(l => l.status === 'new').length;
+                        const resolved = logs.filter(l => l.status === 'resolved').length;
+                        document.getElementById('crisisStatAlerts').textContent = newAlerts;
+                        document.getElementById('crisisStatResolved').textContent = resolved;
+                    }
+
+                    if (mentionsData.success) {
+                        document.getElementById('crisisStatToday').textContent = mentionsData.data.total || 0;
+                    }
+                } catch (error) {
+                    console.error('Failed to load crisis stats:', error);
+                }
+            }
+
+            async function loadCrisisConfig() {
+                try {
+                    // 先取得品牌列表，取第一個品牌的設定
+                    const brandsRes = await fetch(`${API_BASE}/monitor/brands`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const brandsData = await brandsRes.json();
+
+                    if (brandsData.success && brandsData.data.length > 0) {
+                        const brandId = brandsData.data[0].id;
+                        const configRes = await fetch(`${API_BASE}/monitor/crisis/config/${brandId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const configData = await configRes.json();
+
+                        if (configData.success && configData.data) {
+                            const config = configData.data;
+                            document.getElementById('crisisBaselineDays').value = config.baseline_days || 7;
+                            document.getElementById('crisisTriggerMultiplier').value = config.trigger_multiplier || 2.0;
+                            document.getElementById('crisisCooldownMinutes').value = config.cooldown_minutes || 60;
+                            document.getElementById('crisisOnlyNegative').checked = config.only_negative !== false;
+                            document.getElementById('crisisAlertEnabled').checked = config.alert_enabled !== false;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to load crisis config:', error);
+                }
+            }
+
+            async function saveCrisisConfig() {
+                try {
+                    // 取得第一個品牌
+                    const brandsRes = await fetch(`${API_BASE}/monitor/brands`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const brandsData = await brandsRes.json();
+
+                    if (!brandsData.success || brandsData.data.length === 0) {
+                        showAlert('dashboardAlert', '請先建立至少一個關鍵字組', 'warning');
+                        return;
+                    }
+
+                    const brandId = brandsData.data[0].id;
+                    const config = {
+                        baseline_days: parseInt(document.getElementById('crisisBaselineDays').value),
+                        trigger_multiplier: parseFloat(document.getElementById('crisisTriggerMultiplier').value),
+                        cooldown_minutes: parseInt(document.getElementById('crisisCooldownMinutes').value),
+                        only_negative: document.getElementById('crisisOnlyNegative').checked,
+                        alert_enabled: document.getElementById('crisisAlertEnabled').checked
+                    };
+
+                    const response = await fetch(`${API_BASE}/monitor/crisis/config/${brandId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(config)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('dashboardAlert', '危機預警設定已儲存', 'success');
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
+                }
+            }
+
+            async function loadCrisisLogs() {
+                const container = document.getElementById('crisisLogsList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const status = document.getElementById('crisisLogStatusFilter').value;
+                    let url = `${API_BASE}/monitor/crisis/logs?limit=50`;
+                    if (status) url += `&status=${status}`;
+
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) throw new Error(result.error);
+
+                    const logs = result.data.logs || [];
+
+                    if (logs.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">目前沒有警報記錄</p>';
+                        return;
+                    }
+
+                    container.innerHTML = logs.map(log => {
+                        const statusBadge = {
+                            'new': '<span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">🔴 新警報</span>',
+                            'acknowledged': '<span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">🟡 已確認</span>',
+                            'resolved': '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">🟢 已解決</span>'
+                        }[log.status] || log.status;
+
+                        const alertType = log.alert_type === 'negative_surge' ? '負面聲量突增' : '高互動負面內容';
+
+                        return `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${log.status === 'new' ? '#ef4444' : log.status === 'acknowledged' ? '#f59e0b' : '#22c55e'};">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <div>
+                                        <strong style="font-size: 14px;">🚨 ${alertType}</strong>
+                                        ${statusBadge}
+                                    </div>
+                                    <span style="color: #666; font-size: 12px;">${new Date(log.created_at).toLocaleString('zh-TW')}</span>
+                                </div>
+                                <div style="font-size: 13px; color: #333; margin-bottom: 10px;">
+                                    <span>今日: <strong>${log.current_count}</strong> 篇</span>
+                                    <span style="margin-left: 15px;">基準: <strong>${parseFloat(log.baseline_avg).toFixed(1)}</strong> 篇</span>
+                                    <span style="margin-left: 15px;">倍數: <strong style="color: #ef4444;">${parseFloat(log.trigger_ratio).toFixed(1)}x</strong></span>
+                                </div>
+                                ${log.status !== 'resolved' ? `
+                                    <button onclick="resolveCrisisAlert('${log.id}')" class="btn btn-sm" style="padding: 5px 12px; font-size: 12px; background: #22c55e; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                        ✓ 標記已解決
+                                    </button>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+
+                } catch (error) {
+                    container.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 40px 0;">載入失敗: ${error.message}</p>`;
+                }
+            }
+
+            async function triggerCrisisCheck() {
+                try {
+                    showLoading(true);
+                    const response = await fetch(`${API_BASE}/monitor/crisis/check`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    showLoading(false);
+
+                    if (result.success) {
+                        showAlert('dashboardAlert', `危機檢查完成：檢查 ${result.data.checked} 個品牌，觸發 ${result.data.alerts} 個警報`, 'success');
+                        loadCrisisData();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showLoading(false);
+                    showAlert('dashboardAlert', '檢查失敗: ' + error.message, 'danger');
+                }
+            }
+
+            async function resolveCrisisAlert(alertId) {
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/crisis/logs/${alertId}/resolve`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('dashboardAlert', '警報已標記為已解決', 'success');
+                        loadCrisisLogs();
+                        loadCrisisStats();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showAlert('dashboardAlert', '操作失敗: ' + error.message, 'danger');
+                }
+            }
+
+            // ========================================
+            // 內容推薦功能
+            // ========================================
+            async function loadRecommendData() {
+                await Promise.all([
+                    loadBrandProfile(),
+                    loadTopics(),
+                    loadSuggestions(),
+                    loadRecommendStats()
+                ]);
+            }
+
+            async function loadRecommendStats() {
+                try {
+                    const [topicsRes, suggestionsRes] = await Promise.all([
+                        fetch(`${API_BASE}/monitor/recommendations/topics?status=new&limit=100`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        }),
+                        fetch(`${API_BASE}/monitor/recommendations/suggestions?limit=100`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        })
+                    ]);
+
+                    const topicsData = await topicsRes.json();
+                    const suggestionsData = await suggestionsRes.json();
+
+                    if (topicsData.success) {
+                        document.getElementById('recommendStatTopics').textContent = topicsData.data.total || 0;
+                    }
+
+                    if (suggestionsData.success) {
+                        const suggestions = suggestionsData.data.suggestions || [];
+                        document.getElementById('recommendStatSuggestions').textContent = suggestionsData.data.total || 0;
+                        document.getElementById('recommendStatAdopted').textContent = suggestions.filter(s => s.status === 'adopted').length;
+                    }
+                } catch (error) {
+                    console.error('Failed to load recommend stats:', error);
+                }
+            }
+
+            async function loadBrandProfile() {
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/recommendations/profile`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+
+                    if (result.success && result.data) {
+                        const profile = result.data;
+                        document.getElementById('profileName').value = profile.name || '';
+                        document.getElementById('profileIndustry').value = profile.industry || '';
+                        document.getElementById('profileProducts').value = (profile.products || []).join(', ');
+                        document.getElementById('profileProductKeywords').value = (profile.product_keywords || []).join(', ');
+                        document.getElementById('profileAgeRange').value = profile.age_range || '';
+                        document.getElementById('profileToneStyle').value = profile.tone_style || '';
+                        document.getElementById('profileRelevantTopics').value = (profile.relevant_topics || []).join(', ');
+                        document.getElementById('profileTopicExclusions').value = (profile.topic_exclusions || []).join(', ');
+                        document.getElementById('profileContentTaboos').value = (profile.content_taboos || []).join(', ');
+                    }
+                } catch (error) {
+                    console.error('Failed to load brand profile:', error);
+                }
+            }
+
+            async function saveBrandProfile() {
+                try {
+                    const profile = {
+                        name: document.getElementById('profileName').value.trim(),
+                        industry: document.getElementById('profileIndustry').value.trim(),
+                        products: document.getElementById('profileProducts').value.split(',').map(s => s.trim()).filter(s => s),
+                        product_keywords: document.getElementById('profileProductKeywords').value.split(',').map(s => s.trim()).filter(s => s),
+                        age_range: document.getElementById('profileAgeRange').value.trim(),
+                        tone_style: document.getElementById('profileToneStyle').value.trim(),
+                        relevant_topics: document.getElementById('profileRelevantTopics').value.split(',').map(s => s.trim()).filter(s => s),
+                        topic_exclusions: document.getElementById('profileTopicExclusions').value.split(',').map(s => s.trim()).filter(s => s),
+                        content_taboos: document.getElementById('profileContentTaboos').value.split(',').map(s => s.trim()).filter(s => s)
+                    };
+
+                    const response = await fetch(`${API_BASE}/monitor/recommendations/profile`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(profile)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('dashboardAlert', 'Brand Profile 已儲存', 'success');
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showAlert('dashboardAlert', '儲存失敗: ' + error.message, 'danger');
+                }
+            }
+
+            async function loadTopics() {
+                const container = document.getElementById('topicsList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const status = document.getElementById('topicStatusFilter').value;
+                    let url = `${API_BASE}/monitor/recommendations/topics?limit=20`;
+                    if (status) url += `&status=${status}`;
+
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) throw new Error(result.error);
+
+                    const topics = result.data.topics || [];
+
+                    if (topics.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">目前沒有熱門話題，請先執行「立即生成推薦」</p>';
+                        return;
+                    }
+
+                    container.innerHTML = topics.map(topic => {
+                        const relevanceColor = topic.relevance_score >= 0.8 ? '#22c55e' : topic.relevance_score >= 0.6 ? '#f59e0b' : '#ef4444';
+                        const statusBadge = {
+                            'new': '<span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">🆕 新話題</span>',
+                            'used': '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">✅ 已使用</span>',
+                            'rejected': '<span style="background: #6b7280; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">❌ 已拒絕</span>'
+                        }[topic.status] || topic.status;
+
+                        const hooks = topic.suggested_hooks ? (typeof topic.suggested_hooks === 'string' ? JSON.parse(topic.suggested_hooks) : topic.suggested_hooks) : [];
+
+                        return `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid ${relevanceColor};">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <div>
+                                        <strong style="font-size: 15px;">🔥 ${topic.topic_title}</strong>
+                                        ${statusBadge}
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 18px; font-weight: bold; color: ${relevanceColor};">${(topic.relevance_score * 100).toFixed(0)}%</div>
+                                        <div style="font-size: 11px; color: #666;">相關性</div>
+                                    </div>
+                                </div>
+                                ${topic.content_angle ? `
+                                    <div style="font-size: 13px; color: #333; margin-bottom: 8px;">
+                                        💡 <strong>切入角度:</strong> ${topic.content_angle}
+                                    </div>
+                                ` : ''}
+                                ${hooks.length > 0 ? `
+                                    <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                                        📝 <strong>建議開頭:</strong> ${hooks.slice(0, 2).map(h => `「${h}...」`).join(' ')}
+                                    </div>
+                                ` : ''}
+                                <div style="font-size: 11px; color: #888;">
+                                    提及數: ${topic.mention_count} | 發現時間: ${new Date(topic.discovered_at).toLocaleDateString('zh-TW')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                } catch (error) {
+                    container.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 40px 0;">載入失敗: ${error.message}</p>`;
+                }
+            }
+
+            async function loadSuggestions() {
+                const container = document.getElementById('suggestionsList');
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">載入中...</p>';
+
+                try {
+                    const status = document.getElementById('suggestionStatusFilter').value;
+                    let url = `${API_BASE}/monitor/recommendations/suggestions?limit=20`;
+                    if (status) url += `&status=${status}`;
+
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const result = await response.json();
+
+                    if (!result.success) throw new Error(result.error);
+
+                    const suggestions = result.data.suggestions || [];
+
+                    if (suggestions.length === 0) {
+                        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">目前沒有內容建議</p>';
+                        return;
+                    }
+
+                    container.innerHTML = suggestions.map(sug => {
+                        const statusBadge = {
+                            'new': '<span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">🆕 待處理</span>',
+                            'adopted': '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">✅ 已採用</span>',
+                            'rejected': '<span style="background: #6b7280; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">❌ 已拒絕</span>'
+                        }[sug.status] || sug.status;
+
+                        return `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <div>
+                                        <strong style="font-size: 15px;">📝 ${sug.title}</strong>
+                                        ${statusBadge}
+                                    </div>
+                                    <span style="color: #666; font-size: 12px;">${new Date(sug.created_at).toLocaleDateString('zh-TW')}</span>
+                                </div>
+                                ${sug.description ? `
+                                    <div style="font-size: 13px; color: #333; margin-bottom: 10px;">
+                                        ${sug.description}
+                                    </div>
+                                ` : ''}
+                                ${sug.example_post ? `
+                                    <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb;">
+                                        <div style="font-size: 11px; color: #888; margin-bottom: 5px;">💬 AI 生成範例:</div>
+                                        <div style="font-size: 13px; line-height: 1.6; white-space: pre-line;">${sug.example_post.substring(0, 200)}${sug.example_post.length > 200 ? '...' : ''}</div>
+                                    </div>
+                                ` : ''}
+                                ${sug.status === 'new' ? `
+                                    <div style="display: flex; gap: 10px;">
+                                        <button onclick="adoptSuggestion('${sug.id}')" class="btn" style="padding: 6px 14px; font-size: 12px; background: #22c55e; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                            ✓ 採用
+                                        </button>
+                                        <button onclick="rejectSuggestion('${sug.id}')" class="btn" style="padding: 6px 14px; font-size: 12px; background: #6b7280; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                            ✗ 拒絕
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+
+                } catch (error) {
+                    container.innerHTML = `<p style="text-align: center; color: #ef4444; padding: 40px 0;">載入失敗: ${error.message}</p>`;
+                }
+            }
+
+            async function triggerRecommendation() {
+                try {
+                    showLoading(true);
+                    const response = await fetch(`${API_BASE}/monitor/recommendations/generate`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    showLoading(false);
+
+                    if (result.success) {
+                        showAlert('dashboardAlert', `推薦生成完成：分析 ${result.data.topics} 個話題，產生 ${result.data.suggestions} 個建議`, 'success');
+                        loadRecommendData();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showLoading(false);
+                    showAlert('dashboardAlert', '生成失敗: ' + error.message, 'danger');
+                }
+            }
+
+            async function adoptSuggestion(suggestionId) {
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/recommendations/suggestions/${suggestionId}/adopt`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('dashboardAlert', '已採用此建議', 'success');
+                        loadSuggestions();
+                        loadRecommendStats();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showAlert('dashboardAlert', '操作失敗: ' + error.message, 'danger');
+                }
+            }
+
+            async function rejectSuggestion(suggestionId) {
+                try {
+                    const response = await fetch(`${API_BASE}/monitor/recommendations/suggestions/${suggestionId}/reject`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('dashboardAlert', '已拒絕此建議', 'success');
+                        loadSuggestions();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    showAlert('dashboardAlert', '操作失敗: ' + error.message, 'danger');
                 }
             }
 

@@ -1016,6 +1016,299 @@ class MonitorController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+
+    // ========================================
+    // 危機預警 API
+    // ========================================
+
+    /**
+     * GET /api/monitor/crisis/config - 取得所有品牌的危機預警設定
+     */
+    async getCrisisConfigs(req: Request, res: Response): Promise<void> {
+        try {
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+            const configs = await crisisAlertService.getActiveConfigs();
+
+            res.json({ success: true, data: configs });
+        } catch (error: any) {
+            logger.error('Failed to get crisis configs:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/crisis/config/:brandId - 取得特定品牌的危機預警設定
+     */
+    async getCrisisConfig(req: Request, res: Response): Promise<void> {
+        try {
+            const { brandId } = req.params;
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+            const config = await crisisAlertService.getConfig(brandId);
+
+            if (!config) {
+                res.status(404).json({ success: false, error: '找不到該品牌的設定' });
+                return;
+            }
+
+            res.json({ success: true, data: config });
+        } catch (error: any) {
+            logger.error('Failed to get crisis config:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * PUT /api/monitor/crisis/config/:brandId - 更新危機預警設定
+     */
+    async updateCrisisConfig(req: Request, res: Response): Promise<void> {
+        try {
+            const { brandId } = req.params;
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+
+            await crisisAlertService.updateConfig(brandId, req.body);
+
+            res.json({ success: true, message: '設定已更新' });
+        } catch (error: any) {
+            logger.error('Failed to update crisis config:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/crisis/logs - 取得危機警報日誌
+     */
+    async getCrisisLogs(req: Request, res: Response): Promise<void> {
+        try {
+            const { brand_id, alert_type, status, limit, page } = req.query;
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+
+            const limitNum = Number(limit) || 50;
+            const pageNum = Number(page) || 1;
+            const offset = (pageNum - 1) * limitNum;
+
+            const result = await crisisAlertService.getAlertLogs({
+                brandId: brand_id as string,
+                alertType: alert_type as string,
+                status: status as string,
+                limit: limitNum,
+                offset,
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    logs: result.logs,
+                    total: result.total,
+                    page: pageNum,
+                    limit: limitNum,
+                },
+            });
+        } catch (error: any) {
+            logger.error('Failed to get crisis logs:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * PUT /api/monitor/crisis/logs/:id/resolve - 更新警報狀態
+     */
+    async resolveCrisisAlert(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const { status, notes } = req.body;
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+
+            if (!['acknowledged', 'resolved', 'ignored'].includes(status)) {
+                res.status(400).json({ success: false, error: '無效的狀態值' });
+                return;
+            }
+
+            await crisisAlertService.updateAlertStatus(id, status, undefined, notes);
+
+            res.json({ success: true, message: '警報狀態已更新' });
+        } catch (error: any) {
+            logger.error('Failed to resolve crisis alert:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/crisis/check - 手動觸發危機檢查
+     */
+    async triggerCrisisCheck(req: Request, res: Response): Promise<void> {
+        try {
+            const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+            const result = await crisisAlertService.runCrisisCheck();
+
+            res.json({
+                success: true,
+                data: result,
+                message: `檢查完成：${result.checked} 個品牌，發送 ${result.alerts} 個警報`,
+            });
+        } catch (error: any) {
+            logger.error('Failed to trigger crisis check:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    // ========================================
+    // 內容推薦 API
+    // ========================================
+
+    /**
+     * GET /api/monitor/recommendations/profile - 取得品牌 Profile
+     */
+    async getBrandProfile(req: Request, res: Response): Promise<void> {
+        try {
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+            const profile = await contentRecommendationService.getBrandProfile();
+
+            if (!profile) {
+                res.status(404).json({ success: false, error: '找不到品牌 Profile' });
+                return;
+            }
+
+            res.json({ success: true, data: profile });
+        } catch (error: any) {
+            logger.error('Failed to get brand profile:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * PUT /api/monitor/recommendations/profile - 更新品牌 Profile
+     */
+    async updateBrandProfile(req: Request, res: Response): Promise<void> {
+        try {
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+            await contentRecommendationService.updateBrandProfile(req.body);
+
+            res.json({ success: true, message: '品牌 Profile 已更新' });
+        } catch (error: any) {
+            logger.error('Failed to update brand profile:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/recommendations/topics - 取得熱門話題
+     */
+    async getTopics(req: Request, res: Response): Promise<void> {
+        try {
+            const { status, limit, page } = req.query;
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+
+            const limitNum = Number(limit) || 20;
+            const pageNum = Number(page) || 1;
+            const offset = (pageNum - 1) * limitNum;
+
+            const result = await contentRecommendationService.getTopics({
+                status: status as string,
+                limit: limitNum,
+                offset,
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    topics: result.topics,
+                    total: result.total,
+                    page: pageNum,
+                    limit: limitNum,
+                },
+            });
+        } catch (error: any) {
+            logger.error('Failed to get topics:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * GET /api/monitor/recommendations/suggestions - 取得內容建議
+     */
+    async getSuggestions(req: Request, res: Response): Promise<void> {
+        try {
+            const { status, limit, page } = req.query;
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+
+            const limitNum = Number(limit) || 20;
+            const pageNum = Number(page) || 1;
+            const offset = (pageNum - 1) * limitNum;
+
+            const result = await contentRecommendationService.getSuggestions({
+                status: status as string,
+                limit: limitNum,
+                offset,
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    suggestions: result.suggestions,
+                    total: result.total,
+                    page: pageNum,
+                    limit: limitNum,
+                },
+            });
+        } catch (error: any) {
+            logger.error('Failed to get suggestions:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/recommendations/suggestions/:id/adopt - 採用建議
+     */
+    async adoptSuggestion(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const { post_id } = req.body;
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+
+            await contentRecommendationService.adoptSuggestion(id, post_id);
+
+            res.json({ success: true, message: '已採用此建議' });
+        } catch (error: any) {
+            logger.error('Failed to adopt suggestion:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/recommendations/suggestions/:id/reject - 拒絕建議
+     */
+    async rejectSuggestion(req: Request, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+
+            await contentRecommendationService.rejectSuggestion(id);
+
+            res.json({ success: true, message: '已拒絕此建議' });
+        } catch (error: any) {
+            logger.error('Failed to reject suggestion:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    /**
+     * POST /api/monitor/recommendations/generate - 手動觸發生成
+     */
+    async triggerRecommendationGeneration(req: Request, res: Response): Promise<void> {
+        try {
+            const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+            const result = await contentRecommendationService.runContentRecommendation();
+
+            res.json({
+                success: true,
+                data: result,
+                message: `生成完成：${result.topics} 個話題，${result.suggestions} 個建議`,
+            });
+        } catch (error: any) {
+            logger.error('Failed to trigger recommendation generation:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }
 
 export default new MonitorController();

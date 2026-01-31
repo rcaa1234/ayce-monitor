@@ -40,6 +40,12 @@ export const generateWorker = new Worker(
       const plan = await plannerService.generatePlan();
       logger.info(`[Planner] Generated plan for post ${postId}`);
 
+      // 取得今日話題上下文（從內容推薦引擎）
+      const topicContext = await promptBuilderService.getTodayTopicContext();
+      if (topicContext) {
+        logger.info(`[TopicContext] Loaded topic: ${topicContext.topicTitle} (relevance: ${(topicContext.relevanceScore * 100).toFixed(0)}%)`);
+      }
+
       await job.updateProgress(20);
 
       // ========================================
@@ -58,9 +64,9 @@ export const generateWorker = new Worker(
         }
       }
 
-      // 組裝完整提示詞
-      const fullPrompt = await promptBuilderService.buildFullPrompt(masterPrompt, plan);
-      logger.info(`[PromptBuilder] Built prompt with ${fullPrompt.length} chars`);
+      // 組裝完整提示詞（含話題上下文）
+      const fullPrompt = await promptBuilderService.buildFullPrompt(masterPrompt, plan, topicContext);
+      logger.info(`[PromptBuilder] Built prompt with ${fullPrompt.length} chars${topicContext ? ' (with topic context)' : ''}`);
 
       await job.updateProgress(30);
 
@@ -115,9 +121,10 @@ export const generateWorker = new Worker(
       // ========================================
       try {
         await pool.execute(
-          `UPDATE posts SET 
+          `UPDATE posts SET
             topic_category = ?,
             generation_plan = ?,
+            used_topic_id = ?,
             angle = ?,
             outlet = ?,
             tone_bias = ?,
@@ -130,6 +137,7 @@ export const generateWorker = new Worker(
           [
             plan.module,
             JSON.stringify(plan),
+            topicContext?.topicId || null,
             plan.angle || null,
             plan.outlet,
             plan.toneBias,
@@ -141,7 +149,7 @@ export const generateWorker = new Worker(
             postId,
           ]
         );
-        logger.info(`[DB] Saved generation plan and check result for post ${postId}`);
+        logger.info(`[DB] Saved generation plan and check result for post ${postId}${topicContext ? ` (topic: ${topicContext.topicTitle})` : ''}`);
       } catch (dbError) {
         logger.warn('[DB] Failed to save generation plan:', dbError);
       }
@@ -153,6 +161,16 @@ export const generateWorker = new Worker(
 
       if (!creator || !creator.line_user_id) {
         throw new Error('Creator does not have LINE user ID configured');
+      }
+
+      // 標記話題為已使用（如果有使用話題上下文）
+      if (topicContext && checkResult?.passed) {
+        try {
+          await promptBuilderService.markTopicAsUsed(topicContext.topicId, postId);
+          logger.info(`[TopicContext] Marked topic ${topicContext.topicId} as used for post ${postId}`);
+        } catch (topicError) {
+          logger.warn(`[TopicContext] Failed to mark topic as used:`, topicError);
+        }
       }
 
       // Log audit
@@ -168,6 +186,11 @@ export const generateWorker = new Worker(
           plan: plan,
           check_passed: checkResult?.passed,
           retry_count: retryCount,
+          topic_context: topicContext ? {
+            topicId: topicContext.topicId,
+            topicTitle: topicContext.topicTitle,
+            relevanceScore: topicContext.relevanceScore,
+          } : null,
         },
       });
 
@@ -189,6 +212,11 @@ export const generateWorker = new Worker(
         plan,
         checkResult,
         retryCount,
+        topicContext: topicContext ? {
+          topicId: topicContext.topicId,
+          topicTitle: topicContext.topicTitle,
+          relevanceScore: topicContext.relevanceScore,
+        } : null,
       };
     } catch (error: any) {
       console.error(`❌ [GENERATE WORKER] Job ${job.id} failed with error:`);

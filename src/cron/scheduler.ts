@@ -757,6 +757,44 @@ export const weeklyReportScheduler = cron.schedule('0 10 * * 0', async () => {
 });
 
 /**
+ * 危機預警檢查
+ * Runs every 15 minutes - 檢查負面聲量突增和高互動負面內容
+ */
+export const crisisAlertScheduler = cron.schedule('*/15 * * * *', async () => {
+  logger.info('[CrisisAlert] Running scheduled crisis check...');
+
+  try {
+    const crisisAlertService = (await import('../services/crisis-alert.service')).default;
+    const result = await crisisAlertService.runCrisisCheck();
+    logger.info(`[CrisisAlert] Check completed: ${result.checked} brands, ${result.alerts} alerts`);
+  } catch (error) {
+    logger.error('[CrisisAlert] Scheduled check failed:', error);
+  }
+}, {
+  scheduled: false,
+  timezone: 'Asia/Taipei',
+});
+
+/**
+ * 內容推薦生成
+ * Runs every day at 08:00 - 每天早上分析熱門話題並生成內容建議
+ */
+export const contentRecommendationScheduler = cron.schedule('0 8 * * *', async () => {
+  logger.info('[ContentRecommendation] Running daily content recommendation...');
+
+  try {
+    const contentRecommendationService = (await import('../services/content-recommendation.service')).default;
+    const result = await contentRecommendationService.runContentRecommendation();
+    logger.info(`[ContentRecommendation] Completed: ${result.topics} topics, ${result.suggestions} suggestions`);
+  } catch (error) {
+    logger.error('[ContentRecommendation] Daily recommendation failed:', error);
+  }
+}, {
+  scheduled: false,
+  timezone: 'Asia/Taipei',
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
@@ -797,12 +835,22 @@ export async function startSchedulers() {
     logger.info('[WeeklyReport] Starting weeklyReportScheduler (Sunday at 10:00)...');
     weeklyReportScheduler.start();
 
+    // Start Crisis Alert scheduler
+    logger.info('[CrisisAlert] Starting crisisAlertScheduler (every 15 minutes)...');
+    crisisAlertScheduler.start();
+
+    // Start Content Recommendation scheduler
+    logger.info('[ContentRecommendation] Starting contentRecommendationScheduler (daily at 08:00)...');
+    contentRecommendationScheduler.start();
+
     logger.info('✓ All schedulers started successfully');
     logger.info('  - Fixed schedulers: 6 jobs');
     logger.info('  - Auto schedulers: 2 jobs');
     logger.info('  - Monitor schedulers: 2 jobs');
     logger.info('  - Weekly report: 1 job');
-    logger.info('  - Total: 11 cron jobs running');
+    logger.info('  - Crisis alert: 1 job');
+    logger.info('  - Content recommendation: 1 job');
+    logger.info('  - Total: 13 cron jobs running');
   } catch (error) {
     logger.error('[Scheduler] Failed to start schedulers:', error);
     throw error;
@@ -830,6 +878,12 @@ export function stopSchedulers() {
 
   // Stop Weekly Report scheduler
   weeklyReportScheduler.stop();
+
+  // Stop Crisis Alert scheduler
+  crisisAlertScheduler.stop();
+
+  // Stop Content Recommendation scheduler
+  contentRecommendationScheduler.stop();
 
   logger.info('✓ All schedulers stopped');
 }
