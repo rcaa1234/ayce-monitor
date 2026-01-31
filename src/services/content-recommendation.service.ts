@@ -593,7 +593,10 @@ ${profile.products.slice(0, 3).join('、')}
     total: number;
   }> {
     const pool = getPool();
-    const { status, limit = 20, offset = 0 } = options;
+    const { status } = options;
+    // 確保 limit 和 offset 是整數
+    const limit = Math.max(1, Math.min(100, Math.floor(Number(options.limit) || 20)));
+    const offset = Math.max(0, Math.floor(Number(options.offset) || 0));
 
     let whereClause = 'WHERE expires_at > NOW()';
     const params: any[] = [];
@@ -608,11 +611,12 @@ ${profile.products.slice(0, 3).join('、')}
       params
     );
 
+    // LIMIT/OFFSET 使用字串插值避免 MySQL2 prepared statement 問題
     const [topics] = await pool.execute<RowDataPacket[]>(
       `SELECT * FROM content_topics ${whereClause}
        ORDER BY relevance_score DESC, discovered_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
     );
 
     return {
@@ -633,7 +637,10 @@ ${profile.products.slice(0, 3).join('、')}
     total: number;
   }> {
     const pool = getPool();
-    const { status, limit = 20, offset = 0 } = options;
+    const { status } = options;
+    // 確保 limit 和 offset 是整數
+    const limit = Math.max(1, Math.min(100, Math.floor(Number(options.limit) || 20)));
+    const offset = Math.max(0, Math.floor(Number(options.offset) || 0));
 
     let whereClause = 'WHERE cs.expires_at > NOW()';
     const params: any[] = [];
@@ -648,14 +655,15 @@ ${profile.products.slice(0, 3).join('、')}
       params
     );
 
+    // LIMIT/OFFSET 使用字串插值避免 MySQL2 prepared statement 問題
     const [suggestions] = await pool.execute<RowDataPacket[]>(
       `SELECT cs.*, ct.topic_title, ct.relevance_score
        FROM content_suggestions cs
        LEFT JOIN content_topics ct ON cs.topic_id = ct.id
        ${whereClause}
        ORDER BY cs.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
     );
 
     return {

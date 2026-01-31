@@ -373,7 +373,10 @@ class CrisisAlertService {
     total: number;
   }> {
     const pool = getPool();
-    const { brandId, alertType, status, limit = 50, offset = 0 } = options;
+    const { brandId, alertType, status } = options;
+    // 確保 limit 和 offset 是整數
+    const limit = Math.max(1, Math.min(100, Math.floor(Number(options.limit) || 50)));
+    const offset = Math.max(0, Math.floor(Number(options.offset) || 0));
 
     let whereClause = '1=1';
     const params: any[] = [];
@@ -398,7 +401,7 @@ class CrisisAlertService {
     );
     const total = countRows[0]?.total || 0;
 
-    // 取得日誌
+    // 取得日誌（LIMIT/OFFSET 使用字串插值避免 MySQL2 prepared statement 問題）
     const [logs] = await pool.execute<RowDataPacket[]>(
       `SELECT
         cal.*,
@@ -407,8 +410,8 @@ class CrisisAlertService {
       JOIN monitor_brands mb ON cal.brand_id = mb.id
       WHERE ${whereClause}
       ORDER BY cal.created_at DESC
-      LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
+      LIMIT ${limit} OFFSET ${offset}`,
+      params
     );
 
     return { logs, total };
