@@ -600,12 +600,38 @@ class MonitorController {
                     return;
                 }
 
-                const result = await monitorService.crawlSource(sources[0] as any);
+                const source = sources[0];
+
+                // Dcard 來源：建立任務讓本機爬蟲執行
+                if (source.platform === 'dcard') {
+                    // 重設 last_checked_at 讓本機爬蟲可以取得此任務
+                    await pool.execute(
+                        `UPDATE monitor_sources SET last_checked_at = DATE_SUB(NOW(), INTERVAL check_interval_hours + 1 HOUR) WHERE id = ?`,
+                        [source_id]
+                    );
+
+                    res.json({
+                        success: true,
+                        data: {
+                            articlesFound: 0,
+                            newMentions: 0,
+                            duplicates: 0,
+                            source: source.name,
+                            crawlStatus: 'queued_for_local',
+                            message: '已排入本機爬蟲任務佇列',
+                        },
+                        message: `已排入本機爬蟲佇列，請確認本機爬蟲正在執行`,
+                    });
+                    return;
+                }
+
+                // 其他來源（PTT 等）：伺服器端直接爬取
+                const result = await monitorService.crawlSource(source as any);
                 res.json({
                     success: true,
                     data: {
                         ...result,
-                        source: sources[0].name,
+                        source: source.name,
                     },
                     message: `爬取完成，發現 ${result.newMentions} 筆新提及`,
                 });

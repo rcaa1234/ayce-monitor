@@ -8100,7 +8100,12 @@
                     // 根據 crawlStatus 決定顯示樣式
                     const crawlStatus = data.crawlStatus || 'success';
 
-                    if (crawlStatus === 'no_brands') {
+                    if (crawlStatus === 'queued_for_local') {
+                        statusIcon = '📡';
+                        statusText = '已排入本機爬蟲佇列';
+                        bgColor = '#e0f2fe';
+                        textColor = '#0369a1';
+                    } else if (crawlStatus === 'no_brands') {
                         statusIcon = '⚠️';
                         statusText = '未設定關鍵字組';
                         bgColor = '#fef3c7';
