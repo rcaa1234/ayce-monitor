@@ -5436,58 +5436,96 @@
 
             // Edit pending post - 使用 Modal 對話框
             async function editPendingPost(postId) {
+                console.log('[Edit] editPendingPost called with postId:', postId);
                 try {
                     // 優先使用已存儲的內容
                     let content = window.pendingSchedulesData?.[postId] || '';
+                    console.log('[Edit] Content from pendingSchedulesData:', content ? `${content.length} chars` : 'empty');
 
-                    // 如果沒有存儲的內容，從 API 取得
+                    // 如果沒有存儲的內容，從 API 取得 revision 內容
                     if (!content) {
-                        const response = await fetch(`${API_BASE}/posts/${postId}`, {
+                        console.log('[Edit] Fetching from API...');
+                        const response = await fetch(`${API_BASE}/posts/${postId}/revisions`, {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
-                        const data = await response.json();
 
                         if (response.ok) {
-                            const post = data.post || data;
-                            content = post.content || post.generated_content || '';
+                            const data = await response.json();
+                            // 取最新 revision 的 content
+                            if (data.revisions && data.revisions.length > 0) {
+                                content = data.revisions[0].content || '';
+                            }
+                        }
+
+                        // 再試 posts API
+                        if (!content) {
+                            const response2 = await fetch(`${API_BASE}/posts/${postId}`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            const data2 = await response2.json();
+                            if (response2.ok) {
+                                const post = data2.post || data2;
+                                content = post.content || post.generated_content || '';
+                            }
                         }
                     }
 
                     if (!content) {
-                        showAlert('dashboardAlert', '找不到貼文內容', 'danger');
+                        alert('找不到貼文內容');
                         return;
                     }
 
                     // 打開編輯 Modal
+                    console.log('[Edit] Opening modal with content:', content.length, 'chars');
                     openEditPostModal(postId, content);
                 } catch (error) {
-                    console.error('Failed to load post for editing:', error);
-                    showAlert('dashboardAlert', '載入貼文失敗: ' + error.message, 'danger');
+                    console.error('[Edit] Failed to load post for editing:', error);
+                    alert('載入貼文失敗: ' + error.message);
                 }
             }
 
             // 打開編輯貼文 Modal
             function openEditPostModal(postId, content) {
-                document.getElementById('editPostId').value = postId;
-                document.getElementById('editPostContent').value = content;
-                document.getElementById('editPostCharCount').textContent = content.length;
-                document.getElementById('editPostModal').style.display = 'flex';
+                const modal = document.getElementById('editPostModal');
+                const idInput = document.getElementById('editPostId');
+                const textarea = document.getElementById('editPostContent');
+                const charCount = document.getElementById('editPostCharCount');
+
+                if (!modal || !idInput || !textarea) {
+                    console.error('[Edit] Modal elements not found!', { modal: !!modal, idInput: !!idInput, textarea: !!textarea });
+                    alert('編輯視窗元素不存在，請重新整理頁面');
+                    return;
+                }
+
+                idInput.value = postId;
+                textarea.value = content;
+                if (charCount) charCount.textContent = content.length;
+
+                // 同時使用 class 和 inline style 確保顯示
+                modal.classList.add('active');
+                modal.style.display = 'flex';
 
                 // 監聽輸入更新字數
-                const textarea = document.getElementById('editPostContent');
                 textarea.oninput = function () {
-                    document.getElementById('editPostCharCount').textContent = this.value.length;
+                    if (charCount) charCount.textContent = this.value.length;
                 };
 
                 // 聚焦到文字區域
                 setTimeout(() => textarea.focus(), 100);
+                console.log('[Edit] Modal opened successfully');
             }
 
             // 關閉編輯貼文 Modal
             function closeEditPostModal() {
-                document.getElementById('editPostModal').style.display = 'none';
-                document.getElementById('editPostId').value = '';
-                document.getElementById('editPostContent').value = '';
+                const modal = document.getElementById('editPostModal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    modal.style.display = 'none';
+                }
+                const idInput = document.getElementById('editPostId');
+                const textarea = document.getElementById('editPostContent');
+                if (idInput) idInput.value = '';
+                if (textarea) textarea.value = '';
             }
 
             // 儲存編輯的貼文

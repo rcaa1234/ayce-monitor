@@ -128,8 +128,8 @@ router.put('/posts/:id', authenticate, async (req: Request, res: Response): Prom
 
       // 插入新 revision (engine_used 是必填欄位)
       await pool.execute(
-        'INSERT INTO post_revisions (id, post_id, revision_no, content, engine_used) VALUES (UUID(), ?, ?, ?, ?)',
-        [id, newRevNo, content, 'manual_edit']
+        'INSERT INTO post_revisions (id, post_id, revision_no, content, engine_used, similarity_max) VALUES (UUID(), ?, ?, ?, ?, 0)',
+        [id, newRevNo, content, 'MANUAL']
       );
     }
 
@@ -138,6 +138,19 @@ router.put('/posts/:id', authenticate, async (req: Request, res: Response): Prom
   } catch (error: any) {
     logger.error('PUT /posts/:id error:', error);
     res.status(500).json({ error: 'Update failed', message: error.message, code: error.code });
+  }
+});
+
+// Get post revisions (供前端編輯取得內容)
+router.get('/posts/:id/revisions', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { PostModel } = await import('../models/post.model');
+    const revisions = await PostModel.getRevisions(id);
+    res.json({ success: true, revisions });
+  } catch (error: any) {
+    logger.error('GET /posts/:id/revisions error:', error);
+    res.status(500).json({ error: 'Failed to get revisions' });
   }
 });
 
