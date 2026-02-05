@@ -217,7 +217,9 @@ export async function schedulePost(req: Request, res: Response): Promise<void> {
         }
 
         const creatorId = users[0].id;
-        const postStatus = skip_review ? PostStatus.APPROVED : PostStatus.PENDING_REVIEW;
+
+        // 靈犀排程 = 已審核通過，一律 APPROVED
+        const postStatus = PostStatus.APPROVED;
 
         // 7. 寫入 posts
         const postId = generateUUID();
@@ -240,57 +242,55 @@ export async function schedulePost(req: Request, res: Response): Promise<void> {
         let scheduleId: string | null = null;
         if (scheduledDate) {
             scheduleId = generateUUID();
-            const dateStr = scheduledDate.toISOString().split('T')[0];
+            // 用台灣時區 (UTC+8) 計算日期，避免跨日時 UTC 日期偏移
+            const taiwanTime = new Date(scheduledDate.getTime() + 8 * 60 * 60 * 1000);
+            const dateStr = taiwanTime.toISOString().split('T')[0];
             await pool.execute(
                 `INSERT INTO daily_auto_schedule
                  (id, schedule_date, post_id, scheduled_time, status, selection_reason, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+                 VALUES (?, ?, ?, ?, 'APPROVED', ?, NOW())`,
                 [
                     scheduleId,
                     dateStr,
                     postId,
                     scheduledDate,
-                    skip_review ? 'APPROVED' : 'GENERATED',
                     'Agent（靈犀）排程',
                 ]
             );
         }
 
-        // 10. skip_review=false → 發送 LINE 審稿通知
-        if (!skip_review) {
-            try {
-                const lineService = (await import('../services/line.service')).default;
-                const scheduleConfigService = (await import('../services/schedule-config.service')).default;
-                const aiConfig = await scheduleConfigService.getConfig();
+        // 10. 發送 LINE 通知（純通知，不需審核）
+        try {
+            const lineService = (await import('../services/line.service')).default;
+            const scheduleConfigService = (await import('../services/schedule-config.service')).default;
+            const aiConfig = await scheduleConfigService.getConfig();
 
-                if (aiConfig.line_user_id) {
-                    const [lineUsers] = await pool.execute<RowDataPacket[]>(
-                        `SELECT line_user_id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
-                        [aiConfig.line_user_id]
+            if (aiConfig.line_user_id) {
+                const [lineUsers] = await pool.execute<RowDataPacket[]>(
+                    `SELECT line_user_id FROM users WHERE line_user_id = ? AND status = 'ACTIVE' LIMIT 1`,
+                    [aiConfig.line_user_id]
+                );
+
+                if (lineUsers.length > 0) {
+                    const preview = content.substring(0, 100);
+                    const timeStr = scheduledDate
+                        ? scheduledDate.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+                        : '立即發布';
+                    await lineService.sendNotification(
+                        lineUsers[0].line_user_id,
+                        `📝 靈犀已排程一篇新貼文（已自動核准）\n\n` +
+                        `預定時間: ${timeStr}\n` +
+                        `內容預覽: ${preview}${content.length > 100 ? '...' : ''}`
                     );
-
-                    if (lineUsers.length > 0) {
-                        const preview = content.substring(0, 100);
-                        const timeStr = scheduledDate
-                            ? scheduledDate.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-                            : '未指定';
-                        await lineService.sendNotification(
-                            lineUsers[0].line_user_id,
-                            `📝 靈犀排程了一篇新貼文\n\n` +
-                            `預定時間: ${timeStr}\n` +
-                            `內容預覽: ${preview}${content.length > 100 ? '...' : ''}\n\n` +
-                            `請前往系統審核。`
-                        );
-                    }
                 }
-            } catch (lineError) {
-                logger.warn('[Agent] Failed to send LINE notification:', lineError);
-                warnings.push('LINE notification failed');
             }
+        } catch (lineError) {
+            logger.warn('[Agent] Failed to send LINE notification:', lineError);
+            warnings.push('LINE notification failed');
         }
 
-        // 11. skip_review=true + 無 schedule_time → 加入發布佇列
-        if (skip_review && !scheduledDate) {
+        // 11. 無 schedule_time → 立即加入發布佇列
+        if (!scheduledDate) {
             try {
                 const queueService = (await import('../services/queue.service')).default;
                 await queueService.addPublishJob({
