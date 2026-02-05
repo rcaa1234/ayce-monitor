@@ -5392,7 +5392,7 @@
                             ` : ''}
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px; color: #666;">
                                 <div>📝 模板：<strong>${templateName}</strong></div>
-                                <div>📅 排程日期：<strong>${schedule.schedule_date || '未知'}</strong></div>
+                                <div>📅 排程日期：<strong>${schedule.schedule_date ? new Date(schedule.schedule_date).toLocaleDateString('zh-TW') : '未知'}</strong></div>
                             </div>
                             ${schedule.selection_reason ? `
                             <div style="background: #f3e8ff; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; color: #7c3aed;">
@@ -5492,7 +5492,7 @@
                 const charCount = document.getElementById('editPostCharCount');
 
                 if (!modal || !idInput || !textarea) {
-                    console.error('[Edit] Modal elements not found!', { modal: !!modal, idInput: !!idInput, textarea: !!textarea });
+                    console.error('[Edit] Modal elements not found!');
                     alert('編輯視窗元素不存在，請重新整理頁面');
                     return;
                 }
@@ -5501,9 +5501,9 @@
                 textarea.value = content;
                 if (charCount) charCount.textContent = content.length;
 
-                // 同時使用 class 和 inline style 確保顯示
-                modal.classList.add('active');
-                modal.style.display = 'flex';
+                // 移到 body 層級確保不被父容器遮擋
+                document.body.appendChild(modal);
+                modal.style.cssText = 'display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; align-items:center; justify-content:center;';
 
                 // 監聽輸入更新字數
                 textarea.oninput = function () {
@@ -5512,14 +5512,13 @@
 
                 // 聚焦到文字區域
                 setTimeout(() => textarea.focus(), 100);
-                console.log('[Edit] Modal opened successfully');
+                console.log('[Edit] Modal opened and moved to body');
             }
 
             // 關閉編輯貼文 Modal
             function closeEditPostModal() {
                 const modal = document.getElementById('editPostModal');
                 if (modal) {
-                    modal.classList.remove('active');
                     modal.style.display = 'none';
                 }
                 const idInput = document.getElementById('editPostId');
