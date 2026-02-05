@@ -1605,6 +1605,23 @@ const migrations = [
 
   // Migration 78: posts 表新增 used_topic_id 欄位（追蹤內容推薦引擎話題）
   `ALTER TABLE posts ADD COLUMN used_topic_id CHAR(36) NULL COMMENT '使用的話題上下文 ID' AFTER generation_plan`,
+
+  // Migration 79: posts 新增 tags、context 欄位（Agent API 用）
+  `ALTER TABLE posts
+    ADD COLUMN tags JSON NULL COMMENT 'Agent 標籤' AFTER used_topic_id,
+    ADD COLUMN context TEXT NULL COMMENT 'Agent 備註/策略說明' AFTER tags`,
+
+  // Migration 80: posts 新增 images 欄位（預留未來圖片發文用）
+  `ALTER TABLE posts
+    ADD COLUMN images JSON NULL COMMENT '圖片 URL 列表' AFTER context`,
+
+  // Migration 81: daily_auto_schedule 移除每日唯一限制，允許每日多篇排程
+  `ALTER TABLE daily_auto_schedule
+    DROP INDEX uk_schedule_date`,
+
+  // Migration 81b: daily_auto_schedule 補回普通索引
+  `ALTER TABLE daily_auto_schedule
+    ADD INDEX idx_schedule_date (schedule_date)`,
 ];
 
 async function runMigrations() {
@@ -1629,7 +1646,7 @@ async function runMigrations() {
       } catch (error: any) {
         // Ignore errors for migrations that might already be applied
         // (e.g., "Duplicate column name" for ADD COLUMN)
-        if (error.code === 'ER_DUP_FIELDNAME' || error.code === 'ER_DUP_KEYNAME') {
+        if (error.code === 'ER_DUP_FIELDNAME' || error.code === 'ER_DUP_KEYNAME' || error.code === 'ER_CANT_DROP_FIELD_OR_KEY') {
           console.log(`  ⚠ Migration ${i + 1} already applied, skipping...`);
         } else {
           throw error;

@@ -3121,4 +3121,8 @@ router.use('/influencer', influencerRoutes);
 import scraperApiRoutes from './scraper-api.routes';
 router.use('/scraper', scraperApiRoutes);
 
+// Agent API routes (靈犀 AI Agent)
+import agentRoutes from './agent.routes';
+router.use('/agent', agentRoutes);
+
 export default router;

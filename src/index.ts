@@ -37,8 +37,19 @@ app.get('/', (_req, res) => {
 
 // Error handling
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // JSON 解析錯誤回 400（而非 500）
+  if (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err)) {
+    logger.warn('JSON parse error:', err.message);
+    res.status(400).json({
+      success: false,
+      error: 'Invalid JSON in request body',
+      message: config.app.env === 'local' ? err.message : undefined,
+    });
+    return;
+  }
+
   logger.error('Unhandled error:', err);
-  res.status(500).json({
+  res.status(err.status || 500).json({
     error: 'Internal server error',
     message: config.app.env === 'local' ? err.message : undefined,
   });

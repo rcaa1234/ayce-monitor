@@ -358,7 +358,7 @@ export async function createDailyAutoSchedule() {
     const todayStr = taiwanNow.toISOString().split('T')[0]; // YYYY-MM-DD (台灣日期)
 
     const [existing] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
+      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%'",
       [todayStr]
     );
 
@@ -538,17 +538,17 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
       return;
     }
 
-    // 檢查今天是否已有排程
+    // 檢查今天是否已有系統自動排程（Agent 排程不算在內）
     const [existing] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM daily_auto_schedule WHERE schedule_date = ?',
+      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%'",
       [todayStr]
     );
 
-    logger.info(`[Auto Scheduler] Existing schedules for ${todayStr}: ${existing.length}`);
+    logger.info(`[Auto Scheduler] Existing auto schedules for ${todayStr}: ${existing.length}`);
 
     if (existing.length > 0) {
-      logger.info('[Auto Scheduler] Schedule already exists for today, skipping');
-      return; // 已有排程,不重複建立
+      logger.info('[Auto Scheduler] Auto schedule already exists for today, skipping');
+      return; // 已有系統排程,不重複建立
     }
 
     // 如果今天還沒有排程，立即建立

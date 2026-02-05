@@ -317,4 +317,240 @@ export class PostModel {
     // Hard delete for now - can change to soft delete later
     await pool.execute('DELETE FROM posts WHERE id = ?', [id]);
   }
+
+  /**
+   * 取得歷史貼文（含最新 revision 內容 + engagement 數據）
+   * 供 Agent API 使用
+   */
+  static async getHistoryWithEngagement(
+    status?: string,
+    limit: number = 20
+  ): Promise<any[]> {
+    const pool = getPool();
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
+
+    let statusFilter = '';
+    const params: any[] = [];
+
+    if (status === 'published') {
+      statusFilter = "AND p.status = 'POSTED'";
+    } else if (status === 'scheduled') {
+      statusFilter = "AND p.status IN ('APPROVED', 'PENDING_REVIEW')";
+    } else if (status === 'draft') {
+      statusFilter = "AND p.status = 'DRAFT'";
+    }
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT
+         p.id,
+         p.status,
+         p.tags,
+         p.context,
+         p.post_url,
+         p.posted_at,
+         p.created_at,
+         p.updated_at,
+         pr.content,
+         pr.title,
+         pr.engine_used,
+         pi.views,
+         pi.likes,
+         pi.replies,
+         pi.reposts,
+         pi.quotes,
+         pi.shares,
+         pi.engagement_rate,
+         pi.fetched_at AS insights_fetched_at,
+         das.scheduled_time,
+         das.status AS schedule_status
+       FROM posts p
+       LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
+         SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
+       )
+       LEFT JOIN post_insights pi ON p.id = pi.post_id AND pi.id = (
+         SELECT id FROM post_insights WHERE post_id = p.id ORDER BY fetched_at DESC LIMIT 1
+       )
+       LEFT JOIN daily_auto_schedule das ON p.id = das.post_id AND das.status != 'CANCELLED'
+       WHERE 1=1 ${statusFilter}
+       ORDER BY p.created_at DESC
+       LIMIT ${safeLimit}`,
+      params
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      status: row.status,
+      content: row.content,
+      title: row.title,
+      tags: row.tags ? (typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags) : null,
+      context: row.context,
+      engine_used: row.engine_used,
+      post_url: row.post_url,
+      posted_at: row.posted_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      scheduled_time: row.scheduled_time,
+      schedule_status: row.schedule_status,
+      engagement: row.views != null ? {
+        views: row.views,
+        likes: row.likes,
+        replies: row.replies,
+        reposts: row.reposts,
+        quotes: row.quotes,
+        shares: row.shares,
+        engagement_rate: row.engagement_rate,
+        fetched_at: row.insights_fetched_at,
+      } : null,
+    }));
+  }
+
+  /**
+   * 取得高表現貼文（依 engagement_rate 排序）
+   * 供 Agent API 使用
+   */
+  static async getTopPerforming(limit: number = 10): Promise<any[]> {
+    const pool = getPool();
+    const safeLimit = Math.max(1, Math.min(50, Math.floor(Number(limit) || 10)));
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT
+         p.id,
+         p.status,
+         p.tags,
+         p.context,
+         p.post_url,
+         p.posted_at,
+         pr.content,
+         pr.title,
+         pr.engine_used,
+         pi.views,
+         pi.likes,
+         pi.replies,
+         pi.reposts,
+         pi.quotes,
+         pi.shares,
+         pi.engagement_rate,
+         pi.fetched_at AS insights_fetched_at
+       FROM posts p
+       INNER JOIN post_insights pi ON p.id = pi.post_id AND pi.id = (
+         SELECT id FROM post_insights WHERE post_id = p.id ORDER BY fetched_at DESC LIMIT 1
+       )
+       LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
+         SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
+       )
+       WHERE p.status = 'POSTED'
+       ORDER BY pi.engagement_rate DESC
+       LIMIT ${safeLimit}`,
+      []
+    );
+
+    return rows.map(row => ({
+      id: row.id,
+      content: row.content,
+      title: row.title,
+      tags: row.tags ? (typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags) : null,
+      context: row.context,
+      engine_used: row.engine_used,
+      post_url: row.post_url,
+      posted_at: row.posted_at,
+      engagement: {
+        views: row.views,
+        likes: row.likes,
+        replies: row.replies,
+        reposts: row.reposts,
+        quotes: row.quotes,
+        shares: row.shares,
+        engagement_rate: row.engagement_rate,
+        fetched_at: row.insights_fetched_at,
+      },
+    }));
+  }
+
+  /**
+   * 取得單一貼文完整狀態（含 revision、insights、schedule）
+   * 供 Agent API 使用
+   */
+  static async getPostWithRevisionAndInsights(postId: string): Promise<any | null> {
+    const pool = getPool();
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT
+         p.id,
+         p.status,
+         p.tags,
+         p.context,
+         p.post_url,
+         p.posted_at,
+         p.created_at,
+         p.updated_at,
+         p.last_error_code,
+         p.last_error_message,
+         pr.content,
+         pr.title,
+         pr.engine_used,
+         pr.revision_no,
+         pr.similarity_max,
+         pi.views,
+         pi.likes,
+         pi.replies,
+         pi.reposts,
+         pi.quotes,
+         pi.shares,
+         pi.engagement_rate,
+         pi.fetched_at AS insights_fetched_at,
+         das.id AS schedule_id,
+         das.scheduled_time,
+         das.status AS schedule_status,
+         das.selection_reason
+       FROM posts p
+       LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
+         SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
+       )
+       LEFT JOIN post_insights pi ON p.id = pi.post_id AND pi.id = (
+         SELECT id FROM post_insights WHERE post_id = p.id ORDER BY fetched_at DESC LIMIT 1
+       )
+       LEFT JOIN daily_auto_schedule das ON p.id = das.post_id AND das.status != 'CANCELLED'
+       WHERE p.id = ?`,
+      [postId]
+    );
+
+    if (!rows[0]) return null;
+
+    const row = rows[0];
+    return {
+      id: row.id,
+      status: row.status,
+      content: row.content,
+      title: row.title,
+      tags: row.tags ? (typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags) : null,
+      context: row.context,
+      engine_used: row.engine_used,
+      revision_no: row.revision_no,
+      similarity_max: row.similarity_max,
+      post_url: row.post_url,
+      posted_at: row.posted_at,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      error: row.last_error_code ? {
+        code: row.last_error_code,
+        message: row.last_error_message,
+      } : null,
+      schedule: row.schedule_id ? {
+        id: row.schedule_id,
+        scheduled_time: row.scheduled_time,
+        status: row.schedule_status,
+        selection_reason: row.selection_reason,
+      } : null,
+      engagement: row.views != null ? {
+        views: row.views,
+        likes: row.likes,
+        replies: row.replies,
+        reposts: row.reposts,
+        quotes: row.quotes,
+        shares: row.shares,
+        engagement_rate: row.engagement_rate,
+        fetched_at: row.insights_fetched_at,
+      } : null,
+    };
+  }
 }
