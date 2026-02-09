@@ -33,4 +33,8 @@ router.patch('/posts/:id', agentController.updateScheduledPost);
 // 取消排程
 router.delete('/posts/:id/schedule', agentController.cancelSchedule);
 
+// Dcard 資料上傳（網紅 & 提及文章）
+router.post('/dcard/mentions', agentController.receiveMentions);
+router.post('/dcard/authors', agentController.receiveAuthors);
+
 export default router;

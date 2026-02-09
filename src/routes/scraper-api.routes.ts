@@ -28,10 +28,6 @@ router.get('/tasks', scraperApiController.getTasks.bind(scraperApiController));
 // 回報任務完成
 router.post('/tasks/complete', scraperApiController.completeTask.bind(scraperApiController));
 
-// 接收爬取結果
-router.post('/results/mentions', scraperApiController.receiveMentions.bind(scraperApiController));
-router.post('/results/authors', scraperApiController.receiveAuthors.bind(scraperApiController));
-
 // 心跳回報
 router.post('/heartbeat', scraperApiController.heartbeat.bind(scraperApiController));
 

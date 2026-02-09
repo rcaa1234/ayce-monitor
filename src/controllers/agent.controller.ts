@@ -9,7 +9,9 @@ import { PostStatus, EngineType } from '../types';
 import { getPool } from '../database/connection';
 import { generateUUID } from '../utils/uuid';
 import { RowDataPacket } from 'mysql2';
+import { createHash } from 'crypto';
 import logger from '../utils/logger';
+import classifierService from '../services/classifier.service';
 
 /**
  * GET /api/agent/posts/history
@@ -640,6 +642,220 @@ export async function getAvailableSlots(req: Request, res: Response): Promise<vo
     } catch (error) {
         logger.error('[Agent] getAvailableSlots error:', error);
         res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+}
+
+/**
+ * POST /api/agent/dcard/mentions
+ * 接收 Dcard 關鍵字命中的文章
+ * 重複資料依 content_hash + brand_id 判斷，重複時更新互動數據
+ */
+export async function receiveMentions(req: Request, res: Response): Promise<void> {
+    try {
+        const { mentions } = req.body;
+
+        if (!Array.isArray(mentions) || mentions.length === 0) {
+            res.status(400).json({ success: false, error: 'mentions must be a non-empty array' });
+            return;
+        }
+
+        const pool = getPool();
+        let saved = 0;
+        let updated = 0;
+        let skipped = 0;
+
+        for (const mention of mentions) {
+            try {
+                const {
+                    source_id, brand_id, url, title, content, author_name, published_at,
+                    likes_count, comments_count, external_id, matched_keywords, keyword_count, match_location,
+                } = mention;
+
+                // 計算 content_hash（SHA256 of url|title）
+                const hashContent = `${url}|${title || ''}`;
+                const contentHash = createHash('sha256').update(hashContent).digest('hex').substring(0, 64);
+
+                // 檢查重複
+                const [existing] = await pool.execute<RowDataPacket[]>(
+                    `SELECT id, likes_count, comments_count FROM monitor_mentions WHERE content_hash = ? AND brand_id = ? LIMIT 1`,
+                    [contentHash, brand_id]
+                );
+
+                if (existing.length > 0) {
+                    // 重複資料：檢查互動數據是否有更新
+                    const oldLikes = existing[0].likes_count || 0;
+                    const oldComments = existing[0].comments_count || 0;
+                    const newLikes = likes_count || 0;
+                    const newComments = comments_count || 0;
+
+                    if (newLikes !== oldLikes || newComments !== oldComments) {
+                        const engagementScore = newLikes + newComments * 2;
+                        await pool.execute(
+                            `UPDATE monitor_mentions
+                             SET likes_count = ?, comments_count = ?, engagement_score = ?, is_high_engagement = ?, updated_at = NOW()
+                             WHERE id = ?`,
+                            [newLikes, newComments, engagementScore, engagementScore >= 50, existing[0].id]
+                        );
+                        updated++;
+                    } else {
+                        skipped++;
+                    }
+                    continue;
+                }
+
+                // 建立 crawl log
+                const crawlLogId = generateUUID();
+                await pool.execute(
+                    `INSERT INTO monitor_crawl_logs (id, source_id, started_at, completed_at, status, articles_found, new_mentions)
+                     VALUES (?, ?, NOW(), NOW(), 'completed', 1, 1)`,
+                    [crawlLogId, source_id]
+                );
+
+                // 執行分類
+                const textToClassify = `${title || ''} ${content || ''}`;
+                const classification = classifierService.classify(textToClassify);
+
+                // 計算互動分數
+                const engagementScore = (likes_count || 0) + (comments_count || 0) * 2;
+
+                const id = generateUUID();
+                await pool.execute(
+                    `INSERT INTO monitor_mentions (
+                        id, source_id, brand_id, crawl_log_id,
+                        external_id, url, title, content, content_preview,
+                        content_length, content_hash,
+                        author_name, matched_keywords, keyword_count, match_location,
+                        likes_count, comments_count, engagement_score, is_high_engagement,
+                        published_at, discovered_at,
+                        primary_topic, topics, classification_hits, classification_version, has_strong_hit
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)`,
+                    [
+                        id, source_id, brand_id, crawlLogId,
+                        external_id, url, title, content, content?.substring(0, 500) || null,
+                        content?.length || 0, contentHash,
+                        author_name, JSON.stringify(matched_keywords || []), keyword_count || 0, match_location || 'content',
+                        likes_count || 0, comments_count || 0, engagementScore, engagementScore >= 50,
+                        published_at ? new Date(published_at) : null,
+                        classification.primary_topic,
+                        JSON.stringify(classification.topics),
+                        JSON.stringify(classification.hits),
+                        classification.version,
+                        classification.hits.length > 0,
+                    ]
+                );
+
+                saved++;
+            } catch (err) {
+                logger.error('[Agent] 儲存 mention 失敗:', err);
+            }
+        }
+
+        // 更新來源的 last_checked_at
+        const sourceIds = [...new Set(mentions.map((m: any) => m.source_id).filter(Boolean))];
+        for (const sourceId of sourceIds) {
+            await pool.execute(
+                `UPDATE monitor_sources SET last_checked_at = NOW() WHERE id = ?`,
+                [sourceId]
+            ).catch(() => {});
+        }
+
+        logger.info(`[Agent] 接收 mentions: ${saved} 新增, ${updated} 更新, ${skipped} 跳過`);
+        res.json({ success: true, data: { saved, updated, skipped, total: mentions.length } });
+    } catch (error) {
+        logger.error('[Agent] 接收 mentions 失敗:', error);
+        res.status(500).json({ success: false, error: 'Failed to receive mentions' });
+    }
+}
+
+/**
+ * POST /api/agent/dcard/authors
+ * 接收偵測到的網紅作者
+ * 重複資料依 dcard_id 判斷，已存在則更新資料並累加 detection_count
+ */
+export async function receiveAuthors(req: Request, res: Response): Promise<void> {
+    try {
+        const { authors } = req.body;
+
+        if (!Array.isArray(authors) || authors.length === 0) {
+            res.status(400).json({ success: false, error: 'authors must be a non-empty array' });
+            return;
+        }
+
+        const pool = getPool();
+        let newAuthors = 0;
+        let updated = 0;
+
+        for (const author of authors) {
+            try {
+                const {
+                    dcard_id, dcard_username, dcard_bio, dcard_url,
+                    twitter_id, twitter_display_name, twitter_url,
+                    last_dcard_post_at, last_twitter_post_at, source_forum,
+                } = author;
+
+                if (!dcard_id) continue;
+
+                // 檢查作者是否已存在
+                const [existing] = await pool.execute<RowDataPacket[]>(
+                    `SELECT id FROM influencer_authors WHERE dcard_id = ? LIMIT 1`,
+                    [dcard_id]
+                );
+
+                if (existing.length > 0) {
+                    // 更新現有作者（COALESCE 保留原有非 null 值）
+                    await pool.execute(
+                        `UPDATE influencer_authors SET
+                            dcard_username = COALESCE(?, dcard_username),
+                            dcard_bio = COALESCE(?, dcard_bio),
+                            dcard_url = COALESCE(?, dcard_url),
+                            twitter_id = COALESCE(?, twitter_id),
+                            twitter_display_name = COALESCE(?, twitter_display_name),
+                            twitter_url = COALESCE(?, twitter_url),
+                            last_dcard_post_at = COALESCE(?, last_dcard_post_at),
+                            last_twitter_post_at = COALESCE(?, last_twitter_post_at),
+                            last_seen_at = NOW(),
+                            detection_count = detection_count + 1,
+                            updated_at = NOW()
+                        WHERE id = ?`,
+                        [
+                            dcard_username, dcard_bio, dcard_url,
+                            twitter_id, twitter_display_name, twitter_url,
+                            last_dcard_post_at ? new Date(last_dcard_post_at) : null,
+                            last_twitter_post_at ? new Date(last_twitter_post_at) : null,
+                            existing[0].id,
+                        ]
+                    );
+                    updated++;
+                } else {
+                    // 新增作者
+                    await pool.execute(
+                        `INSERT INTO influencer_authors (
+                            id, dcard_id, dcard_username, dcard_bio, dcard_url,
+                            twitter_id, twitter_display_name, twitter_url,
+                            last_dcard_post_at, last_twitter_post_at,
+                            source_forum, status, first_detected_at, last_seen_at,
+                            created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
+                        [
+                            generateUUID(), dcard_id, dcard_username, dcard_bio, dcard_url,
+                            twitter_id, twitter_display_name, twitter_url,
+                            last_dcard_post_at ? new Date(last_dcard_post_at) : null,
+                            last_twitter_post_at ? new Date(last_twitter_post_at) : null,
+                            source_forum,
+                        ]
+                    );
+                    newAuthors++;
+                }
+            } catch (err) {
+                logger.error('[Agent] 儲存作者失敗:', err);
+            }
+        }
+
+        logger.info(`[Agent] 接收 authors: ${newAuthors} 新增, ${updated} 更新`);
+        res.json({ success: true, data: { newAuthors, updated, total: authors.length } });
+    } catch (error) {
+        logger.error('[Agent] 接收 authors 失敗:', error);
+        res.status(500).json({ success: false, error: 'Failed to receive authors' });
     }
 }
 
