@@ -3130,10 +3130,6 @@ router.use('/monitor', monitorRoutes);
 import influencerRoutes from './influencer.routes';
 router.use('/influencer', influencerRoutes);
 
-// Scraper API routes (本機爬蟲 API)
-import scraperApiRoutes from './scraper-api.routes';
-router.use('/scraper', scraperApiRoutes);
-
 // Agent API routes (靈犀 AI Agent)
 import agentRoutes from './agent.routes';
 router.use('/agent', agentRoutes);
