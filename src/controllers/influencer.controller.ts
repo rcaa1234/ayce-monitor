@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import influencerService from '../services/influencer.service';
 import logger from '../utils/logger';
+import * as XLSX from 'xlsx';
 
 class InfluencerController {
     /**
@@ -47,7 +48,7 @@ class InfluencerController {
      */
     async getAuthors(req: Request, res: Response) {
         try {
-            const { status, twitterVerified, hasContact, limit = '20', offset = '0' } = req.query;
+            const { status, twitterVerified, hasContact, limit = '20', offset = '0', sortBy, sortOrder } = req.query;
 
             const result = await influencerService.getAuthors({
                 status: status as string,
@@ -55,6 +56,8 @@ class InfluencerController {
                 hasContact: hasContact === 'true' ? true : hasContact === 'false' ? false : undefined,
                 limit: parseInt(limit as string),
                 offset: parseInt(offset as string),
+                sortBy: sortBy as string,
+                sortOrder: sortOrder as string,
             });
 
             res.json({
@@ -250,6 +253,58 @@ class InfluencerController {
         } catch (error: any) {
             logger.error('測試爬蟲失敗:', error);
             res.status(500).json({ success: false, error: error.message || '測試失敗' });
+        }
+    }
+
+    /**
+     * 匯出作者列表為 Excel
+     */
+    async exportAuthorsExcel(req: Request, res: Response) {
+        try {
+            const { status, twitterVerified, hasContact, sortBy, sortOrder } = req.query;
+
+            const result = await influencerService.getAuthors({
+                status: status as string,
+                twitterVerified: twitterVerified === 'true' ? true : twitterVerified === 'false' ? false : undefined,
+                hasContact: hasContact === 'true' ? true : hasContact === 'false' ? false : undefined,
+                limit: 10000,
+                offset: 0,
+                sortBy: sortBy as string,
+                sortOrder: sortOrder as string,
+            });
+
+            const statusMap: Record<string, string> = {
+                new: '新發現', contacted: '已聯繫', cooperating: '合作中',
+                rejected: '已拒絕', blacklisted: '黑名單', pending: '待處理', negotiating: '洽談中',
+            };
+
+            const rows = result.authors.map((a: any) => ({
+                'Dcard 帳號': a.dcard_username || '',
+                'Dcard ID': a.dcard_id || '',
+                'Twitter ID': a.twitter_id || '',
+                'Twitter 顯示名稱': a.twitter_display_name || '',
+                'Twitter 已驗證': a.twitter_verified ? '是' : '否',
+                '狀態': statusMap[a.status] || a.status || '',
+                '發現時間': a.first_detected_at ? new Date(a.first_detected_at).toLocaleString('zh-TW') : '',
+                'Dcard 最後發文': a.last_dcard_post_at ? new Date(a.last_dcard_post_at).toLocaleString('zh-TW') : '',
+                'Twitter 最後發文': a.last_twitter_post_at ? new Date(a.last_twitter_post_at).toLocaleString('zh-TW') : '',
+                '聯繫次數': a.contact_count || 0,
+                '最後聯繫日期': a.last_contact_date ? new Date(a.last_contact_date).toLocaleString('zh-TW') : '',
+                '備註': a.notes || '',
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '作者名單');
+
+            const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=influencer_authors_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            res.send(buffer);
+        } catch (error) {
+            logger.error('匯出作者 Excel 失敗:', error);
+            res.status(500).json({ success: false, error: '匯出失敗' });
         }
     }
 

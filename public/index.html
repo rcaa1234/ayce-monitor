@@ -2358,10 +2358,22 @@
                             <option value="true">📧 已聯繫過</option>
                             <option value="false">- 未聯繫</option>
                         </select>
+                        <select id="influencerSortBy" onchange="loadInfluencerAuthors()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="first_detected_at">排序：發現時間</option>
+                            <option value="last_dcard_post_at">排序：Dcard 發文</option>
+                            <option value="last_twitter_post_at">排序：Twitter 發文</option>
+                            <option value="contact_count">排序：聯繫次數</option>
+                            <option value="status">排序：狀態</option>
+                        </select>
+                        <select id="influencerSortOrder" onchange="loadInfluencerAuthors()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                            <option value="DESC">降冪</option>
+                            <option value="ASC">升冪</option>
+                        </select>
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-success" onclick="triggerInfluencerScan()">🔍 立即掃描</button>
                         <button class="btn btn-secondary" onclick="loadInfluencerAuthors()">🔄 重新整理</button>
+                        <button class="btn btn-primary" onclick="exportInfluencerExcel()" style="background: #059669;">📥 下載 Excel</button>
                     </div>
                 </div>
 
@@ -2541,6 +2553,13 @@
                             字數: <span id="editPostCharCount">0</span> | 編輯後的內容會在排程時間發布到 Threads
                         </p>
                     </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="editPostScheduleTime">發文時間</label>
+                        <input type="datetime-local" id="editPostScheduleTime"
+                            style="width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ddd; border-radius: 8px;">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">修改發文時間（需至少 15 分鐘後）</p>
+                    </div>
+                    <input type="hidden" id="editPostScheduleId">
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeEditPostModal()">取消</button>
                         <button type="submit" class="btn btn-primary">💾 儲存變更</button>
@@ -2759,8 +2778,10 @@
                     const statusFilter = document.getElementById('influencerStatusFilter')?.value || '';
                     const verifiedFilter = document.getElementById('influencerVerifiedFilter')?.value || '';
                     const contactFilter = document.getElementById('influencerContactFilter')?.value || '';
+                    const sortBy = document.getElementById('influencerSortBy')?.value || 'first_detected_at';
+                    const sortOrder = document.getElementById('influencerSortOrder')?.value || 'DESC';
 
-                    let url = `${API_BASE}/influencer/authors?limit=${influencerAuthorsLimit}&offset=${influencerAuthorsPage * influencerAuthorsLimit}`;
+                    let url = `${API_BASE}/influencer/authors?limit=${influencerAuthorsLimit}&offset=${influencerAuthorsPage * influencerAuthorsLimit}&sortBy=${sortBy}&sortOrder=${sortOrder}`;
                     if (statusFilter) url += `&status=${statusFilter}`;
                     if (verifiedFilter) url += `&twitterVerified=${verifiedFilter}`;
                     if (contactFilter) url += `&hasContact=${contactFilter}`;
@@ -2878,6 +2899,40 @@
                     html += `<button onclick="influencerAuthorsPage++; loadInfluencerAuthors();" class="btn btn-secondary btn-small">下一頁</button>`;
                 }
                 container.innerHTML = html;
+            }
+
+            async function exportInfluencerExcel() {
+                try {
+                    const statusFilter = document.getElementById('influencerStatusFilter')?.value || '';
+                    const verifiedFilter = document.getElementById('influencerVerifiedFilter')?.value || '';
+                    const contactFilter = document.getElementById('influencerContactFilter')?.value || '';
+                    const sortBy = document.getElementById('influencerSortBy')?.value || 'first_detected_at';
+                    const sortOrder = document.getElementById('influencerSortOrder')?.value || 'DESC';
+
+                    let url = `${API_BASE}/influencer/authors/export/excel?sortBy=${sortBy}&sortOrder=${sortOrder}`;
+                    if (statusFilter) url += `&status=${statusFilter}`;
+                    if (verifiedFilter) url += `&twitterVerified=${verifiedFilter}`;
+                    if (contactFilter) url += `&hasContact=${contactFilter}`;
+
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) throw new Error('匯出失敗');
+
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `influencer_authors_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+                } catch (error) {
+                    console.error('匯出 Excel 失敗:', error);
+                    alert('匯出 Excel 失敗: ' + error.message);
+                }
             }
 
             function formatRelativeTime(dateStr) {
@@ -5347,6 +5402,7 @@
 
                     // 存儲排程資料供編輯使用
                     window.pendingSchedulesData = {};
+                    window.pendingSchedulesMeta = {};
 
                     container.innerHTML = schedules.map(schedule => {
                         const scheduledTime = schedule.scheduled_time
@@ -5363,6 +5419,10 @@
                         // 存儲完整內容供編輯使用
                         if (schedule.post_id) {
                             window.pendingSchedulesData[schedule.post_id] = postContent;
+                            window.pendingSchedulesMeta[schedule.post_id] = {
+                                scheduleId: schedule.id,
+                                scheduledTime: schedule.scheduled_time
+                            };
                         }
 
                         return `
@@ -5475,9 +5535,12 @@
                         return;
                     }
 
+                    // 取得排程時間資料
+                    const meta = window.pendingSchedulesMeta?.[postId] || {};
+
                     // 打開編輯 Modal
                     console.log('[Edit] Opening modal with content:', content.length, 'chars');
-                    openEditPostModal(postId, content);
+                    openEditPostModal(postId, content, meta.scheduledTime, meta.scheduleId);
                 } catch (error) {
                     console.error('[Edit] Failed to load post for editing:', error);
                     alert('載入貼文失敗: ' + error.message);
@@ -5485,11 +5548,13 @@
             }
 
             // 打開編輯貼文 Modal
-            function openEditPostModal(postId, content) {
+            function openEditPostModal(postId, content, scheduledTime, scheduleId) {
                 const modal = document.getElementById('editPostModal');
                 const idInput = document.getElementById('editPostId');
                 const textarea = document.getElementById('editPostContent');
                 const charCount = document.getElementById('editPostCharCount');
+                const scheduleTimeInput = document.getElementById('editPostScheduleTime');
+                const scheduleIdInput = document.getElementById('editPostScheduleId');
 
                 if (!modal || !idInput || !textarea) {
                     console.error('[Edit] Modal elements not found!');
@@ -5500,6 +5565,17 @@
                 idInput.value = postId;
                 textarea.value = content;
                 if (charCount) charCount.textContent = content.length;
+
+                // 設定發文時間
+                if (scheduleTimeInput && scheduledTime) {
+                    const dt = new Date(scheduledTime);
+                    // 轉換為 datetime-local 格式 (YYYY-MM-DDTHH:mm)
+                    const pad = n => String(n).padStart(2, '0');
+                    scheduleTimeInput.value = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+                } else if (scheduleTimeInput) {
+                    scheduleTimeInput.value = '';
+                }
+                if (scheduleIdInput) scheduleIdInput.value = scheduleId || '';
 
                 // 移到 body 層級確保不被父容器遮擋
                 document.body.appendChild(modal);
@@ -5523,8 +5599,12 @@
                 }
                 const idInput = document.getElementById('editPostId');
                 const textarea = document.getElementById('editPostContent');
+                const scheduleTimeInput = document.getElementById('editPostScheduleTime');
+                const scheduleIdInput = document.getElementById('editPostScheduleId');
                 if (idInput) idInput.value = '';
                 if (textarea) textarea.value = '';
+                if (scheduleTimeInput) scheduleTimeInput.value = '';
+                if (scheduleIdInput) scheduleIdInput.value = '';
             }
 
             // 儲存編輯的貼文
@@ -5533,6 +5613,8 @@
 
                 const postId = document.getElementById('editPostId').value;
                 const newContent = document.getElementById('editPostContent').value;
+                const scheduleTimeValue = document.getElementById('editPostScheduleTime')?.value || '';
+                const scheduleId = document.getElementById('editPostScheduleId')?.value || '';
 
                 if (!postId || !newContent.trim()) {
                     showAlert('dashboardAlert', '貼文內容不能為空', 'danger');
@@ -5540,13 +5622,19 @@
                 }
 
                 try {
+                    const body = { content: newContent };
+                    if (scheduleTimeValue) {
+                        body.scheduled_time = new Date(scheduleTimeValue).toISOString();
+                        body.schedule_id = scheduleId;
+                    }
+
                     const updateResponse = await fetch(`${API_BASE}/posts/${postId}`, {
                         method: 'PUT',
                         headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ content: newContent })
+                        body: JSON.stringify(body)
                     });
 
                     if (!updateResponse.ok) {

@@ -156,9 +156,11 @@ class InfluencerService {
         hasContact?: boolean;
         limit?: number;
         offset?: number;
+        sortBy?: string;
+        sortOrder?: string;
     } = {}): Promise<{ authors: InfluencerAuthor[]; total: number }> {
         const pool = getPool();
-        const { status, twitterVerified, hasContact, limit = 20, offset = 0 } = options;
+        const { status, twitterVerified, hasContact, limit = 20, offset = 0, sortBy, sortOrder } = options;
 
         // Ensure limit and offset are valid integers for mysql2 prepared statements
         const limitInt = Math.max(1, Math.min(100, Number(limit) || 20));
@@ -195,6 +197,19 @@ class InfluencerService {
             );
         const total = Number(countRows[0].total) || 0;
 
+        // 排序白名單驗證
+        const validSortColumns: Record<string, string> = {
+            'first_detected_at': 'a.first_detected_at',
+            'last_dcard_post_at': 'a.last_dcard_post_at',
+            'last_twitter_post_at': 'a.last_twitter_post_at',
+            'contact_count': 'contact_count',
+            'status': 'a.status',
+        };
+        const validSortOrders = ['ASC', 'DESC'];
+        const orderColumn = validSortColumns[sortBy || ''] || 'a.first_detected_at';
+        const orderDirection = validSortOrders.includes((sortOrder || '').toUpperCase()) ? (sortOrder as string).toUpperCase() : 'DESC';
+        const orderByClause = `ORDER BY ${orderColumn} ${orderDirection}`;
+
         // 取得資料，包含聯繫統計
         const [rows] = values.length > 0
             ? await pool.execute<RowDataPacket[]>(
@@ -203,7 +218,7 @@ class InfluencerService {
                         (SELECT MAX(contact_date) FROM influencer_contacts c WHERE c.author_id = a.id) as last_contact_date
                  FROM influencer_authors a
                  WHERE ${whereClause}
-                 ORDER BY a.first_detected_at DESC
+                 ${orderByClause}
                  LIMIT ${limitInt} OFFSET ${offsetInt}`,
                 values
             )
@@ -213,7 +228,7 @@ class InfluencerService {
                         (SELECT MAX(contact_date) FROM influencer_contacts c WHERE c.author_id = a.id) as last_contact_date
                  FROM influencer_authors a
                  WHERE ${whereClause}
-                 ORDER BY a.first_detected_at DESC
+                 ${orderByClause}
                  LIMIT ${limitInt} OFFSET ${offsetInt}`
             );
 

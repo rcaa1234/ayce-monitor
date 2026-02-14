@@ -104,7 +104,7 @@ router.patch('/posts/:id', authenticate, async (req: Request, res: Response): Pr
 router.put('/posts/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { content } = req.body;
+    const { content, scheduled_time, schedule_id } = req.body;
 
     const { PostModel } = await import('../models/post.model');
     const post = await PostModel.findById(id);
@@ -131,6 +131,38 @@ router.put('/posts/:id', authenticate, async (req: Request, res: Response): Prom
         'INSERT INTO post_revisions (id, post_id, revision_no, content, engine_used, similarity_max) VALUES (UUID(), ?, ?, ?, ?, 0)',
         [id, newRevNo, content, 'MANUAL']
       );
+    }
+
+    // 如果提供了 scheduled_time，更新 daily_auto_schedule
+    if (scheduled_time) {
+      const newTime = new Date(scheduled_time);
+      const now = new Date();
+      const minTime = new Date(now.getTime() + 15 * 60 * 1000); // 至少 15 分鐘後
+
+      if (newTime < minTime) {
+        res.status(400).json({ error: '發文時間需至少 15 分鐘後' });
+        return;
+      }
+
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+
+      // 計算新的 schedule_date (YYYY-MM-DD)
+      const scheduleDate = `${newTime.getFullYear()}-${String(newTime.getMonth() + 1).padStart(2, '0')}-${String(newTime.getDate()).padStart(2, '0')}`;
+
+      if (schedule_id) {
+        // 透過 schedule_id 更新
+        await pool.execute(
+          `UPDATE daily_auto_schedule SET scheduled_time = ?, schedule_date = ?, updated_at = NOW() WHERE id = ?`,
+          [newTime, scheduleDate, schedule_id]
+        );
+      } else {
+        // 透過 post_id 找到對應的排程更新
+        await pool.execute(
+          `UPDATE daily_auto_schedule SET scheduled_time = ?, schedule_date = ?, updated_at = NOW() WHERE post_id = ? AND status IN ('APPROVED', 'GENERATED')`,
+          [newTime, scheduleDate, id]
+        );
+      }
     }
 
     const updatedPost = await PostModel.findById(id);
