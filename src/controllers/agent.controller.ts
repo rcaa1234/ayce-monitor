@@ -19,7 +19,7 @@ import classifierService from '../services/classifier.service';
  */
 export async function getPostHistory(req: Request, res: Response): Promise<void> {
     try {
-        const { status, limit } = req.query;
+        const { status, limit, ai_generated } = req.query;
         const safeLimit = limit ? Number(limit) : 20;
 
         if (status && !['published', 'scheduled', 'draft'].includes(status as string)) {
@@ -30,9 +30,15 @@ export async function getPostHistory(req: Request, res: Response): Promise<void>
             return;
         }
 
+        // ai_generated: 'true' | 'false' | undefined
+        const aiGeneratedFilter = ai_generated === 'true' ? true
+            : ai_generated === 'false' ? false
+            : undefined;
+
         const posts = await PostModel.getHistoryWithEngagement(
             status as string | undefined,
-            safeLimit
+            safeLimit,
+            aiGeneratedFilter
         );
 
         res.json({
@@ -764,6 +770,129 @@ export async function receiveMentions(req: Request, res: Response): Promise<void
     } catch (error) {
         logger.error('[Agent] 接收 mentions 失敗:', error);
         res.status(500).json({ success: false, error: 'Failed to receive mentions' });
+    }
+}
+
+/**
+ * GET /api/agent/monitor/keywords
+ * 取得所有監控關鍵字設定（品牌關鍵字 + 網黃偵測設定）
+ * 供 Agent 完整了解需要監控的關鍵字與來源
+ */
+export async function getMonitorKeywords(req: Request, res: Response): Promise<void> {
+    try {
+        const pool = getPool();
+
+        // 1. 取得所有啟用中的品牌及其關鍵字
+        const [brands] = await pool.execute<RowDataPacket[]>(
+            `SELECT id, name, short_name, brand_type, category, keywords, keyword_groups,
+                    exclude_keywords, hashtags, is_active, display_color
+             FROM monitor_brands
+             WHERE is_active = true
+             ORDER BY display_order, created_at DESC`
+        );
+
+        // 解析 JSON 欄位
+        const parsedBrands = brands.map((b: any) => {
+            const parseJson = (val: any) => {
+                if (!val) return [];
+                if (Array.isArray(val)) return val;
+                if (typeof val === 'string') {
+                    try { return JSON.parse(val); } catch { return []; }
+                }
+                return val;
+            };
+            return {
+                id: b.id,
+                name: b.name,
+                short_name: b.short_name,
+                brand_type: b.brand_type,
+                category: b.category,
+                keywords: parseJson(b.keywords),
+                keyword_groups: parseJson(b.keyword_groups),
+                exclude_keywords: parseJson(b.exclude_keywords),
+                hashtags: parseJson(b.hashtags),
+                display_color: b.display_color,
+            };
+        });
+
+        // 2. 取得所有啟用中的監控來源及其品牌關聯
+        const [sources] = await pool.execute<RowDataPacket[]>(
+            `SELECT ms.id, ms.name, ms.url, ms.platform, ms.source_type, ms.search_query,
+                    ms.check_interval_hours, ms.is_active, ms.health_status,
+                    ms.last_checked_at, ms.last_success_at
+             FROM monitor_sources ms
+             WHERE ms.is_active = true
+             ORDER BY ms.platform, ms.name`
+        );
+
+        // 3. 取得品牌與來源的關聯（含來源專用關鍵字）
+        const [brandSources] = await pool.execute<RowDataPacket[]>(
+            `SELECT mbs.brand_id, mbs.source_id, mbs.custom_keywords, mbs.priority,
+                    mb.name as brand_name, ms.name as source_name
+             FROM monitor_brand_sources mbs
+             INNER JOIN monitor_brands mb ON mb.id = mbs.brand_id AND mb.is_active = true
+             INNER JOIN monitor_sources ms ON ms.id = mbs.source_id AND ms.is_active = true
+             ORDER BY mbs.priority DESC`
+        );
+
+        const parsedBrandSources = brandSources.map((bs: any) => ({
+            brand_id: bs.brand_id,
+            brand_name: bs.brand_name,
+            source_id: bs.source_id,
+            source_name: bs.source_name,
+            custom_keywords: bs.custom_keywords ? (typeof bs.custom_keywords === 'string' ? (() => { try { return JSON.parse(bs.custom_keywords); } catch { return []; } })() : bs.custom_keywords) : [],
+            priority: bs.priority,
+        }));
+
+        // 4. 取得網黃偵測設定
+        const [influencerConfigs] = await pool.execute<RowDataPacket[]>(
+            `SELECT enabled, detection_source, check_interval_minutes, max_posts_per_check,
+                    target_forums, min_likes, keyword_filters, exclude_keywords,
+                    twitter_patterns, notify_on_new, last_check_at
+             FROM influencer_detection_config
+             LIMIT 1`
+        );
+
+        const influencerConfig = influencerConfigs[0] ? {
+            enabled: influencerConfigs[0].enabled,
+            detection_source: influencerConfigs[0].detection_source,
+            check_interval_minutes: influencerConfigs[0].check_interval_minutes,
+            max_posts_per_check: influencerConfigs[0].max_posts_per_check,
+            target_forums: (() => { const v = influencerConfigs[0].target_forums; if (!v) return []; if (Array.isArray(v)) return v; try { return JSON.parse(v); } catch { return []; } })(),
+            min_likes: influencerConfigs[0].min_likes,
+            keyword_filters: (() => { const v = influencerConfigs[0].keyword_filters; if (!v) return []; if (Array.isArray(v)) return v; try { return JSON.parse(v); } catch { return []; } })(),
+            exclude_keywords: (() => { const v = influencerConfigs[0].exclude_keywords; if (!v) return []; if (Array.isArray(v)) return v; try { return JSON.parse(v); } catch { return []; } })(),
+            twitter_patterns: (() => { const v = influencerConfigs[0].twitter_patterns; if (!v) return []; if (Array.isArray(v)) return v; try { return JSON.parse(v); } catch { return []; } })(),
+            notify_on_new: influencerConfigs[0].notify_on_new,
+            last_check_at: influencerConfigs[0].last_check_at,
+        } : null;
+
+        // 5. 彙整所有關鍵字的扁平列表（方便 Agent 快速取用）
+        const allKeywords = new Set<string>();
+        const allExcludeKeywords = new Set<string>();
+        parsedBrands.forEach((b: any) => {
+            (b.keywords || []).forEach((k: string) => allKeywords.add(k));
+            (b.exclude_keywords || []).forEach((k: string) => allExcludeKeywords.add(k));
+        });
+
+        res.json({
+            success: true,
+            data: {
+                brands: parsedBrands,
+                sources: sources,
+                brand_source_mappings: parsedBrandSources,
+                influencer_detection: influencerConfig,
+                summary: {
+                    total_brands: parsedBrands.length,
+                    total_sources: sources.length,
+                    all_keywords: Array.from(allKeywords),
+                    all_exclude_keywords: Array.from(allExcludeKeywords),
+                },
+            },
+        });
+    } catch (error) {
+        logger.error('[Agent] 取得監控關鍵字失敗:', error);
+        res.status(500).json({ success: false, error: 'Failed to get monitor keywords' });
     }
 }
 
