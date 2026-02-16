@@ -913,16 +913,24 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
         const pool = getPool();
         let newAuthors = 0;
         let updated = 0;
+        const errors: string[] = [];
 
-        for (const author of authors) {
+        for (let i = 0; i < authors.length; i++) {
+            const author = authors[i];
             try {
                 const {
-                    dcard_id, dcard_username, dcard_bio, dcard_url,
+                    dcard_id, dcard_username, name, dcard_bio, dcard_url,
                     twitter_id, twitter_display_name, twitter_url,
                     last_dcard_post_at, last_twitter_post_at, source_forum,
                 } = author;
 
-                if (!dcard_id) continue;
+                // 支援 name 作為 dcard_username 的別名
+                const username = dcard_username || name || null;
+
+                if (!dcard_id) {
+                    errors.push(`[${i}] 缺少 dcard_id，已跳過`);
+                    continue;
+                }
 
                 // 檢查作者是否已存在
                 const [existing] = await pool.execute<RowDataPacket[]>(
@@ -947,7 +955,7 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                             updated_at = NOW()
                         WHERE id = ?`,
                         [
-                            dcard_username, dcard_bio, dcard_url,
+                            username, dcard_bio, dcard_url,
                             twitter_id, twitter_display_name, twitter_url,
                             last_dcard_post_at ? new Date(last_dcard_post_at) : null,
                             last_twitter_post_at ? new Date(last_twitter_post_at) : null,
@@ -966,7 +974,7 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                             created_at, updated_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
                         [
-                            generateUUID(), dcard_id, dcard_username, dcard_bio, dcard_url,
+                            generateUUID(), dcard_id, username, dcard_bio, dcard_url,
                             twitter_id, twitter_display_name, twitter_url,
                             last_dcard_post_at ? new Date(last_dcard_post_at) : null,
                             last_twitter_post_at ? new Date(last_twitter_post_at) : null,
@@ -975,13 +983,19 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                     );
                     newAuthors++;
                 }
-            } catch (err) {
-                logger.error('[Agent] 儲存作者失敗:', err);
+            } catch (err: any) {
+                const errMsg = `[${i}] dcard_id=${author.dcard_id || '?'} 儲存失敗: ${err.message}`;
+                logger.error('[Agent] ' + errMsg);
+                errors.push(errMsg);
             }
         }
 
-        logger.info(`[Agent] 接收 authors: ${newAuthors} 新增, ${updated} 更新`);
-        res.json({ success: true, data: { newAuthors, updated, total: authors.length } });
+        logger.info(`[Agent] 接收 authors: ${newAuthors} 新增, ${updated} 更新, ${errors.length} 失敗`);
+        res.json({
+            success: true,
+            data: { newAuthors, updated, total: authors.length, failed: errors.length },
+            ...(errors.length > 0 ? { errors } : {}),
+        });
     } catch (error) {
         logger.error('[Agent] 接收 authors 失敗:', error);
         res.status(500).json({ success: false, error: 'Failed to receive authors' });
