@@ -1,7 +1,6 @@
 import { validateConfig } from './config';
 import logger from './utils/logger';
 import { createDatabasePool, closeDatabasePool } from './database/connection';
-import { startSchedulers, stopSchedulers } from './cron/scheduler';
 import generateWorker from './workers/generate.worker';
 import publishWorker from './workers/publish.worker';
 import tokenRefreshWorker from './workers/token-refresh.worker';
@@ -20,10 +19,7 @@ async function startWorkers() {
     await createDatabasePool();
     logger.info('✓ Database connected');
 
-    // Start cron schedulers (including auto-scheduling)
-    logger.info('Starting cron schedulers...');
-    await startSchedulers();
-    logger.info('✓ All cron schedulers started successfully');
+    // 注意：cron schedulers 已在 index.ts（主程式）中啟動，worker 不重複啟動
 
     logger.info('✓ Generate worker started');
     logger.info('✓ Publish worker started');
@@ -39,7 +35,6 @@ async function startWorkers() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down workers...');
-  stopSchedulers();
   await generateWorker.close();
   await publishWorker.close();
   await tokenRefreshWorker.close();
@@ -49,7 +44,6 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down workers...');
-  stopSchedulers();
   await generateWorker.close();
   await publishWorker.close();
   await tokenRefreshWorker.close();
