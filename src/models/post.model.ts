@@ -324,7 +324,8 @@ export class PostModel {
    */
   static async getHistoryWithEngagement(
     status?: string,
-    limit: number = 20
+    limit: number = 20,
+    aiGenerated?: boolean
   ): Promise<any[]> {
     const pool = getPool();
     const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
@@ -340,10 +341,16 @@ export class PostModel {
       statusFilter = "AND p.status = 'DRAFT'";
     }
 
+    if (aiGenerated !== undefined) {
+      statusFilter += ' AND p.is_ai_generated = ?';
+      params.push(aiGenerated);
+    }
+
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          p.id,
          p.status,
+         p.is_ai_generated,
          p.tags,
          p.context,
          p.post_url,
@@ -380,6 +387,7 @@ export class PostModel {
     return rows.map(row => ({
       id: row.id,
       status: row.status,
+      is_ai_generated: !!row.is_ai_generated,
       content: row.content,
       title: row.title,
       tags: row.tags ? (typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags) : null,
