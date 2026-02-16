@@ -36,6 +36,9 @@ router.delete('/posts/:id/schedule', agentController.cancelSchedule);
 // 監控關鍵字查詢
 router.get('/monitor/keywords', agentController.getMonitorKeywords);
 
+// 診斷：檢查 DB 欄位
+router.get('/debug/db-schema', agentController.debugDbSchema);
+
 // Dcard 資料上傳（網紅 & 提及文章）
 router.post('/dcard/mentions', agentController.receiveMentions);
 router.post('/dcard/authors', agentController.receiveAuthors);

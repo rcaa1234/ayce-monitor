@@ -897,6 +897,52 @@ export async function getMonitorKeywords(req: Request, res: Response): Promise<v
 }
 
 /**
+ * GET /api/agent/debug/db-schema
+ * 診斷用：檢查 influencer_authors 表的實際欄位
+ */
+export async function debugDbSchema(req: Request, res: Response): Promise<void> {
+    try {
+        const pool = getPool();
+
+        const [columns] = await pool.execute<RowDataPacket[]>(
+            `SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'influencer_authors'
+             ORDER BY ORDINAL_POSITION`
+        );
+
+        const [migrationTest] = await pool.execute<RowDataPacket[]>(
+            `SELECT COUNT(*) as count FROM influencer_authors LIMIT 1`
+        );
+
+        res.json({
+            success: true,
+            data: {
+                table: 'influencer_authors',
+                total_rows: (migrationTest[0] as any).count,
+                columns: columns.map((c: any) => ({
+                    name: c.COLUMN_NAME,
+                    type: c.COLUMN_TYPE,
+                    nullable: c.IS_NULLABLE,
+                    default: c.COLUMN_DEFAULT,
+                    comment: c.COLUMN_COMMENT,
+                })),
+                expected_columns_for_insert: [
+                    'id', 'dcard_id', 'dcard_username', 'dcard_bio', 'dcard_url',
+                    'twitter_id', 'twitter_display_name', 'twitter_url',
+                    'last_dcard_post_at', 'last_twitter_post_at',
+                    'source_forum', 'status', 'first_detected_at', 'last_seen_at',
+                    'created_at', 'updated_at',
+                ],
+            },
+        });
+    } catch (error: any) {
+        logger.error('[Agent] DB schema 診斷失敗:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+}
+
+/**
  * POST /api/agent/dcard/authors
  * 接收偵測到的網紅作者
  * 重複資料依 dcard_id 判斷，已存在則更新資料並累加 detection_count
