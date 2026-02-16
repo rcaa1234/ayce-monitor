@@ -970,8 +970,16 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                     last_dcard_post_at, last_twitter_post_at, source_forum,
                 } = author;
 
-                // 支援 name 作為 dcard_username 的別名
-                const username = dcard_username || name || null;
+                // 支援 name 作為 dcard_username 的別名；所有可選欄位 undefined → null
+                const _username = dcard_username || name || null;
+                const _dcard_bio = dcard_bio ?? null;
+                const _dcard_url = dcard_url ?? null;
+                const _twitter_id = twitter_id ?? null;
+                const _twitter_display_name = twitter_display_name ?? null;
+                const _twitter_url = twitter_url ?? null;
+                const _last_dcard = last_dcard_post_at ? new Date(last_dcard_post_at) : null;
+                const _last_twitter = last_twitter_post_at ? new Date(last_twitter_post_at) : null;
+                const _source_forum = source_forum ?? null;
 
                 if (!dcard_id) {
                     errors.push(`[${i}] 缺少 dcard_id，已跳過`);
@@ -1001,10 +1009,9 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                             updated_at = NOW()
                         WHERE id = ?`,
                         [
-                            username, dcard_bio, dcard_url,
-                            twitter_id, twitter_display_name, twitter_url,
-                            last_dcard_post_at ? new Date(last_dcard_post_at) : null,
-                            last_twitter_post_at ? new Date(last_twitter_post_at) : null,
+                            _username, _dcard_bio, _dcard_url,
+                            _twitter_id, _twitter_display_name, _twitter_url,
+                            _last_dcard, _last_twitter,
                             existing[0].id,
                         ]
                     );
@@ -1020,11 +1027,10 @@ export async function receiveAuthors(req: Request, res: Response): Promise<void>
                             created_at, updated_at
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', NOW(), NOW(), NOW(), NOW())`,
                         [
-                            generateUUID(), dcard_id, username, dcard_bio, dcard_url,
-                            twitter_id, twitter_display_name, twitter_url,
-                            last_dcard_post_at ? new Date(last_dcard_post_at) : null,
-                            last_twitter_post_at ? new Date(last_twitter_post_at) : null,
-                            source_forum,
+                            generateUUID(), dcard_id, _username, _dcard_bio, _dcard_url,
+                            _twitter_id, _twitter_display_name, _twitter_url,
+                            _last_dcard, _last_twitter,
+                            _source_forum,
                         ]
                     );
                     newAuthors++;
