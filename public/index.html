@@ -8,7 +8,7 @@
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- Google Identity Services SDK -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
     <style>
         * {
             margin: 0;
@@ -8680,11 +8680,15 @@
                         google.accounts.id.initialize({
                             client_id: data.googleClientId,
                             callback: handleGoogleLogin,
+                            ux_mode: 'popup',
                         });
-                        google.accounts.id.renderButton(
-                            document.getElementById('googleLoginBtn'),
-                            { theme: 'outline', size: 'large', width: 300, text: 'signin_with', locale: 'zh-TW' }
-                        );
+                        const btnContainer = document.getElementById('googleLoginBtn');
+                        if (btnContainer) {
+                            google.accounts.id.renderButton(
+                                btnContainer,
+                                { theme: 'outline', size: 'large', width: 300, text: 'signin_with', locale: 'zh-TW' }
+                            );
+                        }
                     }
                     tryInit();
                 } catch (e) {
@@ -8693,6 +8697,10 @@
             }
 
             async function handleGoogleLogin(response) {
+                if (!response || !response.credential) {
+                    showAlert('loginAlert', 'Google 登入失敗：未取得憑證', 'error');
+                    return;
+                }
                 try {
                     const res = await fetch(`${API_BASE}/auth/google`, {
                         method: 'POST',
