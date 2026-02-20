@@ -9,7 +9,6 @@ import config from '../config';
 import logger from '../utils/logger';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import statisticsRoutes from './statistics.routes';
-import { OAuth2Client } from 'google-auth-library';
 
 const router = Router();
 
@@ -3182,28 +3181,27 @@ router.get('/config/public', (_req: Request, res: Response) => {
 // Google 登入 / 註冊
 router.post('/auth/google', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { credential } = req.body;
+    const { access_token } = req.body;
 
-    if (!credential) {
-      res.status(400).json({ error: '缺少 Google credential' });
+    if (!access_token) {
+      res.status(400).json({ error: '缺少 Google access_token' });
       return;
     }
 
-    if (!config.google.clientId) {
-      res.status(500).json({ error: 'Google OAuth 尚未配置' });
-      return;
-    }
-
-    // 用 google-auth-library 驗證 ID token
-    const client = new OAuth2Client(config.google.clientId);
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: config.google.clientId,
+    // 用 access_token 向 Google userinfo API 驗證使用者
+    const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` },
     });
 
-    const payload = ticket.getPayload();
+    if (!googleRes.ok) {
+      res.status(401).json({ error: 'Google access token 驗證失敗' });
+      return;
+    }
+
+    const payload = await googleRes.json() as { sub?: string; email?: string; name?: string };
+
     if (!payload || !payload.email || !payload.sub) {
-      res.status(400).json({ error: 'Google token 驗證失敗' });
+      res.status(400).json({ error: 'Google 驗證失敗：缺少必要資訊' });
       return;
     }
 
