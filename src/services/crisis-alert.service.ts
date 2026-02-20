@@ -435,7 +435,7 @@ class CrisisAlertService {
           resolved_by = CASE WHEN ? IN ('resolved', 'ignored') THEN ? ELSE resolved_by END,
           resolution_notes = COALESCE(?, resolution_notes)
       WHERE id = ?
-    `, [status, status, status, userId, notes, logId]);
+    `, [status, status, status, userId || null, notes || null, logId]);
 
     logger.info(`[CrisisAlert] Updated alert ${logId} status to ${status}`);
   }

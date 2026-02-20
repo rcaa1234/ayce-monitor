@@ -516,7 +516,7 @@ class MonitorService {
           consecutive_failures = consecutive_failures + 1,
           last_error = ?
          WHERE id = ?`,
-                [error, sourceId]
+                [error || null, sourceId]
             );
         }
     }
