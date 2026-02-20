@@ -3178,30 +3178,68 @@ router.get('/config/public', (_req: Request, res: Response) => {
   });
 });
 
-// Google 登入 / 註冊
-router.post('/auth/google', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { access_token } = req.body;
+// Google 登入 — 重導向到 Google OAuth
+router.get('/auth/google', (_req: Request, res: Response) => {
+  if (!config.google.clientId) {
+    res.status(500).json({ error: 'Google OAuth 尚未配置' });
+    return;
+  }
 
-    if (!access_token) {
-      res.status(400).json({ error: '缺少 Google access_token' });
+  const redirectUri = `${config.app.baseUrl}/api/auth/google/callback`;
+  const params = new URLSearchParams({
+    client_id: config.google.clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'email profile openid',
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+// Google OAuth 回調
+router.get('/auth/google/callback', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { code, error: oauthError } = req.query;
+
+    if (oauthError || !code) {
+      res.redirect('/?error=' + encodeURIComponent(String(oauthError || '授權失敗')));
       return;
     }
 
-    // 用 access_token 向 Google userinfo API 驗證使用者
-    const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${access_token}` },
+    const redirectUri = `${config.app.baseUrl}/api/auth/google/callback`;
+
+    // 用 authorization code 換取 tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        client_id: config.google.clientId,
+        client_secret: config.google.clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
     });
 
-    if (!googleRes.ok) {
-      res.status(401).json({ error: 'Google access token 驗證失敗' });
+    const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+
+    if (!tokenRes.ok || !tokenData.access_token) {
+      logger.error('Google token exchange failed:', tokenData);
+      res.redirect('/?error=' + encodeURIComponent('Google 驗證失敗'));
       return;
     }
 
-    const payload = await googleRes.json() as { sub?: string; email?: string; name?: string };
+    // 用 access_token 取得使用者資訊
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    const payload = await userInfoRes.json() as { sub?: string; email?: string; name?: string };
 
     if (!payload || !payload.email || !payload.sub) {
-      res.status(400).json({ error: 'Google 驗證失敗：缺少必要資訊' });
+      res.redirect('/?error=' + encodeURIComponent('無法取得 Google 帳號資訊'));
       return;
     }
 
@@ -3232,7 +3270,6 @@ router.post('/auth/google', async (req: Request, res: Response): Promise<void> =
         });
 
         if (isSuperAdmin) {
-          // Super admin 自動給 admin 角色
           try {
             await UserModel.assignRole(user!.id, 'admin');
           } catch (e) {
@@ -3240,12 +3277,8 @@ router.post('/auth/google', async (req: Request, res: Response): Promise<void> =
           }
         }
 
-        // 非 super admin → 回傳 403 待審核
         if (!isSuperAdmin) {
-          res.status(403).json({
-            error: '帳號已建立，請等待管理員審核後才能登入',
-            pendingApproval: true,
-          });
+          res.redirect('/?error=' + encodeURIComponent('帳號已建立，請等待管理員審核後才能登入'));
           return;
         }
       }
@@ -3253,10 +3286,7 @@ router.post('/auth/google', async (req: Request, res: Response): Promise<void> =
 
     // 檢查用戶狀態
     if (!user || user.status !== 'ACTIVE') {
-      res.status(403).json({
-        error: '帳號尚未啟用，請等待管理員審核',
-        pendingApproval: true,
-      });
+      res.redirect('/?error=' + encodeURIComponent('帳號尚未啟用，請等待管理員審核'));
       return;
     }
 
@@ -3273,18 +3303,11 @@ router.post('/auth/google', async (req: Request, res: Response): Promise<void> =
       { expiresIn: '7d' }
     );
 
-    res.json({
-      token: jwtToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        roles: roles,
-      },
-    });
+    // 重導向回前端，帶上 token
+    res.redirect('/?token=' + jwtToken);
   } catch (error: any) {
-    logger.error('Google login error:', error);
-    res.status(500).json({ error: 'Google 登入失敗', message: error.message });
+    logger.error('Google callback error:', error);
+    res.redirect('/?error=' + encodeURIComponent('Google 登入失敗'));
   }
 });
 

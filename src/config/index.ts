@@ -68,6 +68,7 @@ interface Config {
   };
   google: {
     clientId: string;
+    clientSecret: string;
     superAdminEmail: string;
   };
 }
@@ -122,6 +123,7 @@ const config: Config = {
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     superAdminEmail: process.env.GOOGLE_SUPER_ADMIN_EMAIL || '',
   },
 };
