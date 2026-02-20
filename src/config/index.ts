@@ -66,6 +66,10 @@ interface Config {
     apiBaseUrl: string;
     tokenRefreshThreshold: number; // hours before expiry
   };
+  google: {
+    clientId: string;
+    superAdminEmail: string;
+  };
 }
 
 const config: Config = {
@@ -115,6 +119,10 @@ const config: Config = {
     redirectUri: process.env.THREADS_REDIRECT_URI || 'http://localhost:3000/api/threads/oauth/callback',
     apiBaseUrl: 'https://graph.threads.net',
     tokenRefreshThreshold: 24, // Refresh if less than 24 hours since last refresh
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    superAdminEmail: process.env.GOOGLE_SUPER_ADMIN_EMAIL || '',
   },
 };
 

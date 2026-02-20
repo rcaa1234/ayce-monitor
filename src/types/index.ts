@@ -89,6 +89,7 @@ export interface User {
   password_hash: string;
   name: string;
   line_user_id?: string;
+  google_id?: string;
   status: UserStatus;
   created_at: Date;
   updated_at: Date;

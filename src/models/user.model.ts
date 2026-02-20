@@ -12,14 +12,15 @@ export class UserModel {
     email: string;
     name: string;
     line_user_id?: string;
+    google_id?: string;
     status?: UserStatus;
   }): Promise<User> {
     const pool = getPool();
     const id = generateUUID();
 
-    const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO users (id, email, name, line_user_id, status) VALUES (?, ?, ?, ?, ?)`,
-      [id, data.email, data.name, data.line_user_id || null, data.status || UserStatus.ACTIVE]
+    await pool.execute<ResultSetHeader>(
+      `INSERT INTO users (id, email, name, line_user_id, google_id, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, data.email, data.name, data.line_user_id || null, data.google_id || null, data.status || UserStatus.ACTIVE]
     );
 
     return this.findById(id) as Promise<User>;
@@ -68,6 +69,33 @@ export class UserModel {
   }
 
   /**
+   * Find user by Google ID
+   */
+  static async findByGoogleId(googleId: string): Promise<User | null> {
+    const pool = getPool();
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM users WHERE google_id = ?',
+      [googleId]
+    );
+
+    return rows[0] ? (rows[0] as User) : null;
+  }
+
+  /**
+   * Get all users (for admin management)
+   */
+  static async findAll(): Promise<User[]> {
+    const pool = getPool();
+
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      'SELECT id, email, name, google_id, status, created_at, updated_at FROM users ORDER BY created_at DESC'
+    );
+
+    return rows as User[];
+  }
+
+  /**
    * Update user
    */
   static async update(id: string, data: Partial<User>): Promise<void> {
@@ -86,6 +114,10 @@ export class UserModel {
     if (data.line_user_id !== undefined) {
       fields.push('line_user_id = ?');
       values.push(data.line_user_id);
+    }
+    if (data.google_id !== undefined) {
+      fields.push('google_id = ?');
+      values.push(data.google_id);
     }
     if (data.status !== undefined) {
       fields.push('status = ?');
@@ -140,6 +172,21 @@ export class UserModel {
       'INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)',
       [userId, roleId]
     );
+  }
+
+  /**
+   * Set roles for user (replace all existing roles)
+   */
+  static async setRoles(userId: string, roleNames: string[]): Promise<void> {
+    const pool = getPool();
+
+    // Remove all existing roles
+    await pool.execute('DELETE FROM user_roles WHERE user_id = ?', [userId]);
+
+    // Assign new roles
+    for (const roleName of roleNames) {
+      await this.assignRole(userId, roleName);
+    }
   }
 
   /**

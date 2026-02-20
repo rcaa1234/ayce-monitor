@@ -7,6 +7,8 @@
     <title>品牌監控中心 - 管理介面</title>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
             margin: 0;
@@ -857,6 +859,16 @@
         <div id="loginSection" class="login-section">
             <h2 style="margin-bottom: 20px;">登入系統</h2>
             <div id="loginAlert"></div>
+
+            <!-- Google 登入按鈕 -->
+            <div id="googleLoginBtn" style="display:flex;justify-content:center;margin-bottom:20px;"></div>
+
+            <div style="display:flex;align-items:center;margin:20px 0;">
+                <hr style="flex:1;border:none;border-top:1px solid #e1e8ed;">
+                <span style="padding:0 15px;color:#999;font-size:14px;">或使用密碼登入</span>
+                <hr style="flex:1;border:none;border-top:1px solid #e1e8ed;">
+            </div>
+
             <form onsubmit="login(event)">
                 <div class="form-group">
                     <label>Email</label>
@@ -878,6 +890,7 @@
                 <button class="tab" onclick="switchTab('influencer')">🔍 網黃偵測</button>
                 <button class="tab" onclick="switchTab('threads')">🤖 Threads Bot</button>
                 <button class="tab" onclick="switchTab('settings')">⚙️ 系統設定</button>
+                <button class="tab" id="usersTabBtn" onclick="switchTab('users')" style="display:none;">👥 使用者管理</button>
             </div>
 
             <!-- Alert Area -->
@@ -2521,6 +2534,31 @@
                     </div>
                 </div>
             </div>
+            <!-- ========================================== -->
+            <!-- Users Management Tab (admin only) -->
+            <!-- ========================================== -->
+            <div id="usersTab" class="tab-content">
+                <h2 style="margin-bottom: 20px;">👥 使用者管理</h2>
+                <div id="usersTableContainer">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8f9fa;text-align:left;">
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">名稱</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">Email</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">登入方式</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">狀態</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">角色</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">註冊時間</th>
+                                <th style="padding:12px;border-bottom:2px solid #e1e8ed;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
         <!-- End of dashboard -->
 
@@ -2571,9 +2609,11 @@
         <script>
             // Global variables
             let token = localStorage.getItem('token');
+            let currentUserRoles = [];
             const API_BASE = '/api';
 
             // Initialize
+            initGoogleLogin();
             if (token) {
                 checkAuth();
             }
@@ -2607,12 +2647,13 @@
 
             async function checkAuth() {
                 try {
-                    const response = await fetch(`${API_BASE}/posts?limit=1`, {
+                    const response = await fetch(`${API_BASE}/auth/me`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
 
                     if (response.ok) {
-                        showDashboard();
+                        const data = await response.json();
+                        showDashboard(data.user);
                     } else {
                         logout();
                     }
@@ -2638,6 +2679,13 @@
                     document.getElementById('userName').textContent = user.name;
                     document.getElementById('userEmail').textContent = user.email;
                     document.getElementById('userRoles').textContent = user.roles.join(', ');
+                    currentUserRoles = user.roles || [];
+
+                    // admin 才顯示使用者管理 tab
+                    const usersTabBtn = document.getElementById('usersTabBtn');
+                    if (usersTabBtn) {
+                        usersTabBtn.style.display = currentUserRoles.includes('admin') ? '' : 'none';
+                    }
                 }
 
                 // 預設載入聲量監控資料（第一個 tab）
@@ -2666,6 +2714,9 @@
                 }
                 if (tabName === 'settings') {
                     loadSystemSettings();
+                }
+                if (tabName === 'users') {
+                    loadUsers();
                 }
             }
 
@@ -8609,6 +8660,187 @@
 
             // ========================================
             // Google Trends 功能
+
+            // ========================================
+            // Google OAuth 登入
+            // ========================================
+
+            async function initGoogleLogin() {
+                try {
+                    const res = await fetch(`${API_BASE}/config/public`);
+                    const data = await res.json();
+                    if (!data.googleClientId) return;
+
+                    // 等待 Google SDK 載入
+                    function tryInit() {
+                        if (typeof google === 'undefined' || !google.accounts) {
+                            setTimeout(tryInit, 200);
+                            return;
+                        }
+                        google.accounts.id.initialize({
+                            client_id: data.googleClientId,
+                            callback: handleGoogleLogin,
+                        });
+                        google.accounts.id.renderButton(
+                            document.getElementById('googleLoginBtn'),
+                            { theme: 'outline', size: 'large', width: 300, text: 'signin_with', locale: 'zh-TW' }
+                        );
+                    }
+                    tryInit();
+                } catch (e) {
+                    console.warn('Google login init failed:', e);
+                }
+            }
+
+            async function handleGoogleLogin(response) {
+                try {
+                    const res = await fetch(`${API_BASE}/auth/google`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ credential: response.credential })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        token = data.token;
+                        localStorage.setItem('token', token);
+                        showDashboard(data.user);
+                    } else if (res.status === 403 && data.pendingApproval) {
+                        showAlert('loginAlert', '帳號已建立，請等待管理員審核後才能登入。', 'error');
+                    } else {
+                        showAlert('loginAlert', data.error || 'Google 登入失敗', 'error');
+                    }
+                } catch (error) {
+                    showAlert('loginAlert', 'Google 登入失敗: ' + error.message, 'error');
+                }
+            }
+
+            // ========================================
+            // 使用者管理（Admin）
+            // ========================================
+
+            async function loadUsers() {
+                const tbody = document.getElementById('usersTableBody');
+                if (!tbody) return;
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">載入中...</td></tr>';
+
+                try {
+                    const res = await fetch(`${API_BASE}/admin/users`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!res.ok) throw new Error('載入失敗');
+                    const data = await res.json();
+
+                    if (!data.users || data.users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">沒有使用者</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = data.users.map(u => `
+                        <tr style="border-bottom:1px solid #e1e8ed;">
+                            <td style="padding:12px;font-weight:500;">${escapeHtml(u.name)}</td>
+                            <td style="padding:12px;">${escapeHtml(u.email)}</td>
+                            <td style="padding:12px;">${u.google_id ? '<span style="color:#4285F4;">Google</span>' : '密碼'}</td>
+                            <td style="padding:12px;">
+                                <span class="status-badge status-${u.status}">${u.status === 'ACTIVE' ? '啟用' : '停用'}</span>
+                            </td>
+                            <td style="padding:12px;">${u.roles.length > 0 ? u.roles.join(', ') : '<span style="color:#999;">無角色</span>'}</td>
+                            <td style="padding:12px;font-size:13px;color:#666;">${new Date(u.created_at).toLocaleString('zh-TW')}</td>
+                            <td style="padding:12px;">
+                                ${u.status === 'DISABLED' ? `<button class="btn btn-success btn-small" onclick="approveUser('${u.id}')">核准</button>` : ''}
+                                ${u.status === 'ACTIVE' ? `<button class="btn btn-danger btn-small" onclick="disableUser('${u.id}')">停用</button>` : ''}
+                                <button class="btn btn-secondary btn-small" onclick="showRoleEditor('${u.id}', ${JSON.stringify(u.roles).replace(/"/g, '&quot;')})">角色</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (error) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="padding:40px;text-align:center;color:#dc3545;">${error.message}</td></tr>`;
+                }
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            async function approveUser(userId) {
+                try {
+                    const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ status: 'ACTIVE' })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    showAlert('dashboardAlert', '使用者已核准', 'success');
+                    loadUsers();
+                } catch (error) {
+                    showAlert('dashboardAlert', '核准失敗: ' + error.message, 'error');
+                }
+            }
+
+            async function disableUser(userId) {
+                if (!confirm('確定要停用此使用者嗎？')) return;
+                try {
+                    const res = await fetch(`${API_BASE}/admin/users/${userId}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ status: 'DISABLED' })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    showAlert('dashboardAlert', '使用者已停用', 'success');
+                    loadUsers();
+                } catch (error) {
+                    showAlert('dashboardAlert', '停用失敗: ' + error.message, 'error');
+                }
+            }
+
+            function showRoleEditor(userId, currentRoles) {
+                const allRoles = ['admin', 'content_creator', 'reviewer'];
+                const checkboxes = allRoles.map(r =>
+                    `<label style="display:block;margin:8px 0;cursor:pointer;">
+                        <input type="checkbox" value="${r}" ${currentRoles.includes(r) ? 'checked' : ''} style="margin-right:8px;">
+                        ${r}
+                    </label>`
+                ).join('');
+
+                const modal = document.createElement('div');
+                modal.className = 'modal active';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width:400px;">
+                        <div class="modal-header">
+                            <h2>編輯角色</h2>
+                            <button class="close-modal" onclick="this.closest('.modal').remove()">×</button>
+                        </div>
+                        <div id="roleCheckboxes">${checkboxes}</div>
+                        <div style="margin-top:20px;text-align:right;">
+                            <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">取消</button>
+                            <button class="btn" onclick="updateUserRoles('${userId}', this.closest('.modal'))">儲存</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+
+            async function updateUserRoles(userId, modalEl) {
+                const checkboxes = modalEl.querySelectorAll('#roleCheckboxes input[type=checkbox]:checked');
+                const roles = Array.from(checkboxes).map(cb => cb.value);
+
+                try {
+                    const res = await fetch(`${API_BASE}/admin/users/${userId}/roles`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ roles })
+                    });
+                    if (!res.ok) throw new Error((await res.json()).error);
+                    modalEl.remove();
+                    showAlert('dashboardAlert', '角色已更新', 'success');
+                    loadUsers();
+                } catch (error) {
+                    showAlert('dashboardAlert', '更新角色失敗: ' + error.message, 'error');
+                }
+            }
         </script>
 </body>
 

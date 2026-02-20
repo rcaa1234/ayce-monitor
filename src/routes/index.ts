@@ -1,13 +1,15 @@
 import { Router, Request, Response } from 'express';
 import postController from '../controllers/post.controller';
 import reviewController from '../controllers/review.controller';
-import { authenticate, AuthRequest } from '../middlewares/auth.middleware';
+import { authenticate, requireRole, AuthRequest } from '../middlewares/auth.middleware';
 import { UserModel } from '../models/user.model';
+import { UserStatus } from '../types';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 import logger from '../utils/logger';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import statisticsRoutes from './statistics.routes';
+import { OAuth2Client } from 'google-auth-library';
 
 const router = Router();
 
@@ -3165,5 +3167,243 @@ router.use('/influencer', influencerRoutes);
 // Agent API routes (靈犀 AI Agent)
 import agentRoutes from './agent.routes';
 router.use('/agent', agentRoutes);
+
+// ========================================
+// Google OAuth + 使用者管理 API
+// ========================================
+
+// 公開配置（不需認證）— 回傳 Google Client ID 給前端
+router.get('/config/public', (_req: Request, res: Response) => {
+  res.json({
+    googleClientId: config.google.clientId || null,
+  });
+});
+
+// Google 登入 / 註冊
+router.post('/auth/google', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      res.status(400).json({ error: '缺少 Google credential' });
+      return;
+    }
+
+    if (!config.google.clientId) {
+      res.status(500).json({ error: 'Google OAuth 尚未配置' });
+      return;
+    }
+
+    // 用 google-auth-library 驗證 ID token
+    const client = new OAuth2Client(config.google.clientId);
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: config.google.clientId,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email || !payload.sub) {
+      res.status(400).json({ error: 'Google token 驗證失敗' });
+      return;
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name || email.split('@')[0];
+
+    // 1. 用 google_id 找用戶
+    let user = await UserModel.findByGoogleId(googleId);
+
+    if (!user) {
+      // 2. 用 email 找用戶（既有密碼用戶首次 Google 登入 → 綁定）
+      user = await UserModel.findByEmail(email);
+
+      if (user) {
+        // 綁定 google_id
+        await UserModel.update(user.id, { google_id: googleId } as any);
+        user = await UserModel.findById(user.id);
+      } else {
+        // 3. 新建用戶
+        const isSuperAdmin = email.toLowerCase() === config.google.superAdminEmail.toLowerCase();
+
+        user = await UserModel.create({
+          email,
+          name,
+          google_id: googleId,
+          status: isSuperAdmin ? UserStatus.ACTIVE : UserStatus.DISABLED,
+        });
+
+        if (isSuperAdmin) {
+          // Super admin 自動給 admin 角色
+          try {
+            await UserModel.assignRole(user!.id, 'admin');
+          } catch (e) {
+            logger.warn('assign admin role failed (role may not exist):', e);
+          }
+        }
+
+        // 非 super admin → 回傳 403 待審核
+        if (!isSuperAdmin) {
+          res.status(403).json({
+            error: '帳號已建立，請等待管理員審核後才能登入',
+            pendingApproval: true,
+          });
+          return;
+        }
+      }
+    }
+
+    // 檢查用戶狀態
+    if (!user || user.status !== 'ACTIVE') {
+      res.status(403).json({
+        error: '帳號尚未啟用，請等待管理員審核',
+        pendingApproval: true,
+      });
+      return;
+    }
+
+    // 產生 JWT
+    const roles = await UserModel.getRoles(user.id);
+
+    const jwtToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        roles: roles,
+      },
+      config.jwt.secret,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token: jwtToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roles: roles,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Google login error:', error);
+    res.status(500).json({ error: 'Google 登入失敗', message: error.message });
+  }
+});
+
+// 取得當前登入者資訊
+router.get('/auth/me', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthRequest;
+    const user = await UserModel.findById(authReq.user!.id);
+
+    if (!user) {
+      res.status(404).json({ error: '使用者不存在' });
+      return;
+    }
+
+    const roles = await UserModel.getRoles(user.id);
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        roles: roles,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: '取得使用者資訊失敗', message: error.message });
+  }
+});
+
+// 使用者列表（admin 限定）
+router.get('/admin/users', authenticate, requireRole('admin'), async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await UserModel.findAll();
+
+    // 為每個用戶附上角色
+    const usersWithRoles = await Promise.all(
+      users.map(async (u) => {
+        const roles = await UserModel.getRoles(u.id);
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          google_id: u.google_id || null,
+          status: u.status,
+          roles,
+          created_at: u.created_at,
+        };
+      })
+    );
+
+    res.json({ users: usersWithRoles });
+  } catch (error: any) {
+    res.status(500).json({ error: '取得使用者列表失敗', message: error.message });
+  }
+});
+
+// 審批使用者狀態（admin 限定）
+router.patch('/admin/users/:id/status', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['ACTIVE', 'DISABLED'].includes(status)) {
+      res.status(400).json({ error: 'status 必須是 ACTIVE 或 DISABLED' });
+      return;
+    }
+
+    const user = await UserModel.findById(id);
+    if (!user) {
+      res.status(404).json({ error: '使用者不存在' });
+      return;
+    }
+
+    await UserModel.update(id, { status: status as UserStatus });
+
+    // 如果是啟用且沒有角色，自動給 content_creator
+    if (status === 'ACTIVE') {
+      const roles = await UserModel.getRoles(id);
+      if (roles.length === 0) {
+        try {
+          await UserModel.assignRole(id, 'content_creator');
+        } catch (e) {
+          logger.warn('assign content_creator role failed:', e);
+        }
+      }
+    }
+
+    res.json({ message: `使用者狀態已更新為 ${status}` });
+  } catch (error: any) {
+    res.status(500).json({ error: '更新狀態失敗', message: error.message });
+  }
+});
+
+// 設定使用者角色（admin 限定）
+router.put('/admin/users/:id/roles', authenticate, requireRole('admin'), async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { roles } = req.body;
+
+    if (!Array.isArray(roles)) {
+      res.status(400).json({ error: 'roles 必須是陣列' });
+      return;
+    }
+
+    const user = await UserModel.findById(id);
+    if (!user) {
+      res.status(404).json({ error: '使用者不存在' });
+      return;
+    }
+
+    await UserModel.setRoles(id, roles);
+
+    const updatedRoles = await UserModel.getRoles(id);
+    res.json({ message: '角色已更新', roles: updatedRoles });
+  } catch (error: any) {
+    res.status(500).json({ error: '更新角色失敗', message: error.message });
+  }
+});
 
 export default router;

@@ -1622,6 +1622,11 @@ const migrations = [
   // Migration 81b: daily_auto_schedule 補回普通索引
   `ALTER TABLE daily_auto_schedule
     ADD INDEX idx_schedule_date (schedule_date)`,
+
+  // Migration 82: users 表新增 google_id 欄位（Google OAuth 登入用）
+  `ALTER TABLE users
+    ADD COLUMN google_id VARCHAR(255) NULL AFTER line_user_id,
+    ADD UNIQUE INDEX idx_google_id (google_id)`,
 ];
 
 async function runMigrations() {
