@@ -8689,6 +8689,10 @@
                             client_id: data.googleClientId,
                             scope: 'email profile openid',
                             callback: handleGoogleTokenResponse,
+                            error_callback: function(err) {
+                                console.error('Google OAuth error_callback:', err);
+                                showAlert('loginAlert', 'Google 登入錯誤: ' + (err.message || err.type || JSON.stringify(err)), 'error');
+                            },
                         });
                         // 顯示自訂按鈕
                         const btn = document.getElementById('googleSignInBtn');
@@ -8707,11 +8711,23 @@
             }
 
             async function handleGoogleTokenResponse(tokenResponse) {
-                if (!tokenResponse || !tokenResponse.access_token) {
-                    showAlert('loginAlert', 'Google 登入失敗：未取得憑證', 'error');
+                console.log('Google token response:', tokenResponse);
+
+                // 檢查是否有錯誤
+                if (tokenResponse.error) {
+                    console.error('Google token error:', tokenResponse.error);
+                    showAlert('loginAlert', 'Google 登入失敗: ' + tokenResponse.error, 'error');
                     return;
                 }
+
+                if (!tokenResponse || !tokenResponse.access_token) {
+                    console.error('No access_token in response:', tokenResponse);
+                    showAlert('loginAlert', 'Google 登入失敗：未取得 access_token', 'error');
+                    return;
+                }
+
                 try {
+                    console.log('Sending access_token to backend...');
                     const res = await fetch(`${API_BASE}/auth/google`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -8719,6 +8735,7 @@
                     });
 
                     const data = await res.json();
+                    console.log('Backend response:', res.status, data);
 
                     if (res.ok) {
                         token = data.token;
@@ -8730,6 +8747,7 @@
                         showAlert('loginAlert', data.error || 'Google 登入失敗', 'error');
                     }
                 } catch (error) {
+                    console.error('Google login fetch error:', error);
                     showAlert('loginAlert', 'Google 登入失敗: ' + error.message, 'error');
                 }
             }
