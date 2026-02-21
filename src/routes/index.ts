@@ -3211,23 +3211,30 @@ router.get('/auth/google/callback', async (req: Request, res: Response): Promise
     const redirectUri = `${config.app.baseUrl}/api/auth/google/callback`;
 
     // 用 authorization code 換取 tokens
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        client_id: config.google.clientId,
-        client_secret: config.google.clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      }),
+    const tokenParams = new URLSearchParams({
+      code: String(code),
+      client_id: config.google.clientId,
+      client_secret: config.google.clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
     });
 
-    const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+    logger.info('Google token exchange request, redirect_uri:', redirectUri);
+    logger.info('Google client_id configured:', config.google.clientId ? 'YES' : 'NO');
+    logger.info('Google client_secret configured:', config.google.clientSecret ? 'YES' : 'NO');
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams.toString(),
+    });
+
+    const tokenData = await tokenRes.json() as { access_token?: string; error?: string; error_description?: string };
 
     if (!tokenRes.ok || !tokenData.access_token) {
-      logger.error('Google token exchange failed:', tokenData);
-      res.redirect('/?error=' + encodeURIComponent('Google 驗證失敗'));
+      logger.error('Google token exchange failed, status:', tokenRes.status, 'response:', JSON.stringify(tokenData));
+      const detail = tokenData.error_description || tokenData.error || '未知錯誤';
+      res.redirect('/?error=' + encodeURIComponent(`Google 驗證失敗: ${detail}`));
       return;
     }
 
