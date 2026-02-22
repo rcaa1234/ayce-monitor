@@ -1,11 +1,4 @@
-FROM ghcr.io/puppeteer/puppeteer:24.1.0
-
-# Set environment variables for Puppeteer
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
-
-# Switch to root for full permissions during build
-USER root
+FROM node:22-slim
 
 # Set working directory
 WORKDIR /app
@@ -22,12 +15,6 @@ RUN npm run build
 
 # Remove devDependencies after build
 RUN npm prune --omit=dev
-
-# Fix ownership for pptruser
-RUN chown -R pptruser:pptruser /app
-
-# Switch back to pptruser for security
-USER pptruser
 
 # Expose port
 EXPOSE 3000
