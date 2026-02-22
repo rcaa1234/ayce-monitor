@@ -11,6 +11,7 @@ import { startSchedulers, stopSchedulers } from './cron/scheduler';
 import generateWorker from './workers/generate.worker';
 import publishWorker from './workers/publish.worker';
 import tokenRefreshWorker from './workers/token-refresh.worker';
+import { globalLimiter, correlationId } from './middlewares/rate-limit.middleware';
 
 const app: Application = express();
 
@@ -18,6 +19,8 @@ const app: Application = express();
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for frontend
 }));
+app.use(globalLimiter);
+app.use(correlationId);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

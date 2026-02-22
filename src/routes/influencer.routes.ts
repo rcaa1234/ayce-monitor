@@ -4,8 +4,12 @@
 
 import { Router } from 'express';
 import influencerController from '../controllers/influencer.controller';
+import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+// All influencer routes require authentication
+router.use(authenticate);
 
 // ========================================
 // 偵測設定

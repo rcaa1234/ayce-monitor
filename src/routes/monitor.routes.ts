@@ -4,8 +4,12 @@
 
 import { Router } from 'express';
 import monitorController from '../controllers/monitor.controller';
+import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+// All monitor routes require authentication
+router.use(authenticate);
 
 // ========================================
 // 品牌管理
@@ -46,6 +50,7 @@ router.get('/crawl-logs', monitorController.getCrawlLogs.bind(monitorController)
 // 分類操作
 // ========================================
 router.post('/reclassify', monitorController.reclassifyMentions.bind(monitorController));
+router.post('/classify-pending', monitorController.classifyPending.bind(monitorController));
 
 // ========================================
 // 模板

@@ -86,31 +86,7 @@ export async function up(): Promise<void> {
     `);
     logger.info('✓ Created template_performance table');
 
-    // 4. Create timeslot_performance table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS timeslot_performance (
-        id CHAR(36) PRIMARY KEY,
-        timeslot_id CHAR(36) NOT NULL,
-        stat_date DATE NOT NULL,
-        posts_count INT DEFAULT 0,
-        avg_likes DECIMAL(10,2) DEFAULT 0.00,
-        avg_replies DECIMAL(10,2) DEFAULT 0.00,
-        avg_reposts DECIMAL(10,2) DEFAULT 0.00,
-        avg_views DECIMAL(10,2) DEFAULT 0.00,
-        avg_reach DECIMAL(10,2) DEFAULT 0.00,
-        avg_engagement_rate DECIMAL(5,2) DEFAULT 0.00,
-        total_likes INT DEFAULT 0,
-        total_replies INT DEFAULT 0,
-        total_reposts INT DEFAULT 0,
-        total_views INT DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (timeslot_id) REFERENCES schedule_time_slots(id) ON DELETE CASCADE,
-        UNIQUE KEY unique_timeslot_date (timeslot_id, stat_date),
-        INDEX idx_stat_date (stat_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
-    `);
-    logger.info('✓ Created timeslot_performance table');
+    // 4. [UCB Legacy] timeslot_performance table removed - it depended on deprecated schedule_time_slots
 
     // 5. Extend posts table with foreign keys and content analysis fields
     const [postsColumns] = await connection.execute(`
@@ -118,24 +94,21 @@ export async function up(): Promise<void> {
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
         AND TABLE_NAME = 'posts'
-        AND COLUMN_NAME IN ('template_id', 'time_slot_id', 'content_length', 'has_media', 'media_type', 'hashtag_count')
+        AND COLUMN_NAME IN ('template_id', 'content_length', 'has_media', 'media_type', 'hashtag_count')
     `);
 
     if ((postsColumns as any[]).length === 0) {
       await connection.execute(`
         ALTER TABLE posts
           ADD COLUMN template_id CHAR(36) NULL COMMENT '使用的模板ID' AFTER created_by,
-          ADD COLUMN time_slot_id CHAR(36) NULL COMMENT '使用的時段ID' AFTER template_id,
-          ADD COLUMN content_length INT DEFAULT 0 COMMENT '內容字數' AFTER time_slot_id,
+          ADD COLUMN content_length INT DEFAULT 0 COMMENT '內容字數' AFTER template_id,
           ADD COLUMN has_media BOOLEAN DEFAULT FALSE COMMENT '是否含圖片/影片',
           ADD COLUMN media_type ENUM('NONE', 'IMAGE', 'VIDEO', 'CAROUSEL') DEFAULT 'NONE',
           ADD COLUMN hashtag_count INT DEFAULT 0 COMMENT 'hashtag 數量',
           ADD INDEX idx_template_id (template_id),
-          ADD INDEX idx_time_slot_id (time_slot_id),
           ADD INDEX idx_content_length (content_length),
           ADD INDEX idx_media_type (media_type),
-          ADD FOREIGN KEY fk_posts_template (template_id) REFERENCES content_templates(id) ON DELETE SET NULL,
-          ADD FOREIGN KEY fk_posts_timeslot (time_slot_id) REFERENCES schedule_time_slots(id) ON DELETE SET NULL
+          ADD FOREIGN KEY fk_posts_template (template_id) REFERENCES content_templates(id) ON DELETE SET NULL
       `);
       logger.info('✓ Extended posts table with foreign keys and content analysis fields');
     } else {
@@ -184,7 +157,6 @@ export async function down(): Promise<void> {
     logger.info('Rolling back statistics tables migration...');
 
     // Drop tables in reverse order (respecting foreign key constraints)
-    await connection.execute('DROP TABLE IF EXISTS timeslot_performance');
     await connection.execute('DROP TABLE IF EXISTS template_performance');
     await connection.execute('DROP TABLE IF EXISTS post_insights_history');
     await connection.execute('DROP TABLE IF EXISTS post_insights');
@@ -193,9 +165,7 @@ export async function down(): Promise<void> {
     await connection.execute(`
       ALTER TABLE posts
         DROP FOREIGN KEY IF EXISTS fk_posts_template,
-        DROP FOREIGN KEY IF EXISTS fk_posts_timeslot,
         DROP COLUMN IF EXISTS template_id,
-        DROP COLUMN IF EXISTS time_slot_id,
         DROP COLUMN IF EXISTS content_length,
         DROP COLUMN IF EXISTS has_media,
         DROP COLUMN IF EXISTS media_type,

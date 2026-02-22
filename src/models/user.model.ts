@@ -2,8 +2,6 @@ import { getPool } from '../database/connection';
 import { User, UserStatus } from '../types';
 import { generateUUID } from '../utils/uuid';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import bcrypt from 'bcryptjs';
-
 export class UserModel {
   /**
    * Create a new user
@@ -189,10 +187,4 @@ export class UserModel {
     }
   }
 
-  /**
-   * Verify password
-   */
-  static async verifyPassword(password: string, passwordHash: string): Promise<boolean> {
-    return bcrypt.compare(password, passwordHash);
-  }
 }

@@ -71,6 +71,19 @@ interface Config {
     clientSecret: string;
     superAdminEmail: string;
   };
+  rateLimit: {
+    globalMaxPerMinute: number;
+    authMaxPerMinute: number;
+  };
+  pool: {
+    connectionLimit: number;
+    queueLimit: number;
+    connectTimeout: number;
+  };
+  monitoring: {
+    logRotationDays: number;
+    logMaxSizeMb: number;
+  };
 }
 
 const config: Config = {
@@ -110,7 +123,7 @@ const config: Config = {
     key: process.env.ENCRYPTION_KEY || '',
   },
   similarity: {
-    threshold: 0.86,
+    threshold: parseFloat(process.env.SIMILARITY_THRESHOLD || '0.86'),
     compareCount: 60,
     maxRetries: 3,
   },
@@ -125,6 +138,19 @@ const config: Config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     superAdminEmail: process.env.GOOGLE_SUPER_ADMIN_EMAIL || '',
+  },
+  rateLimit: {
+    globalMaxPerMinute: parseInt(process.env.RATE_LIMIT_GLOBAL || '100', 10),
+    authMaxPerMinute: parseInt(process.env.RATE_LIMIT_AUTH || '10', 10),
+  },
+  pool: {
+    connectionLimit: parseInt(process.env.DB_POOL_LIMIT || '25', 10),
+    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '50', 10),
+    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '10000', 10),
+  },
+  monitoring: {
+    logRotationDays: parseInt(process.env.LOG_ROTATION_DAYS || '30', 10),
+    logMaxSizeMb: parseInt(process.env.LOG_MAX_SIZE_MB || '20', 10),
   },
 };
 

@@ -30,6 +30,8 @@ export const checkExpiredReviews = cron.schedule('*/5 * * * *', async () => {
        JOIN posts p ON das.post_id = p.id
        WHERE das.status = 'GENERATED'
          AND p.status = 'PENDING_REVIEW'
+         AND p.deleted_at IS NULL
+         AND das.deleted_at IS NULL
          AND das.scheduled_time <= DATE_ADD(NOW(), INTERVAL 10 MINUTE)`
     );
 
@@ -42,12 +44,9 @@ export const checkExpiredReviews = cron.schedule('*/5 * * * *', async () => {
         [schedule.id]
       );
 
-      // 刪除對應的待審核貼文及相關資料
-      await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [schedule.post_id]);
-      await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [schedule.post_id]);
-      await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [schedule.post_id]);
-      await pool.execute('DELETE FROM review_requests WHERE post_id = ?', [schedule.post_id]);
-      await pool.execute('DELETE FROM posts WHERE id = ?', [schedule.post_id]);
+      // 軟刪除對應的待審核貼文
+      await pool.execute('UPDATE posts SET deleted_at = NOW() WHERE id = ?', [schedule.post_id]);
+      await pool.execute('UPDATE daily_auto_schedule SET deleted_at = NOW() WHERE post_id = ?', [schedule.post_id]);
 
       logger.info(`Deleted expired pending post ${schedule.post_id}`);
     }
@@ -199,132 +198,9 @@ export const cleanupOldInsights = cron.schedule('0 3 * * *', async () => {
   scheduled: false,
 });
 
-/**
- * Execute scheduled posts
- * 用途：每 5 分鐘檢查一次，自動執行到期的排程
- * 影響範圍：新增排程執行器，不影響現有排程系統
- *
- * 執行邏輯：
- * 1. 查詢 status='PENDING' 且 scheduled_time <= now 的排程
- * 2. 取得對應的模板內容
- * 3. 建立 Post 並加入生成隊列
- * 4. 更新排程狀態為 'GENERATED'
- * 5. 記錄到 post_performance_log（初始值）
- */
-export const executeScheduledPosts = cron.schedule('*/5 * * * *', async () => {
-  logger.info('Checking for scheduled posts to execute...');
-
-  try {
-    const pool = getPool();
-    const { PostModel } = await import('../models/post.model');
-    const { generateUUID } = await import('../utils/uuid');
-
-    // 查詢需要執行的排程
-    const [schedules] = await pool.execute<RowDataPacket[]>(
-      `SELECT ds.*, ct.prompt, ct.name as template_name
-       FROM daily_scheduled_posts ds
-       JOIN content_templates ct ON ds.template_id = ct.id
-       WHERE ds.status = 'PENDING'
-         AND ds.scheduled_time <= NOW()
-       ORDER BY ds.scheduled_time ASC
-       LIMIT 10`
-    );
-
-    if (schedules.length === 0) {
-      logger.info('No scheduled posts to execute');
-      return;
-    }
-
-    logger.info(`Found ${schedules.length} scheduled post(s) to execute`);
-
-    // 取得建立者 ID（使用第一個 active 的 content_creator 或 admin）
-    const [users] = await pool.execute<RowDataPacket[]>(
-      `SELECT u.id FROM users u
-       INNER JOIN user_roles ur ON u.id = ur.user_id
-       INNER JOIN roles r ON ur.role_id = r.id
-       WHERE r.name IN ('content_creator', 'admin') AND u.status = 'ACTIVE'
-       ORDER BY CASE r.name WHEN 'content_creator' THEN 1 WHEN 'admin' THEN 2 END
-       LIMIT 1`
-    );
-
-    if (users.length === 0) {
-      logger.error('No active user found to create scheduled posts');
-      return;
-    }
-
-    const creatorId = users[0].id;
-
-    // 執行每個排程
-    for (const schedule of schedules) {
-      try {
-        logger.info(`Executing schedule ${schedule.id} for template "${schedule.template_name}" at ${schedule.scheduled_time}`);
-
-        // 建立貼文 - 包含 template_id 以支援重新生成
-        const post = await PostModel.create({
-          created_by: creatorId,
-          status: PostStatus.DRAFT,
-          template_id: schedule.template_id,
-        });
-
-        logger.info(`Created post ${post.id} for schedule ${schedule.id}`);
-
-        // 加入生成隊列（使用模板的提示詞）
-        await queueService.addGenerateJob({
-          postId: post.id,
-          createdBy: creatorId,
-          stylePreset: schedule.prompt, // 使用模板的提示詞
-        });
-
-        logger.info(`Added generation job for post ${post.id}`);
-
-        // 更新排程狀態為 GENERATED，並記錄 post_id
-        await pool.execute(
-          `UPDATE daily_scheduled_posts
-           SET status = 'GENERATED', post_id = ?, updated_at = NOW()
-           WHERE id = ?`,
-          [post.id, schedule.id]
-        );
-
-        // 記錄到 post_performance_log（初始值，等待發文後更新）
-        const logId = generateUUID();
-        const scheduledTime = new Date(schedule.scheduled_time);
-        await pool.execute(
-          `INSERT INTO post_performance_log
-           (id, post_id, template_id, posted_at, posted_hour, posted_minute, day_of_week, selection_method, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-          [
-            logId,
-            post.id,
-            schedule.template_id,
-            schedule.scheduled_time,
-            scheduledTime.getHours(),
-            scheduledTime.getMinutes(),
-            scheduledTime.getDay(),
-            schedule.selection_method || 'MANUAL'
-          ]
-        );
-
-        logger.info(`✓ Schedule ${schedule.id} executed successfully, created post ${post.id}`);
-      } catch (error) {
-        logger.error(`Failed to execute schedule ${schedule.id}:`, error);
-
-        // 更新排程狀態為 FAILED
-        await pool.execute(
-          `UPDATE daily_scheduled_posts
-           SET status = 'FAILED', updated_at = NOW()
-           WHERE id = ?`,
-          [schedule.id]
-        );
-      }
-    }
-
-    logger.info(`✓ Executed ${schedules.length} scheduled post(s)`);
-  } catch (error) {
-    logger.error('Failed to execute scheduled posts:', error);
-  }
-}, {
-  scheduled: false,
-});
+// [UCB Legacy] Removed executeScheduledPosts cron job that used deprecated
+// daily_scheduled_posts table. Current system uses daily_auto_schedule via
+// dailyAutoScheduler and executeAutoScheduledPosts.
 
 /**
  * createDailyAutoSchedule
@@ -358,7 +234,7 @@ export async function createDailyAutoSchedule() {
     const todayStr = taiwanNow.toISOString().split('T')[0]; // YYYY-MM-DD (台灣日期)
 
     const [existing] = await pool.execute<RowDataPacket[]>(
-      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%'",
+      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%' AND deleted_at IS NULL",
       [todayStr]
     );
 
@@ -540,7 +416,7 @@ const dailyAutoScheduler = cron.schedule('*/10 * * * *', async () => {
 
     // 檢查今天是否已有系統自動排程（Agent 排程不算在內）
     const [existing] = await pool.execute<RowDataPacket[]>(
-      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%'",
+      "SELECT id FROM daily_auto_schedule WHERE schedule_date = ? AND selection_reason LIKE 'AI 自動%' AND deleted_at IS NULL",
       [todayStr]
     );
 
@@ -582,6 +458,8 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
        JOIN posts p ON das.post_id = p.id
        WHERE das.status = 'APPROVED'
          AND das.scheduled_time <= NOW()
+         AND p.deleted_at IS NULL
+         AND das.deleted_at IS NULL
        ORDER BY das.scheduled_time ASC
        LIMIT 10`
     );
@@ -795,6 +673,66 @@ export const contentRecommendationScheduler = cron.schedule('0 8 * * *', async (
 });
 
 /**
+ * Weekly Twitter re-verification
+ * Runs every Monday at 02:00 - re-verify up to 50 Twitter accounts
+ */
+export const twitterReVerifyScheduler = cron.schedule('0 2 * * 1', async () => {
+  logger.info('[Influencer] Running weekly Twitter re-verification...');
+
+  try {
+    const influencerService = (await import('../services/influencer.service')).default;
+    const pool = getPool();
+
+    // Get authors with Twitter that haven't been verified in 7+ days
+    const [authors] = await pool.execute<RowDataPacket[]>(
+      `SELECT id, twitter_id FROM influencer_authors
+       WHERE twitter_id IS NOT NULL
+         AND (twitter_verified_at IS NULL OR twitter_verified_at < DATE_SUB(NOW(), INTERVAL 7 DAY))
+       ORDER BY twitter_verified_at ASC
+       LIMIT 50`
+    );
+
+    let verified = 0;
+    for (const author of authors) {
+      try {
+        await influencerService.verifyAuthorTwitter(author.id);
+        verified++;
+        // 2-second delay between requests
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      } catch (err: any) {
+        logger.warn(`[Influencer] Failed to verify author ${author.id}:`, err.message);
+      }
+    }
+
+    logger.info(`[Influencer] Re-verified ${verified}/${authors.length} Twitter accounts`);
+  } catch (error) {
+    logger.error('[Influencer] Weekly Twitter re-verification failed:', error);
+  }
+}, {
+  scheduled: false,
+  timezone: 'Asia/Taipei',
+});
+
+/**
+ * Daily influence score recalculation
+ * Runs every day at 03:30
+ */
+export const influenceScoreScheduler = cron.schedule('30 3 * * *', async () => {
+  logger.info('[Influencer] Recalculating influence scores...');
+
+  try {
+    const influencerService = (await import('../services/influencer.service')).default;
+    const result = await influencerService.recalculateAllScores();
+    logger.info(`[Influencer] Influence score recalculation completed: ${result.updated} authors updated`);
+  } catch (error) {
+    logger.error('[Influencer] Influence score recalculation failed:', error);
+  }
+}, {
+  scheduled: false,
+  timezone: 'Asia/Taipei',
+});
+
+/**
  * Start all schedulers
  */
 export async function startSchedulers() {
@@ -816,9 +754,6 @@ export async function startSchedulers() {
 
     logger.info('[Scheduler] Starting cleanupOldInsights (daily at 02:00)...');
     cleanupOldInsights.start();
-
-    logger.info('[Scheduler] Starting executeScheduledPosts (every minute)...');
-    executeScheduledPosts.start();
 
     // Start auto-scheduling
     logger.info('[Auto Scheduler] Starting dailyAutoScheduler (every 10 minutes)...');
@@ -843,14 +778,22 @@ export async function startSchedulers() {
     logger.info('[ContentRecommendation] Starting contentRecommendationScheduler (daily at 08:00)...');
     contentRecommendationScheduler.start();
 
+    // Start Influencer schedulers
+    logger.info('[Influencer] Starting twitterReVerifyScheduler (Monday at 02:00)...');
+    twitterReVerifyScheduler.start();
+
+    logger.info('[Influencer] Starting influenceScoreScheduler (daily at 03:30)...');
+    influenceScoreScheduler.start();
+
     logger.info('✓ All schedulers started successfully');
-    logger.info('  - Fixed schedulers: 6 jobs');
+    logger.info('  - Fixed schedulers: 5 jobs');
     logger.info('  - Auto schedulers: 2 jobs');
     logger.info('  - Monitor schedulers: 2 jobs');
     logger.info('  - Weekly report: 1 job');
     logger.info('  - Crisis alert: 1 job');
     logger.info('  - Content recommendation: 1 job');
-    logger.info('  - Total: 13 cron jobs running');
+    logger.info('  - Influencer schedulers: 2 jobs');
+    logger.info('  - Total: 14 cron jobs running');
   } catch (error) {
     logger.error('[Scheduler] Failed to start schedulers:', error);
     throw error;
@@ -867,8 +810,6 @@ export function stopSchedulers() {
   dailyReviewReminder.stop();
   syncInsightsData.stop();
   cleanupOldInsights.stop();
-  executeScheduledPosts.stop();
-
   // Stop auto-scheduling
   dailyAutoScheduler.stop();
   executeAutoScheduledPosts.stop();
@@ -884,6 +825,10 @@ export function stopSchedulers() {
 
   // Stop Content Recommendation scheduler
   contentRecommendationScheduler.stop();
+
+  // Stop Influencer schedulers
+  twitterReVerifyScheduler.stop();
+  influenceScoreScheduler.stop();
 
   logger.info('✓ All schedulers stopped');
 }

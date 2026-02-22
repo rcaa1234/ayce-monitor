@@ -142,15 +142,14 @@ class AILearningService {
             topicStats.set(topic, current);
         }
 
-        // 計算權重 (使用 UCB-like 公式)
+        // 計算權重（平均互動率 + 探索加成，讓低樣本主題有機會被選中）
         const totalTrials = posts.length || 1;
         const result = new Map<string, { count: number; avgEngagement: number; weight: number }>();
 
         for (const [topic, stats] of topicStats) {
             const avgEngagement = stats.totalEngagement / stats.count;
-            // UCB formula: avg + sqrt(2 * ln(total) / trials)
             const explorationBonus = Math.sqrt(2 * Math.log(totalTrials) / stats.count);
-            const weight = avgEngagement + explorationBonus * 10; // Scale bonus
+            const weight = avgEngagement + explorationBonus * 10;
 
             result.set(topic, {
                 count: stats.count,

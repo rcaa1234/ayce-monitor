@@ -866,23 +866,6 @@
                 </a>
             </div>
 
-            <div style="display:flex;align-items:center;margin:20px 0;">
-                <hr style="flex:1;border:none;border-top:1px solid #e1e8ed;">
-                <span style="padding:0 15px;color:#999;font-size:14px;">或使用密碼登入</span>
-                <hr style="flex:1;border:none;border-top:1px solid #e1e8ed;">
-            </div>
-
-            <form onsubmit="login(event)">
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="loginEmail" value="admin@example.com" required>
-                </div>
-                <div class="form-group">
-                    <label>密碼</label>
-                    <input type="password" id="loginPassword" value="admin123" required>
-                </div>
-                <button type="submit" class="btn">登入</button>
-            </form>
         </div>
 
         <!-- Dashboard -->
@@ -2639,32 +2622,6 @@
             }
 
             // Authentication
-            async function login(event) {
-                event.preventDefault();
-                const email = document.getElementById('loginEmail').value;
-                const password = document.getElementById('loginPassword').value;
-
-                try {
-                    const response = await fetch(`${API_BASE}/auth/login`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        token = data.token;
-                        localStorage.setItem('token', token);
-                        showDashboard(data.user);
-                    } else {
-                        showAlert('loginAlert', data.error || '登入失敗', 'error');
-                    }
-                } catch (error) {
-                    showAlert('loginAlert', '連線失敗: ' + error.message, 'error');
-                }
-            }
-
             async function checkAuth() {
                 try {
                     const response = await fetch(`${API_BASE}/auth/me`, {

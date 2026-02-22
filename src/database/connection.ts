@@ -16,8 +16,9 @@ export async function createDatabasePool(): Promise<mysql.Pool> {
     database: config.database.database,
     charset: 'utf8mb4',
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+    connectionLimit: config.pool.connectionLimit,
+    queueLimit: config.pool.queueLimit,
+    connectTimeout: config.pool.connectTimeout,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
   });

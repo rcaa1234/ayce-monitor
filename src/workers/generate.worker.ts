@@ -265,8 +265,26 @@ generateWorker.on('completed', async (job) => {
   }
 });
 
-generateWorker.on('failed', (job, err) => {
+generateWorker.on('failed', async (job, err) => {
   logger.error(`Job ${job?.id} failed:`, err);
+
+  // Move to dead-letter queue if retries exhausted
+  if (job && job.attemptsMade >= (job.opts.attempts || 3)) {
+    try {
+      const { deadLetterQueue } = await import('../services/queue.service');
+      await deadLetterQueue.add('dead-letter', {
+        originalQueue: QUEUE_NAMES.GENERATE,
+        originalJobId: job.id,
+        originalData: job.data,
+        error: err.message,
+        failedAt: new Date().toISOString(),
+        attemptsMade: job.attemptsMade,
+      });
+      logger.warn(`Generate job ${job.id} moved to dead-letter queue after ${job.attemptsMade} attempts`);
+    } catch (dlqError) {
+      logger.error(`Failed to move job ${job.id} to dead-letter queue:`, dlqError);
+    }
+  }
 });
 
 export default generateWorker;

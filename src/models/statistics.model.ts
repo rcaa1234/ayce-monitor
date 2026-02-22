@@ -382,7 +382,6 @@ export class StatisticsModel {
           SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
         )
         LEFT JOIN content_templates t ON p.template_id = t.id
-        LEFT JOIN schedule_time_slots ts ON p.time_slot_id = ts.id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT ${limit} OFFSET ${offset}`,

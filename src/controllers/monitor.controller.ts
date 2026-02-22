@@ -1335,6 +1335,70 @@ class MonitorController {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+    /**
+     * POST /api/monitor/classify-pending - AI batch classify unanalyzed mentions
+     */
+    async classifyPending(req: Request, res: Response): Promise<void> {
+        try {
+            const pool = getPool();
+            const limit = Math.min(Number(req.body?.limit) || 200, 200);
+
+            // Get mentions without AI sentiment analysis
+            const [rows] = await pool.execute<RowDataPacket[]>(
+                `SELECT id, title, content FROM monitor_mentions
+                 WHERE sentiment_analyzed_at IS NULL AND content IS NOT NULL
+                 ORDER BY discovered_at DESC
+                 LIMIT ${limit}`
+            );
+
+            if (rows.length === 0) {
+                res.json({ success: true, processed: 0, message: 'No pending mentions to classify' });
+                return;
+            }
+
+            const aiClassifierService = (await import('../services/ai-classifier.service')).default;
+            const items = rows.map((row) => ({
+                id: row.id,
+                title: row.title || '',
+                content: row.content || '',
+            }));
+
+            const results = await aiClassifierService.batchAnalyze(items);
+
+            // Update each result in DB
+            let updated = 0;
+            for (const [mentionId, result] of results) {
+                try {
+                    await pool.execute(
+                        `UPDATE monitor_mentions
+                         SET sentiment = ?, sentiment_score = ?, sentiment_confidence = ?,
+                             sentiment_keywords = ?, sentiment_analyzed_at = NOW()
+                         WHERE id = ?`,
+                        [
+                            result.sentiment,
+                            result.sentiment_score,
+                            result.sentiment_confidence,
+                            JSON.stringify(result.sentiment_keywords),
+                            mentionId,
+                        ]
+                    );
+                    updated++;
+                } catch (dbError: any) {
+                    logger.warn(`Failed to update AI classification for mention ${mentionId}:`, dbError);
+                }
+            }
+
+            res.json({
+                success: true,
+                total: rows.length,
+                processed: results.size,
+                updated,
+            });
+        } catch (error: any) {
+            logger.error('Failed to classify pending mentions:', error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
 }
 
 export default new MonitorController();

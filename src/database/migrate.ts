@@ -1627,6 +1627,72 @@ const migrations = [
   `ALTER TABLE users
     ADD COLUMN google_id VARCHAR(255) NULL AFTER line_user_id,
     ADD UNIQUE INDEX idx_google_id (google_id)`,
+
+  // Migration 83: influencer_authors 新增 influence_score 欄位
+  `ALTER TABLE influencer_authors
+    ADD COLUMN influence_score DECIMAL(5,2) NULL COMMENT '影響力分數 0-100' AFTER cooperation_potential,
+    ADD INDEX idx_influence_score (influence_score DESC)`,
+
+  // Migration 84: posts 新增 deleted_at 軟刪除欄位
+  `ALTER TABLE posts
+    ADD COLUMN deleted_at DATETIME NULL COMMENT '軟刪除時間',
+    ADD INDEX idx_deleted_at (deleted_at)`,
+
+  // Migration 85: daily_auto_schedule 新增 deleted_at 軟刪除欄位
+  `ALTER TABLE daily_auto_schedule
+    ADD COLUMN deleted_at DATETIME NULL COMMENT '軟刪除時間',
+    ADD INDEX idx_das_deleted_at (deleted_at)`,
+
+  // Migration 86: influencer_authors 新增 last_dcard_post_at (如不存在)
+  `ALTER TABLE influencer_authors
+    ADD COLUMN last_dcard_post_at DATETIME NULL COMMENT '最後 Dcard 發文時間' AFTER last_seen_at`,
+
+  // Migration 87: influencer_authors 新增 last_twitter_post_at (如不存在)
+  `ALTER TABLE influencer_authors
+    ADD COLUMN last_twitter_post_at DATETIME NULL COMMENT '最後 Twitter 發文時間' AFTER last_dcard_post_at`,
+
+  // ========================================
+  // Migration 88-94: UCB Dead Code Cleanup
+  // Remove deprecated UCB tables and columns
+  // ========================================
+
+  // Migration 88: Drop FK on posts.time_slot_id before dropping schedule_time_slots
+  `ALTER TABLE posts DROP FOREIGN KEY fk_posts_timeslot`,
+
+  // Migration 89: Drop posts.time_slot_id column and index
+  `ALTER TABLE posts
+    DROP INDEX idx_time_slot_id,
+    DROP COLUMN time_slot_id`,
+
+  // Migration 90: Drop UCB-only tables (order matters for FK constraints)
+  `DROP TABLE IF EXISTS timeslot_performance`,
+
+  // Migration 91: Drop daily_scheduled_posts (legacy, replaced by daily_auto_schedule)
+  `DROP TABLE IF EXISTS daily_scheduled_posts`,
+
+  // Migration 92: Drop posting_schedule_config (legacy, replaced by smart_schedule_config)
+  `DROP TABLE IF EXISTS posting_schedule_config`,
+
+  // Migration 93: Drop schedule_time_slots (UCB time slot selection)
+  `DROP TABLE IF EXISTS schedule_time_slots`,
+
+  // Migration 94: Drop UCB columns from smart_schedule_config
+  `ALTER TABLE smart_schedule_config
+    DROP COLUMN exploration_factor,
+    DROP COLUMN min_trials_per_template`,
+
+  // Migration 95: Drop UCB columns from daily_auto_schedule
+  `ALTER TABLE daily_auto_schedule
+    DROP COLUMN selected_time_slot_id,
+    DROP COLUMN selected_template_id,
+    DROP COLUMN ucb_score`,
+
+  // Migration 96: Drop UCB columns from post_performance_log
+  `ALTER TABLE post_performance_log
+    DROP COLUMN selection_method,
+    DROP COLUMN ucb_score,
+    DROP COLUMN was_exploration,
+    DROP COLUMN time_slot_id`,
 ];
 
 async function runMigrations() {

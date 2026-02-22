@@ -1,4 +1,5 @@
 import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
 import config from '../config';
 
 const levels = {
@@ -25,7 +26,8 @@ const colors = {
 
 winston.addColors(colors);
 
-const format = winston.format.combine(
+// Console format: colorized for development
+const consoleFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.colorize({ all: true }),
   winston.format.printf(
@@ -33,19 +35,50 @@ const format = winston.format.combine(
   )
 );
 
-const transports = [
-  new winston.transports.Console(),
-  new winston.transports.File({
-    filename: 'logs/error.log',
-    level: 'error',
+// File format: plain text without ANSI codes
+const fileFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.uncolorize(),
+  winston.format.printf(
+    (info) => `${info.timestamp} ${info.level}: ${info.message}`
+  )
+);
+
+// JSON format for production (ELK/Loki compatible)
+const jsonFormat = winston.format.combine(
+  winston.format.timestamp(),
+  winston.format.uncolorize(),
+  winston.format.json()
+);
+
+const isProduction = config.app.env !== 'local';
+
+const transports: winston.transport[] = [
+  new winston.transports.Console({
+    format: isProduction ? jsonFormat : consoleFormat,
   }),
-  new winston.transports.File({ filename: 'logs/all.log' }),
+  new DailyRotateFile({
+    filename: 'logs/error-%DATE%.log',
+    datePattern: 'YYYY-MM-DD',
+    level: 'error',
+    maxFiles: `${config.monitoring.logRotationDays}d`,
+    maxSize: `${config.monitoring.logMaxSizeMb}m`,
+    zippedArchive: true,
+    format: isProduction ? jsonFormat : fileFormat,
+  }),
+  new DailyRotateFile({
+    filename: 'logs/all-%DATE%.log',
+    datePattern: 'YYYY-MM-DD',
+    maxFiles: `${config.monitoring.logRotationDays}d`,
+    maxSize: `${config.monitoring.logMaxSizeMb}m`,
+    zippedArchive: true,
+    format: isProduction ? jsonFormat : fileFormat,
+  }),
 ];
 
 const logger = winston.createLogger({
   level: level(),
   levels,
-  format,
   transports,
 });
 

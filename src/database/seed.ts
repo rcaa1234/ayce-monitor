@@ -1,7 +1,6 @@
 import mysql from 'mysql2/promise';
 import config from '../config';
 import { generateUUID } from '../utils/uuid';
-import bcrypt from 'bcryptjs';
 
 const roles = [
   { name: 'admin', description: '系統管理員' },
@@ -48,12 +47,11 @@ async function seed() {
       console.log('');
 
       const adminId = generateUUID();
-      const passwordHash = await bcrypt.hash('admin123', 10);
 
       await connection.execute(
         `INSERT INTO users (id, email, password_hash, name, line_user_id, status)
          VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
-        [adminId, 'admin@example.com', passwordHash, 'System Admin', null]
+        [adminId, 'admin@example.com', '', 'System Admin', null]
       );
 
       // Assign admin role

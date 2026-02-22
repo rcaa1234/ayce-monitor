@@ -9,6 +9,7 @@ import { createHash } from 'crypto';
 import logger from '../utils/logger';
 import { generateUUID } from '../utils/uuid';
 import classifierService, { ClassificationResult } from './classifier.service';
+import aiClassifierService from './ai-classifier.service';
 
 // Cheerio for HTML parsing
 import * as cheerio from 'cheerio';
@@ -421,6 +422,34 @@ class MonitorService {
                 classification.hits.length > 0, // All hits are now direct hits
             ]
         );
+
+        // Async AI sentiment analysis (non-blocking)
+        aiClassifierService.analyze(article.title || '', article.content || '')
+            .then(async (aiResult) => {
+                if (aiResult) {
+                    try {
+                        await pool.execute(
+                            `UPDATE monitor_mentions
+                             SET sentiment = ?, sentiment_score = ?, sentiment_confidence = ?,
+                                 sentiment_keywords = ?, sentiment_analyzed_at = NOW()
+                             WHERE id = ?`,
+                            [
+                                aiResult.sentiment,
+                                aiResult.sentiment_score,
+                                aiResult.sentiment_confidence,
+                                JSON.stringify(aiResult.sentiment_keywords),
+                                id,
+                            ]
+                        );
+                        logger.debug(`[AIClassifier] Updated mention ${id}: ${aiResult.sentiment} (${aiResult.sentiment_score})`);
+                    } catch (dbError) {
+                        logger.warn(`[AIClassifier] Failed to update mention ${id}:`, dbError);
+                    }
+                }
+            })
+            .catch((err) => {
+                logger.warn(`[AIClassifier] Async analysis failed for mention ${id}:`, err);
+            });
 
         return { id, classification };
     }

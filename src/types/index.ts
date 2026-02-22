@@ -86,7 +86,6 @@ export enum ErrorCode {
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
   name: string;
   line_user_id?: string;
   google_id?: string;

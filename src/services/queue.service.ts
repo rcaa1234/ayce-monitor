@@ -63,6 +63,7 @@ export const QUEUE_NAMES = {
   GENERATE: 'content-generation',
   PUBLISH: 'post-publish',
   TOKEN_REFRESH: 'token-refresh',
+  DEAD_LETTER: 'dead-letter',
 } as const;
 
 logger.info('Initializing BullMQ queues with connection pool...');
@@ -77,6 +78,10 @@ export const publishQueue = new Queue(QUEUE_NAMES.PUBLISH, {
 });
 
 export const tokenRefreshQueue = new Queue(QUEUE_NAMES.TOKEN_REFRESH, {
+  connection: sharedConnectionOptions,
+});
+
+export const deadLetterQueue = new Queue(QUEUE_NAMES.DEAD_LETTER, {
   connection: sharedConnectionOptions,
 });
 
@@ -235,6 +240,7 @@ class QueueService {
     await generateQueue.close();
     await publishQueue.close();
     await tokenRefreshQueue.close();
+    await deadLetterQueue.close();
     logger.info('Queue connections closed');
   }
 }

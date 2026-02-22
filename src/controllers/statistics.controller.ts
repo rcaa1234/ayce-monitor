@@ -806,8 +806,6 @@ export class StatisticsController {
              ppl.likes,
              ppl.replies,
              ppl.engagement_rate,
-             ppl.ucb_score,
-             ppl.was_exploration,
              ppl.selection_reason,
              ppl.created_at
            FROM post_performance_log ppl

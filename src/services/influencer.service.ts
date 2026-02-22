@@ -269,29 +269,60 @@ class InfluencerService {
     }
 
     /**
-     * 驗證 Twitter ID 是否存在
+     * 驗證 Twitter ID 是否存在，並解析粉絲數和顯示名稱
      */
     async verifyTwitterUsername(username: string): Promise<{
         exists: boolean;
         url: string;
+        followers?: number;
+        displayName?: string;
     }> {
         const cleanUsername = username.replace(/^@/, '');
         const url = `https://x.com/${cleanUsername}`;
 
         try {
-            // 使用 HEAD 請求檢查頁面是否存在
             const response = await fetch(url, {
-                method: 'HEAD',
+                method: 'GET',
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
                 },
                 redirect: 'follow',
             });
 
-            // 200 或 重導向到 profile 頁面表示存在
-            const exists = response.ok || response.status === 302;
+            const exists = response.ok;
+            if (!exists) {
+                return { exists: false, url };
+            }
 
-            return { exists, url };
+            const html = await response.text();
+            let followers: number | undefined;
+            let displayName: string | undefined;
+
+            // Parse followers from og:description meta tag
+            // Format: "X followers, Y following" or "X Followers"
+            const ogDescMatch = html.match(/<meta\s+(?:property|name)="og:description"\s+content="([^"]+)"/i);
+            if (ogDescMatch) {
+                const desc = ogDescMatch[1];
+                const followersMatch = desc.match(/([\d,.]+[KMkm]?)\s*[Ff]ollowers/);
+                if (followersMatch) {
+                    followers = this.parseFollowerCount(followersMatch[1]);
+                }
+            }
+
+            // Parse display name from title tag
+            // Format: "Display Name (@username) / X"
+            const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+            if (titleMatch) {
+                const titleText = titleMatch[1];
+                const nameMatch = titleText.match(/^(.+?)\s*\(@/);
+                if (nameMatch) {
+                    displayName = nameMatch[1].trim();
+                }
+            }
+
+            return { exists, url, followers, displayName };
         } catch (error) {
             logger.warn(`驗證 Twitter @${cleanUsername} 失敗:`, error);
             return { exists: false, url };
@@ -299,9 +330,20 @@ class InfluencerService {
     }
 
     /**
-     * 驗證並更新作者的 Twitter 狀態
+     * Parse follower count strings like "1,234", "12.5K", "1.2M"
      */
-    async verifyAuthorTwitter(authorId: string): Promise<{ exists: boolean; url: string }> {
+    private parseFollowerCount(str: string): number {
+        const clean = str.replace(/,/g, '');
+        const num = parseFloat(clean);
+        if (clean.toLowerCase().endsWith('k')) return Math.round(num * 1000);
+        if (clean.toLowerCase().endsWith('m')) return Math.round(num * 1000000);
+        return Math.round(num);
+    }
+
+    /**
+     * 驗證並更新作者的 Twitter 狀態（含粉絲數和顯示名稱）
+     */
+    async verifyAuthorTwitter(authorId: string): Promise<{ exists: boolean; url: string; followers?: number; displayName?: string }> {
         const pool = getPool();
 
         // 取得作者的 Twitter ID
@@ -316,12 +358,15 @@ class InfluencerService {
 
         const result = await this.verifyTwitterUsername(rows[0].twitter_id);
 
-        // 更新驗證狀態
+        // 更新驗證狀態（含粉絲數和顯示名稱）
         await pool.execute(
             `UPDATE influencer_authors
-             SET twitter_verified = ?, twitter_verified_at = NOW(), twitter_url = ?, updated_at = NOW()
+             SET twitter_verified = ?, twitter_verified_at = NOW(), twitter_url = ?,
+                 twitter_followers = COALESCE(?, twitter_followers),
+                 twitter_display_name = COALESCE(?, twitter_display_name),
+                 updated_at = NOW()
              WHERE id = ?`,
-            [result.exists, result.url, authorId]
+            [result.exists, result.url, result.followers || null, result.displayName || null, authorId]
         );
 
         return result;
@@ -771,6 +816,90 @@ class InfluencerService {
     async deleteCooperation(cooperationId: string): Promise<void> {
         const pool = getPool();
         await pool.execute('DELETE FROM influencer_cooperations WHERE id = ?', [cooperationId]);
+    }
+
+    /**
+     * Calculate influence score for a single author (0-100)
+     * Weighted: Twitter followers 40%, Dcard posts 20%, Detection freq 20%, Verified 10%, Recency 10%
+     */
+    calculateInfluenceScore(author: {
+        twitter_followers?: number | null;
+        twitter_verified?: boolean;
+        dcard_post_count?: number;
+        detection_count?: number;
+        last_seen_at?: Date | null;
+    }): number {
+        // Twitter followers: 40% (log-normalized)
+        // 0 → 0, 1000 → 50, 100000 → 83
+        const followers = author.twitter_followers || 0;
+        let followerScore = 0;
+        if (followers > 0) {
+            followerScore = Math.min(100, (Math.log10(followers) / Math.log10(100000)) * 100);
+        }
+
+        // Dcard post count: 20% (linear, 200 posts = max)
+        const postCount = author.dcard_post_count || 0;
+        const postScore = Math.min(100, (postCount / 200) * 100);
+
+        // Detection frequency: 20% (50 detections = max)
+        const detectionCount = author.detection_count || 0;
+        const detectionScore = Math.min(100, (detectionCount / 50) * 100);
+
+        // Twitter verified: 10%
+        const verifiedScore = author.twitter_verified ? 100 : 0;
+
+        // Recency: 10% (7 days = 100, decays to 0 at 90 days)
+        let recencyScore = 0;
+        if (author.last_seen_at) {
+            const daysSinceSeen = (Date.now() - new Date(author.last_seen_at).getTime()) / (1000 * 60 * 60 * 24);
+            if (daysSinceSeen <= 7) {
+                recencyScore = 100;
+            } else if (daysSinceSeen < 90) {
+                recencyScore = Math.max(0, 100 * (1 - (daysSinceSeen - 7) / 83));
+            }
+        }
+
+        const score =
+            followerScore * 0.4 +
+            postScore * 0.2 +
+            detectionScore * 0.2 +
+            verifiedScore * 0.1 +
+            recencyScore * 0.1;
+
+        return Math.round(score * 100) / 100;
+    }
+
+    /**
+     * Recalculate influence scores for all authors
+     */
+    async recalculateAllScores(): Promise<{ updated: number }> {
+        const pool = getPool();
+
+        const [rows] = await pool.execute<RowDataPacket[]>(
+            `SELECT id, twitter_followers, twitter_verified, dcard_post_count, detection_count, last_seen_at
+             FROM influencer_authors
+             WHERE twitter_id IS NOT NULL`
+        );
+
+        let updated = 0;
+        for (const row of rows) {
+            const score = this.calculateInfluenceScore({
+                twitter_followers: row.twitter_followers,
+                twitter_verified: !!row.twitter_verified,
+                dcard_post_count: row.dcard_post_count,
+                detection_count: row.detection_count,
+                last_seen_at: row.last_seen_at,
+            });
+
+            await pool.execute(
+                `UPDATE influencer_authors SET influence_score = ?, updated_at = NOW() WHERE id = ?`,
+                [score, row.id]
+            );
+            updated++;
+        }
+
+        logger.info(`[Influencer] Recalculated influence scores for ${updated} authors`);
+        return { updated };
     }
 
 }

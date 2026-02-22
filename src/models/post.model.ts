@@ -34,7 +34,7 @@ export class PostModel {
     const pool = getPool();
 
     const [rows] = await pool.execute<RowDataPacket[]>(
-      'SELECT * FROM posts WHERE id = ?',
+      'SELECT * FROM posts WHERE id = ? AND deleted_at IS NULL',
       [id]
     );
 
@@ -105,7 +105,7 @@ export class PostModel {
    */
   static async findByStatus(status: PostStatus, limit?: number): Promise<Post[]> {
     const pool = getPool();
-    let query = 'SELECT * FROM posts WHERE status = ? ORDER BY created_at DESC';
+    let query = 'SELECT * FROM posts WHERE status = ? AND deleted_at IS NULL ORDER BY created_at DESC';
     const params: any[] = [status];
 
     // MySQL2 prepared statements don't support LIMIT with placeholders
@@ -134,7 +134,7 @@ export class PostModel {
        INNER JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
          SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
        )
-       WHERE p.status = 'POSTED'
+       WHERE p.status = 'POSTED' AND p.deleted_at IS NULL
        ORDER BY p.posted_at DESC
        LIMIT ${safeLimit}`,
       []
@@ -314,8 +314,8 @@ export class PostModel {
    */
   static async delete(id: string): Promise<void> {
     const pool = getPool();
-    // Hard delete for now - can change to soft delete later
-    await pool.execute('DELETE FROM posts WHERE id = ?', [id]);
+    // Soft delete
+    await pool.execute('UPDATE posts SET deleted_at = NOW() WHERE id = ?', [id]);
   }
 
   /**
@@ -378,7 +378,7 @@ export class PostModel {
          SELECT id FROM post_insights WHERE post_id = p.id ORDER BY fetched_at DESC LIMIT 1
        )
        LEFT JOIN daily_auto_schedule das ON p.id = das.post_id AND das.status != 'CANCELLED'
-       WHERE 1=1 ${statusFilter}
+       WHERE p.deleted_at IS NULL ${statusFilter}
        ORDER BY p.created_at DESC
        LIMIT ${safeLimit}`,
       params

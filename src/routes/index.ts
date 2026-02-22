@@ -9,67 +9,48 @@ import config from '../config';
 import logger from '../utils/logger';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import statisticsRoutes from './statistics.routes';
+import { authLimiter } from '../middlewares/rate-limit.middleware';
 
 const router = Router();
 
-// Health check
-router.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Enhanced health check with DB and Redis status
+router.get('/health', async (_req, res) => {
+  const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
+  let overallStatus = 'ok';
 
-// Auth routes
-router.post('/auth/login', async (req: Request, res: Response): Promise<void> => {
+  // Database check
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      res.status(400).json({ error: 'Email and password are required' });
-      return;
-    }
-
-    const user = await UserModel.findByEmail(email);
-    if (!user) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const isValid = await UserModel.verifyPassword(password, user.password_hash);
-    if (!isValid) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    if (user.status !== 'ACTIVE') {
-      res.status(403).json({ error: 'Account is disabled' });
-      return;
-    }
-
-    // Get user roles
-    const roles = await UserModel.getRoles(user.id);
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        roles: roles,
-      },
-      config.jwt.secret,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        roles: roles,
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({ error: 'Login failed', message: error.message });
+    const { getPool } = await import('../database/connection');
+    const pool = getPool();
+    const dbStart = Date.now();
+    await pool.execute('SELECT 1');
+    checks.database = { status: 'ok', latencyMs: Date.now() - dbStart };
+  } catch (err: any) {
+    checks.database = { status: 'error', error: err.message };
+    overallStatus = 'degraded';
   }
+
+  // Redis check
+  try {
+    const Redis = (await import('ioredis')).default;
+    const redis = new Redis(config.redis.url, { lazyConnect: true, connectTimeout: 3000 });
+    const redisStart = Date.now();
+    await redis.connect();
+    await redis.ping();
+    checks.redis = { status: 'ok', latencyMs: Date.now() - redisStart };
+    await redis.quit();
+  } catch (err: any) {
+    checks.redis = { status: 'error', error: err.message };
+    overallStatus = 'degraded';
+  }
+
+  const statusCode = overallStatus === 'ok' ? 200 : 503;
+  res.status(statusCode).json({
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks,
+  });
 });
 
 // Post routes (require authentication)
@@ -731,7 +712,7 @@ router.post('/settings/test-generate', authenticate, async (req: Request, res: R
               type: 'text',
               text: `📈 相似度: ${(result.similarityMax * 100).toFixed(1)}%`,
               size: 'sm',
-              color: result.similarityMax > 0.86 ? '#FF0000' : '#666666',
+              color: result.similarityMax > config.similarity.threshold ? '#FF0000' : '#666666',
               margin: 'xs',
             },
             {
@@ -1437,280 +1418,9 @@ router.get('/scheduling/templates', authenticate, async (req: Request, res: Resp
   }
 });
 
-/**
- * GET /api/scheduling/config
- * 用途：取得發文時段配置（19:00-22:30 等設定）
- * 回傳：時段配置資料
- */
-router.get('/scheduling/config', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    // 查詢啟用的排程配置
-    const [configs] = await pool.execute<RowDataPacket[]>(
-      `SELECT id, start_hour, start_minute, end_hour, end_minute,
-              posts_per_day, active_days, enabled
-       FROM posting_schedule_config
-       WHERE enabled = true
-       LIMIT 1`
-    );
-
-    if (configs.length === 0) {
-      res.status(404).json({ error: '尚未設定排程配置' });
-      return;
-    }
-
-    const config = configs[0];
-
-    // 處理 active_days JSON 欄位（可能是字串或物件）
-    if (typeof config.active_days === 'string') {
-      config.active_days = JSON.parse(config.active_days);
-    }
-
-    res.json({
-      success: true,
-      config,
-    });
-  } catch (error: any) {
-    logger.error('Failed to get scheduling config:', error);
-    res.status(500).json({ error: '無法取得排程配置', message: error.message });
-  }
-});
-
-/**
- * POST /api/scheduling/create
- * 用途：手動建立新的排程
- * Body: { templateId: string, scheduledTime: string (ISO 8601) }
- * 回傳：建立的排程資料
- */
-router.post('/scheduling/create', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { templateId, scheduledTime } = req.body;
-
-    // 驗證必要參數
-    if (!templateId || !scheduledTime) {
-      res.status(400).json({ error: '缺少必要參數：templateId 或 scheduledTime' });
-      return;
-    }
-
-    // 驗證時間格式
-    const scheduleDate = new Date(scheduledTime);
-    if (isNaN(scheduleDate.getTime())) {
-      res.status(400).json({ error: '無效的時間格式' });
-      return;
-    }
-
-    // 檢查時間不能是過去
-    if (scheduleDate <= new Date()) {
-      res.status(400).json({ error: '排程時間不能是過去的時間' });
-      return;
-    }
-
-    const { getPool } = await import('../database/connection');
-    const { generateUUID } = await import('../utils/uuid');
-    const pool = getPool();
-
-    // 驗證模板存在且啟用
-    const [templates] = await pool.execute<RowDataPacket[]>(
-      'SELECT id, name FROM content_templates WHERE id = ? AND enabled = true',
-      [templateId]
-    );
-
-    if (templates.length === 0) {
-      res.status(404).json({ error: '模板不存在或已停用' });
-      return;
-    }
-
-    // 驗證時間在允許範圍內（根據配置）
-    const [configs] = await pool.execute<RowDataPacket[]>(
-      `SELECT start_hour, start_minute, end_hour, end_minute, active_days
-       FROM posting_schedule_config
-       WHERE enabled = true
-       LIMIT 1`
-    );
-
-    if (configs.length > 0) {
-      const config = configs[0];
-      const scheduleHour = scheduleDate.getHours();
-      const scheduleMinute = scheduleDate.getMinutes();
-      const scheduleDayOfWeek = scheduleDate.getDay(); // 0=日, 1=一, ..., 6=六
-
-      // 檢查時段
-      const startTimeMinutes = config.start_hour * 60 + config.start_minute;
-      const endTimeMinutes = config.end_hour * 60 + config.end_minute;
-      const scheduleTimeMinutes = scheduleHour * 60 + scheduleMinute;
-
-      if (scheduleTimeMinutes < startTimeMinutes || scheduleTimeMinutes > endTimeMinutes) {
-        const startTime = `${String(config.start_hour).padStart(2, '0')}:${String(config.start_minute).padStart(2, '0')}`;
-        const endTime = `${String(config.end_hour).padStart(2, '0')}:${String(config.end_minute).padStart(2, '0')}`;
-        res.status(400).json({
-          error: `排程時間必須在 ${startTime} - ${endTime} 之間`
-        });
-        return;
-      }
-
-      // 檢查星期
-      const activeDays = typeof config.active_days === 'string'
-        ? JSON.parse(config.active_days)
-        : config.active_days;
-
-      if (!activeDays.includes(scheduleDayOfWeek)) {
-        const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
-        res.status(400).json({
-          error: `星期${dayNames[scheduleDayOfWeek]}未啟用發文排程`
-        });
-        return;
-      }
-    }
-
-    // 檢查是否已有相同時間的排程（UNIQUE 約束也會阻止，這裡提供更友善的錯誤訊息）
-    const [existing] = await pool.execute<RowDataPacket[]>(
-      `SELECT id FROM daily_scheduled_posts
-       WHERE scheduled_time = ? AND status IN ('PENDING', 'GENERATED')`,
-      [scheduledTime]
-    );
-
-    if (existing.length > 0) {
-      res.status(409).json({ error: '該時間已有排程，請選擇其他時間' });
-      return;
-    }
-
-    // 建立排程
-    const scheduleId = generateUUID();
-    await pool.execute(
-      `INSERT INTO daily_scheduled_posts
-       (id, template_id, scheduled_time, status, selection_method, created_at)
-       VALUES (?, ?, ?, 'PENDING', 'MANUAL', NOW())`,
-      [scheduleId, templateId, scheduledTime]
-    );
-
-    logger.info(`Created manual schedule: ${scheduleId} at ${scheduledTime} with template ${templateId}`);
-
-    // 回傳建立的排程資料
-    const [created] = await pool.execute<RowDataPacket[]>(
-      `SELECT ds.*, ct.name as template_name, ct.description as template_description
-       FROM daily_scheduled_posts ds
-       JOIN content_templates ct ON ds.template_id = ct.id
-       WHERE ds.id = ?`,
-      [scheduleId]
-    );
-
-    res.json({
-      success: true,
-      message: '排程建立成功',
-      schedule: created[0],
-    });
-  } catch (error: any) {
-    logger.error('Failed to create schedule:', error);
-
-    // 處理資料庫唯一約束錯誤
-    if (error.code === 'ER_DUP_ENTRY') {
-      res.status(409).json({ error: '該時間已有排程，請選擇其他時間' });
-      return;
-    }
-
-    res.status(500).json({ error: '無法建立排程', message: error.message });
-  }
-});
-
-/**
- * GET /api/scheduling/upcoming
- * 用途：查看待發布的排程列表
- * Query: limit (optional, default 20) - 限制回傳數量
- * 回傳：排程列表（包含模板資訊）
- */
-router.get('/scheduling/upcoming', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
-    // MySQL2 prepared statements don't support LIMIT with placeholders
-    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    // 查詢待發布的排程，聯結模板資訊
-    const [schedules] = await pool.execute<RowDataPacket[]>(
-      `SELECT
-         ds.id,
-         ds.template_id,
-         ds.scheduled_time,
-         ds.status,
-         ds.selection_method,
-         ds.created_at,
-         ct.name as template_name,
-         ct.description as template_description,
-         ct.avg_engagement_rate as template_performance
-       FROM daily_scheduled_posts ds
-       JOIN content_templates ct ON ds.template_id = ct.id
-       WHERE ds.status IN ('PENDING', 'GENERATED')
-         AND ds.scheduled_time >= NOW()
-       ORDER BY ds.scheduled_time ASC
-       LIMIT ${safeLimit}`,
-      []
-    );
-
-    res.json({
-      success: true,
-      schedules,
-      count: schedules.length,
-    });
-  } catch (error: any) {
-    logger.error('Failed to get upcoming schedules:', error);
-    res.status(500).json({ error: '無法取得排程列表', message: error.message });
-  }
-});
-
-/**
- * DELETE /api/scheduling/:id
- * 用途：刪除排程（僅限 PENDING 狀態）
- * 回傳：成功訊息
- */
-router.delete('/scheduling/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    const { getPool } = await import('../database/connection');
-    const pool = getPool();
-
-    // 檢查排程是否存在且為 PENDING 狀態
-    const [schedules] = await pool.execute<RowDataPacket[]>(
-      'SELECT id, status FROM daily_scheduled_posts WHERE id = ?',
-      [id]
-    );
-
-    if (schedules.length === 0) {
-      res.status(404).json({ error: '找不到該排程' });
-      return;
-    }
-
-    const schedule = schedules[0];
-
-    // 只允許刪除 PENDING 狀態的排程
-    if (schedule.status !== 'PENDING') {
-      res.status(400).json({
-        error: `無法刪除狀態為 ${schedule.status} 的排程，僅能刪除待執行 (PENDING) 的排程`
-      });
-      return;
-    }
-
-    // 刪除排程
-    await pool.execute(
-      'DELETE FROM daily_scheduled_posts WHERE id = ?',
-      [id]
-    );
-
-    logger.info(`Deleted schedule: ${id}`);
-
-    res.json({
-      success: true,
-      message: '排程已刪除',
-    });
-  } catch (error: any) {
-    logger.error('Failed to delete schedule:', error);
-    res.status(500).json({ error: '無法刪除排程', message: error.message });
-  }
-});
+// [UCB Legacy] Removed 4 legacy scheduling routes (scheduling/config, scheduling/create,
+// scheduling/upcoming, scheduling/:id) that used deprecated posting_schedule_config
+// and daily_scheduled_posts tables. Current system uses smart_schedule_config and daily_auto_schedule.
 
 // Test-specific review actions
 router.get('/review/test-approve', async (req: Request, res: Response): Promise<void> => {
@@ -2032,7 +1742,7 @@ router.get('/review/test-regenerate', async (req: Request, res: Response): Promi
             type: 'text',
             text: `📈 相似度: ${(result.similarityMax * 100).toFixed(1)}%`,
             size: 'sm',
-            color: result.similarityMax > 0.86 ? '#FF0000' : '#666666',
+            color: result.similarityMax > config.similarity.threshold ? '#FF0000' : '#666666',
             margin: 'xs',
           },
           {
@@ -2352,7 +2062,7 @@ router.get('/diagnose/auto-schedule', authenticate, async (req: Request, res: Re
     // 2. 檢查今天的排程
     const todayStr = new Date().toISOString().split('T')[0];
     const [schedules] = await pool.execute<RowDataPacket[]>(
-      'SELECT id, status, scheduled_time, post_id, error_message, created_at FROM daily_auto_schedule WHERE schedule_date = ? ORDER BY created_at DESC',
+      'SELECT id, status, scheduled_time, post_id, error_message, created_at FROM daily_auto_schedule WHERE schedule_date = ? AND deleted_at IS NULL ORDER BY created_at DESC',
       [todayStr]
     );
     info.today_schedules = schedules;
@@ -2425,6 +2135,7 @@ router.get('/auto-schedules', authenticate, async (req: Request, res: Response):
                LIMIT 1) as revision_content
        FROM daily_auto_schedule das
        LEFT JOIN posts p ON das.post_id = p.id
+       WHERE das.deleted_at IS NULL
        ORDER BY das.schedule_date DESC
        LIMIT 30`
     );
@@ -2461,7 +2172,7 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
 
     // 檢查排程是否存在及其狀態
     const [schedules] = await pool.execute<RowDataPacket[]>(
-      'SELECT id, status, post_id FROM daily_auto_schedule WHERE id = ?',
+      'SELECT id, status, post_id FROM daily_auto_schedule WHERE id = ? AND deleted_at IS NULL',
       [id]
     );
 
@@ -2488,19 +2199,15 @@ router.delete('/auto-schedules/:id', authenticate, async (req: Request, res: Res
       );
 
       if (posts.length > 0 && posts[0].status === 'PENDING_REVIEW') {
-        // 刪除關聯的待審核貼文及相關資料
-        await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [schedule.post_id]);
-        await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [schedule.post_id]);
-        await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [schedule.post_id]);
-        await pool.execute('DELETE FROM review_requests WHERE post_id = ?', [schedule.post_id]);
-        await pool.execute('DELETE FROM posts WHERE id = ?', [schedule.post_id]);
-        logger.info(`Deleted associated pending post: ${schedule.post_id}`);
+        // 軟刪除關聯的待審核貼文
+        await pool.execute('UPDATE posts SET deleted_at = NOW() WHERE id = ?', [schedule.post_id]);
+        logger.info(`Soft-deleted associated pending post: ${schedule.post_id}`);
       }
     }
 
-    // 刪除排程
+    // 軟刪除排程
     await pool.execute(
-      'DELETE FROM daily_auto_schedule WHERE id = ?',
+      'UPDATE daily_auto_schedule SET deleted_at = NOW() WHERE id = ?',
       [id]
     );
 
@@ -2530,7 +2237,7 @@ router.post('/auto-schedules/:id/resend-review', authenticate, async (req: Reque
     const [schedules] = await pool.execute<RowDataPacket[]>(
       `SELECT das.id, das.post_id, das.scheduled_time, das.status
        FROM daily_auto_schedule das
-       WHERE das.id = ?`,
+       WHERE das.id = ? AND das.deleted_at IS NULL`,
       [id]
     );
 
@@ -2631,7 +2338,7 @@ router.post('/auto-schedules/:id/manual-approve', authenticate, async (req: Requ
       `SELECT das.*, p.id as post_id
        FROM daily_auto_schedule das
        LEFT JOIN posts p ON das.post_id = p.id
-       WHERE das.id = ?`,
+       WHERE das.id = ? AND das.deleted_at IS NULL`,
       [id]
     );
 
@@ -3179,7 +2886,7 @@ router.get('/config/public', (_req: Request, res: Response) => {
 });
 
 // Google 登入 — 重導向到 Google OAuth
-router.get('/auth/google', (_req: Request, res: Response) => {
+router.get('/auth/google', authLimiter, (_req: Request, res: Response) => {
   if (!config.google.clientId) {
     res.status(500).json({ error: 'Google OAuth 尚未配置' });
     return;
@@ -3199,7 +2906,7 @@ router.get('/auth/google', (_req: Request, res: Response) => {
 });
 
 // Google OAuth 回調
-router.get('/auth/google/callback', async (req: Request, res: Response): Promise<void> => {
+router.get('/auth/google/callback', authLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { code, error: oauthError } = req.query;
 
