@@ -1656,12 +1656,12 @@ const migrations = [
   // Remove deprecated UCB tables and columns
   // ========================================
 
-  // Migration 88: Drop FK on posts.time_slot_id before dropping schedule_time_slots
-  `ALTER TABLE posts DROP FOREIGN KEY fk_posts_timeslot`,
+  // Migration 88: Drop FK on posts.time_slot_id (auto-named posts_ibfk_4)
+  `ALTER TABLE posts DROP FOREIGN KEY posts_ibfk_4`,
 
   // Migration 89: Drop posts.time_slot_id column and index
   `ALTER TABLE posts
-    DROP INDEX idx_time_slot_id,
+    DROP INDEX idx_time_slot,
     DROP COLUMN time_slot_id`,
 
   // Migration 90: Drop UCB-only tables (order matters for FK constraints)
