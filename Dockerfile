@@ -32,5 +32,5 @@ USER pptruser
 # Expose port
 EXPOSE 3000
 
-# Start server
-CMD ["node", "dist/server.js"]
+# Run migrations, seed, then start API + Worker
+CMD ["sh", "-c", "node dist/database/migrate.js && node dist/database/seed.js && node dist/index.js & node dist/worker.js & wait"]
