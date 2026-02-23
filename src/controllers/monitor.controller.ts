@@ -577,75 +577,6 @@ class MonitorController {
     }
 
     // ========================================
-    // 手動觸發 API
-    // ========================================
-
-    /**
-     * POST /api/monitor/crawl - 手動觸發爬取
-     */
-    async triggerCrawl(req: Request, res: Response): Promise<void> {
-        try {
-            const { source_id } = req.body;
-            const pool = getPool();
-
-            if (source_id) {
-                // 爬取特定來源
-                const [sources] = await pool.execute<RowDataPacket[]>(
-                    'SELECT * FROM monitor_sources WHERE id = ?',
-                    [source_id]
-                );
-
-                if (sources.length === 0) {
-                    res.status(404).json({ success: false, error: '來源不存在' });
-                    return;
-                }
-
-                const source = sources[0];
-
-                // Dcard 來源：建立任務讓本機爬蟲執行
-                if (source.platform === 'dcard') {
-                    // 重設 last_checked_at 讓本機爬蟲可以取得此任務
-                    await pool.execute(
-                        `UPDATE monitor_sources SET last_checked_at = DATE_SUB(NOW(), INTERVAL check_interval_hours + 1 HOUR) WHERE id = ?`,
-                        [source_id]
-                    );
-
-                    res.json({
-                        success: true,
-                        data: {
-                            articlesFound: 0,
-                            newMentions: 0,
-                            duplicates: 0,
-                            source: source.name,
-                            crawlStatus: 'queued_for_local',
-                            message: '已排入本機爬蟲任務佇列',
-                        },
-                        message: `已排入本機爬蟲佇列，請確認本機爬蟲正在執行`,
-                    });
-                    return;
-                }
-
-                // 其他來源（PTT 等）：伺服器端直接爬取
-                const result = await monitorService.crawlSource(source as any);
-                res.json({
-                    success: true,
-                    data: {
-                        ...result,
-                        source: source.name,
-                    },
-                    message: `爬取完成，發現 ${result.newMentions} 筆新提及`,
-                });
-            } else {
-                // 爬取所有到期來源
-                await monitorService.runScheduledCrawls();
-                res.json({ success: true, message: '已啟動排程爬取' });
-            }
-        } catch (error: any) {
-            logger.error('Failed to trigger crawl:', error);
-            res.status(500).json({ success: false, error: error.message });
-        }
-    }
-
     /**
      * GET /api/monitor/crawl-logs - 取得爬取日誌
      */
@@ -706,49 +637,6 @@ class MonitorController {
         ];
 
         res.json({ success: true, data: templates });
-    }
-
-    // ========================================
-    // 爬蟲控制 API
-    // ========================================
-
-    /**
-     * POST /api/monitor/crawl/run - 手動觸發爬蟲
-     */
-    async runCrawl(req: Request, res: Response): Promise<void> {
-        try {
-            const { source_id } = req.body;
-            const pool = getPool();
-
-            if (source_id) {
-                // 爬取特定來源
-                const [sources] = await pool.execute<RowDataPacket[]>(
-                    `SELECT * FROM monitor_sources WHERE id = ? AND is_active = true`,
-                    [source_id]
-                );
-
-                if (sources.length === 0) {
-                    res.status(404).json({ success: false, error: '找不到該來源' });
-                    return;
-                }
-
-                const result = await monitorService.crawlSource(sources[0] as any);
-                res.json({
-                    success: true,
-                    data: {
-                        source: sources[0].name,
-                        ...result,
-                    },
-                });
-            } else {
-                // 爬取所有到期來源
-                await monitorService.runScheduledCrawls();
-                res.json({ success: true, message: '已觸發排程爬蟲' });
-            }
-        } catch (error: any) {
-            logger.error('Failed to run crawl:', error);
-            res.status(500).json({ success: false, error: error.message });
-        }
     }
 
     /**

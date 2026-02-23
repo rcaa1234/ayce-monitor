@@ -41,9 +41,8 @@ router.put('/mentions/:id/star', monitorController.toggleMentionStar.bind(monito
 router.get('/stats/overview', monitorController.getStatsOverview.bind(monitorController));
 
 // ========================================
-// 爬取操作
+// 爬取日誌（歷史記錄查詢）
 // ========================================
-router.post('/crawl', monitorController.triggerCrawl.bind(monitorController));
 router.get('/crawl-logs', monitorController.getCrawlLogs.bind(monitorController));
 
 // ========================================

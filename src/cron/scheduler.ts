@@ -542,24 +542,18 @@ export const executeAutoScheduledPosts = cron.schedule('*/5 * * * *', async () =
 });
 
 /**
- * 聲量監控 - 定時爬取和通知
- * Runs every 30 minutes - 檢查需要爬取的來源並發送通知
+ * 聲量監控 - 定時發送通知
+ * Runs every 30 minutes - 發送未通知的提及（爬蟲已移交外部 Agent）
  */
-export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
-  logger.info('[Monitor] Running scheduled crawls...');
+export const monitorNotifyScheduler = cron.schedule('*/30 * * * *', async () => {
+  logger.info('[Monitor] Checking for unnotified mentions...');
 
   try {
     const monitorService = (await import('../services/monitor.service')).default;
-
-    // 執行排程爬取
-    await monitorService.runScheduledCrawls();
-
-    // 發送未通知的提及
     const lineService = (await import('../services/line.service')).default;
     const unnotified = await monitorService.getUnnotifiedMentions(10);
 
     if (unnotified.length > 0) {
-      // 取得管理員的 LINE User ID
       const pool = getPool();
       const [admins] = await pool.execute<RowDataPacket[]>(
         `SELECT line_user_id FROM users WHERE line_user_id IS NOT NULL LIMIT 1`
@@ -570,7 +564,6 @@ export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
       } else {
         const lineUserId = admins[0].line_user_id;
 
-        // 按品牌分組通知
         const byBrand = new Map<string, any[]>();
         for (const mention of unnotified) {
           const key = mention.brand_id;
@@ -591,7 +584,6 @@ export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
           try {
             await lineService.sendNotification(lineUserId, message);
 
-            // 標記已通知
             const { generateUUID } = await import('../utils/uuid');
             const notificationId = generateUUID();
             await monitorService.markAsNotified(
@@ -607,9 +599,9 @@ export const monitorCrawlScheduler = cron.schedule('*/30 * * * *', async () => {
       }
     }
 
-    logger.info('[Monitor] Scheduled crawls completed');
+    logger.info('[Monitor] Notification check completed');
   } catch (error) {
-    logger.error('[Monitor] Scheduled crawl failed:', error);
+    logger.error('[Monitor] Notification check failed:', error);
   }
 }, {
   scheduled: false,
@@ -762,9 +754,9 @@ export async function startSchedulers() {
     logger.info('[Auto Scheduler] Starting executeAutoScheduledPosts (every 5 minutes)...');
     executeAutoScheduledPosts.start();
 
-    // Start Monitor scheduler
-    logger.info('[Monitor] Starting monitorCrawlScheduler (every 30 minutes)...');
-    monitorCrawlScheduler.start();
+    // Start Monitor notification scheduler (crawling moved to external agents)
+    logger.info('[Monitor] Starting monitorNotifyScheduler (every 30 minutes)...');
+    monitorNotifyScheduler.start();
 
     // Start Weekly Report scheduler
     logger.info('[WeeklyReport] Starting weeklyReportScheduler (Sunday at 10:00)...');
@@ -815,7 +807,7 @@ export function stopSchedulers() {
   executeAutoScheduledPosts.stop();
 
   // Stop Monitor scheduler
-  monitorCrawlScheduler.stop();
+  monitorNotifyScheduler.stop();
 
   // Stop Weekly Report scheduler
   weeklyReportScheduler.stop();

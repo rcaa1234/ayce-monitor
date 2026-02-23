@@ -1693,6 +1693,20 @@ const migrations = [
     DROP COLUMN ucb_score,
     DROP COLUMN was_exploration,
     DROP COLUMN time_slot_id`,
+
+  // ========================================
+  // Migration 97: Remove crawler-specific columns from monitor_sources
+  // All crawling moved to external agents
+  // ========================================
+  `ALTER TABLE monitor_sources
+    DROP COLUMN IF EXISTS crawl_depth,
+    DROP COLUMN IF EXISTS max_pages,
+    DROP COLUMN IF EXISTS max_items_per_check,
+    DROP COLUMN IF EXISTS use_puppeteer,
+    DROP COLUMN IF EXISTS request_delay_ms,
+    DROP COLUMN IF EXISTS timeout_seconds,
+    DROP COLUMN IF EXISTS user_agent,
+    DROP COLUMN IF EXISTS selectors`,
 ];
 
 async function runMigrations() {

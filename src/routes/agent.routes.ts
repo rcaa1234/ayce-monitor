@@ -39,7 +39,10 @@ router.get('/monitor/keywords', agentController.getMonitorKeywords);
 // 診斷：檢查 DB 欄位
 router.get('/debug/db-schema', agentController.debugDbSchema);
 
-// Dcard 資料上傳（網紅 & 提及文章）
+// 通用資料上傳（所有平台的提及文章）
+router.post('/mentions', agentController.receiveMentions);
+
+// 向下相容：Dcard 資料上傳
 router.post('/dcard/mentions', agentController.receiveMentions);
 router.post('/dcard/authors', agentController.receiveAuthors);
 
