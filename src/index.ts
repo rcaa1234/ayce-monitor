@@ -15,6 +15,9 @@ import { globalLimiter, correlationId } from './middlewares/rate-limit.middlewar
 
 const app: Application = express();
 
+// Trust proxy (Zeabur / cloud platforms use reverse proxy)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for frontend
