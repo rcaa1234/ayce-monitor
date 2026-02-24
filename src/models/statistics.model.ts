@@ -25,17 +25,6 @@ export interface TrendData {
   engagement: number[];
 }
 
-export interface TemplateStats {
-  id: string;
-  name: string;
-  preferred_engine: string;
-  total_uses: number;
-  avg_engagement_rate: number;
-  avg_likes: number;
-  avg_views: number;
-  best_performing_time?: string;
-}
-
 export interface TimeslotStats {
   id: string;
   name: string;
@@ -51,14 +40,10 @@ export interface PostDetail {
   id: string;
   content_preview: string;
   posted_at: string;
-  template_name?: string;
-  timeslot_name?: string;
   views: number;
   likes: number;
   replies: number;
   engagement_rate: number;
-  content_length: number;
-  hashtag_count: number;
   media_type: string;
 }
 
@@ -158,85 +143,6 @@ export class StatisticsModel {
   }
 
   /**
-   * 獲取發文類型統計數據（三種分類：AI 發文、圖片式文字、人工發文）
-   * @param days 統計天數，預設 3650 天（約 10 年，即全部歷史）
-   */
-  static async getTemplateStats(days: number = 3650): Promise<TemplateStats[]> {
-    const pool = getPool();
-
-    try {
-      // 使用 CASE WHEN 根據 is_ai_generated 和 media_type 分類
-      // 注意：不再使用 days 過濾，統計所有已發布貼文
-      const [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT
-          post_type as id,
-          post_type as name,
-          'GPT5_2' as preferred_engine,
-          COUNT(*) as total_uses,
-          COALESCE(AVG(
-            CASE
-              WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
-              ELSE 0
-            END
-          ), 0) as avg_engagement_rate,
-          COALESCE(AVG(pi.likes), 0) as avg_likes,
-          COALESCE(AVG(pi.views), 0) as avg_views,
-          (
-            SELECT CONCAT(
-              DATE_FORMAT(p2.posted_at, '%W'),
-              ' ',
-              DATE_FORMAT(p2.posted_at, '%H:%i')
-            )
-            FROM posts p2
-            LEFT JOIN post_insights pi2 ON p2.id = pi2.post_id
-            WHERE p2.status = 'POSTED'
-              AND pi2.views IS NOT NULL
-              AND (
-                CASE
-                  WHEN p2.is_ai_generated = true THEN 'AI 發文'
-                  WHEN p2.media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM') THEN '圖片式文字'
-                  ELSE '人工發文'
-                END
-              ) = post_type
-            ORDER BY (
-              CASE
-                WHEN pi2.views > 0 THEN ((pi2.likes + pi2.replies + COALESCE(pi2.reposts, 0)) / pi2.views)
-                ELSE 0
-              END
-            ) DESC
-            LIMIT 1
-          ) as best_performing_time
-        FROM (
-          SELECT
-            p.id,
-            CASE
-              WHEN p.is_ai_generated = true THEN 'AI 發文'
-              WHEN p.media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM') THEN '圖片式文字'
-              ELSE '人工發文'
-            END as post_type
-          FROM posts p
-          WHERE p.status = 'POSTED'
-        ) AS categorized_posts
-        LEFT JOIN posts p ON categorized_posts.id = p.id
-        LEFT JOIN post_insights pi ON p.id = pi.post_id
-        GROUP BY post_type
-        HAVING total_uses > 0
-        ORDER BY 
-          CASE post_type
-            WHEN 'AI 發文' THEN 1
-            WHEN '圖片式文字' THEN 2
-            WHEN '人工發文' THEN 3
-          END`
-      );
-
-      return rows as TemplateStats[];
-    } catch (error) {
-      logger.error('Failed to get template stats:', error);
-      throw error;
-    }
-  }
-
-  /**
    * 獲取時段統計數據（按實際發文時間的小時分組）
    */
   static async getTimeslotStats(days: number = 3650): Promise<TimeslotStats[]> {
@@ -291,8 +197,6 @@ export class StatisticsModel {
     limit?: number;
     sortBy?: 'posted_at' | 'views' | 'engagement_rate';
     sortOrder?: 'ASC' | 'DESC';
-    templateId?: string;
-    timeslotId?: string;
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<{
@@ -313,16 +217,6 @@ export class StatisticsModel {
       // 構建 WHERE 條件
       const conditions: string[] = ["p.status = 'POSTED'"];
       const queryParams: any[] = [];
-
-      if (params.templateId) {
-        conditions.push('p.template_id = ?');
-        queryParams.push(params.templateId);
-      }
-
-      if (params.timeslotId) {
-        conditions.push('p.time_slot_id = ?');
-        queryParams.push(params.timeslotId);
-      }
 
       if (params.dateFrom) {
         conditions.push('p.posted_at >= ?');
@@ -360,8 +254,6 @@ export class StatisticsModel {
           p.id,
           LEFT(COALESCE(pr.content, ''), 100) as content_preview,
           p.posted_at,
-          t.name as template_name,
-          ts.name as timeslot_name,
           COALESCE(pi.views, 0) as views,
           COALESCE(pi.likes, 0) as likes,
           COALESCE(pi.replies, 0) as replies,
@@ -373,15 +265,12 @@ export class StatisticsModel {
             WHEN pi.views > 0 THEN ((pi.likes + pi.replies + COALESCE(pi.reposts, 0)) / pi.views * 100)
             ELSE 0
           END as engagement_rate_calc,
-          COALESCE(p.content_length, 0) as content_length,
-          COALESCE(p.hashtag_count, 0) as hashtag_count,
-          COALESCE(p.media_type, 'NONE') as media_type
+          COALESCE(p.media_type, 'TEXT') as media_type
         FROM posts p
         LEFT JOIN post_insights pi ON p.id = pi.post_id
         LEFT JOIN post_revisions pr ON p.id = pr.post_id AND pr.revision_no = (
           SELECT MAX(revision_no) FROM post_revisions WHERE post_id = p.id
         )
-        LEFT JOIN content_templates t ON p.template_id = t.id
         ${whereClause}
         ORDER BY ${sortColumn} ${sortOrder}
         LIMIT ${limit} OFFSET ${offset}`,

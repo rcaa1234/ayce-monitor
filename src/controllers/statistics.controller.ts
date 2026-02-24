@@ -34,30 +34,6 @@ export class StatisticsController {
   }
 
   /**
-   * GET /api/statistics/templates
-   * 獲取樣板統計
-   */
-  async getTemplates(req: Request, res: Response): Promise<void> {
-    try {
-      const days = parseInt(req.query.days as string) || 30;
-
-      const templates = await StatisticsModel.getTemplateStats(days);
-
-      res.json({
-        success: true,
-        data: templates,
-      });
-    } catch (error: any) {
-      logger.error('Failed to get template stats:', error);
-      res.status(500).json({
-        success: false,
-        error: '獲取樣板統計失敗',
-        message: error.message,
-      });
-    }
-  }
-
-  /**
    * GET /api/statistics/timeslots
    * 獲取時段統計
    */
@@ -172,8 +148,6 @@ export class StatisticsController {
       const limit = parseInt(req.query.limit as string) || 20;
       const sortBy = (req.query.sortBy as any) || 'posted_at';
       const sortOrder = (req.query.sortOrder as any) || 'DESC';
-      const templateId = req.query.templateId as string;
-      const timeslotId = req.query.timeslotId as string;
 
       // 解析日期範圍
       let dateFrom: Date | undefined;
@@ -192,8 +166,6 @@ export class StatisticsController {
         limit,
         sortBy,
         sortOrder,
-        templateId,
-        timeslotId,
         dateFrom,
         dateTo,
       });
@@ -221,6 +193,13 @@ export class StatisticsController {
       const { days, limit } = req.body;
 
       logger.info(`Starting manual insights sync: days=${days || 30}, limit=${limit || 100}`);
+
+      // 先同步最近貼文（快速匯入新貼文到資料庫）
+      try {
+        await threadsInsightsService.syncRecentPosts(20);
+      } catch (e: any) {
+        logger.warn('syncRecentPosts failed, continuing with insights sync:', e.message);
+      }
 
       // 同步執行，等待完成
       await threadsInsightsService.syncRecentPostsInsights(days || 30, limit || 100);
@@ -439,11 +418,7 @@ export class StatisticsController {
         return;
       }
 
-      // 確保「圖片式文字」和「人工發文」模板存在
-      const templateIds = await this.ensureImportTemplates(pool);
-
       // 從 Threads API 獲取貼文列表
-      // 如果 fetchAll 為 true，會自動分頁獲取所有歷史貼文
       const threadsPosts = await threadsService.getAccountPosts(
         defaultAccount.account.account_id,
         defaultAccount.token,
@@ -476,14 +451,6 @@ export class StatisticsController {
 
       for (const post of threadsPosts) {
         try {
-          // 根據 media_type 判斷模板分類
-          // IMAGE, VIDEO, CAROUSEL_ALBUM = 圖片式文字
-          // TEXT = 人工發文
-          const templateId = this.classifyPostTemplate(post.media_type, templateIds);
-
-          // 將 Threads 的 media_type 轉換為資料庫 ENUM 值
-          const dbMediaType = this.convertMediaType(post.media_type);
-
           // 檢查是否已存在（通過 threads_media_id 或 post_url）
           const [existing] = await pool.execute(
             `SELECT id FROM posts WHERE threads_media_id = ? OR post_url LIKE ? LIMIT 1`,
@@ -491,19 +458,16 @@ export class StatisticsController {
           );
 
           if ((existing as any[]).length > 0) {
-            // 已存在，更新 media_type（總是更新）和 template_id（僅當為 NULL 時）
+            // 已存在，更新 media_type
             const existingPostId = (existing as any)[0].id;
-
-            // 更新 media_type，使用 COALESCE 保護已有的 template_id
             await pool.execute(
-              `UPDATE posts SET media_type = ?, template_id = COALESCE(template_id, ?) WHERE id = ?`,
-              [dbMediaType, templateId, existingPostId]
+              `UPDATE posts SET media_type = ? WHERE id = ?`,
+              [post.media_type || 'TEXT', existingPostId]
             );
 
             const insights = await threadsService.getPostInsights(post.id, defaultAccount.token);
 
             if (insights) {
-              // 檢查 post_insights 是否存在
               const [insightExists] = await pool.execute(
                 `SELECT id FROM post_insights WHERE post_id = ? LIMIT 1`,
                 [existingPostId]
@@ -526,15 +490,15 @@ export class StatisticsController {
             continue;
           }
 
-          // 建立新貼文記錄（包含模板分類和 media_type）
+          // 建立新貼文記錄
           const { generateUUID } = await import('../utils/uuid');
           const postId = generateUUID();
           const postedAt = new Date(post.timestamp);
 
           await pool.execute(
-            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, template_id, media_type, created_at)
-             VALUES (?, 'POSTED', ?, ?, ?, ?, ?, ?, NOW())`,
-            [postId, post.id, post.permalink, postedAt, adminUserId, templateId, dbMediaType]
+            `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, media_type, created_at)
+             VALUES (?, 'POSTED', ?, ?, ?, ?, ?, NOW())`,
+            [postId, post.id, post.permalink, postedAt, adminUserId, post.media_type || 'TEXT']
           );
 
           // 建立 revision（如果有文字內容）
@@ -559,7 +523,7 @@ export class StatisticsController {
           }
 
           imported++;
-          logger.info(`Imported Threads post: ${post.id} (template: ${templateId})`);
+          logger.info(`Imported Threads post: ${post.id} (media_type: ${post.media_type})`);
 
           // 稍微延遲以避免 API rate limit
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -576,16 +540,12 @@ export class StatisticsController {
           logger.info(`Starting deletion sync check...`);
           logger.info(`Threads API returned ${threadsPosts.length} posts`);
 
-          // 獲取所有已發布的貼文
           const [dbPosts] = await pool.execute(
             `SELECT id, threads_media_id, post_url FROM posts WHERE status = 'POSTED'`
           );
           logger.info(`Database has ${(dbPosts as any[]).length} POSTED posts`);
 
-          // 建立 Threads 貼文的比對集合
-          // 1. 使用 media_id (數字格式)
           const threadsMediaIds = new Set(threadsPosts.map((p: any) => String(p.id)));
-          // 2. 從 permalink 提取 shortcode（例如從 /post/ABC123 提取 ABC123）
           const threadsShortcodes = new Set<string>();
           for (const p of threadsPosts) {
             if (p.permalink) {
@@ -595,18 +555,14 @@ export class StatisticsController {
               }
             }
           }
-          logger.info(`Threads shortcodes: ${threadsShortcodes.size}`);
 
-          // 找出資料庫中有但 Threads 上沒有的貼文（已被刪除）
           for (const dbPost of (dbPosts as any[])) {
             let foundOnThreads = false;
 
-            // 方法1: 使用 threads_media_id 比對
             if (dbPost.threads_media_id) {
               foundOnThreads = threadsMediaIds.has(String(dbPost.threads_media_id));
             }
 
-            // 方法2: 從 post_url 提取 shortcode 比對
             if (!foundOnThreads && dbPost.post_url) {
               const match = dbPost.post_url.match(/\/post\/([^/?]+)/);
               if (match) {
@@ -615,8 +571,7 @@ export class StatisticsController {
             }
 
             if (!foundOnThreads) {
-              // 這篇貼文在 Threads 上已被刪除，硬刪除資料庫記錄
-              logger.info(`Deleting post not found on Threads: ${dbPost.id} (media_id: ${dbPost.threads_media_id}, url: ${dbPost.post_url})`);
+              logger.info(`Deleting post not found on Threads: ${dbPost.id}`);
               await pool.execute('DELETE FROM post_insights WHERE post_id = ?', [dbPost.id]);
               await pool.execute('DELETE FROM post_revisions WHERE post_id = ?', [dbPost.id]);
               await pool.execute('DELETE FROM post_performance_log WHERE post_id = ?', [dbPost.id]);
@@ -625,13 +580,13 @@ export class StatisticsController {
             }
           }
 
-          logger.info(`✓ Deletion sync completed: ${deleted} posts deleted`);
+          logger.info(`Deletion sync completed: ${deleted} posts deleted`);
         } catch (deleteError: any) {
           logger.error('Failed to clean up deleted posts:', deleteError);
         }
       }
 
-      logger.info(`✓ Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped, ${deleted} deleted`);
+      logger.info(`Threads posts sync completed: ${imported} imported, ${updated} updated, ${skipped} skipped, ${deleted} deleted`);
 
       res.json({
         success: true,
@@ -643,141 +598,6 @@ export class StatisticsController {
       res.status(500).json({
         success: false,
         error: '同步 Threads 貼文失敗',
-        message: error.message,
-      });
-    }
-  }
-
-  /**
-   * POST /api/statistics/reclassify-templates
-   * 重新分類所有沒有模板的貼文
-   */
-  async reclassifyTemplates(req: Request, res: Response): Promise<void> {
-    try {
-      const { getPool } = await import('../database/connection');
-      const pool = getPool();
-
-      // 確保「圖片式文字」和「人工發文」模板存在
-      const templateIds = await this.ensureImportTemplates(pool);
-      logger.info(`[Reclassify] Templates ready - imageText: ${templateIds.imageText}, manual: ${templateIds.manual}`);
-
-      // 找出所有沒有模板的已發布貼文（包含 media_type）
-      const [postsWithoutTemplate] = await pool.execute(
-        `SELECT p.id, p.media_type, p.status
-         FROM posts p
-         WHERE p.template_id IS NULL AND p.status = 'POSTED'`
-      );
-
-      logger.info(`[Reclassify] Found ${(postsWithoutTemplate as any[]).length} posts without template_id`);
-
-      let classifiedImage = 0;
-      let classifiedManual = 0;
-      let skipped = 0;
-
-      for (const post of postsWithoutTemplate as any[]) {
-        try {
-          // 根據 media_type 判斷模板分類
-          let templateId: string;
-
-          // 有圖片/影片 → 圖片式文字，純文字或空 → 人工發文
-          const imageTypes = ['IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM'];
-          if (post.media_type && imageTypes.includes(post.media_type.toUpperCase())) {
-            templateId = templateIds.imageText;
-            classifiedImage++;
-          } else {
-            templateId = templateIds.manual;
-            classifiedManual++;
-          }
-
-          await pool.execute(
-            `UPDATE posts SET template_id = ? WHERE id = ?`,
-            [templateId, post.id]
-          );
-        } catch (error) {
-          skipped++;
-          logger.error(`[Reclassify] Failed to classify post ${post.id}:`, error);
-        }
-      }
-
-      const total = classifiedImage + classifiedManual;
-      logger.info(`[Reclassify] Completed: ${classifiedImage} → 圖片式文字, ${classifiedManual} → 人工發文, ${skipped} skipped`);
-
-      res.json({
-        success: true,
-        message: `已重新分類 ${total} 篇貼文（圖片式文字: ${classifiedImage}、人工發文: ${classifiedManual}）`,
-        data: {
-          classified: total,
-          classifiedImage,
-          classifiedManual,
-          skipped,
-          total: (postsWithoutTemplate as any[]).length
-        },
-      });
-    } catch (error: any) {
-      logger.error('Failed to reclassify templates:', error);
-      res.status(500).json({
-        success: false,
-        error: '重新分類失敗',
-        message: error.message,
-      });
-    }
-  }
-
-  /**
-   * POST /api/statistics/fix-all-posts
-   * 修復所有貼文的分類：清空所有 template_id，然後根據 media_type 重新分類
-   */
-  async fixAllPosts(req: Request, res: Response): Promise<void> {
-    try {
-      const { getPool } = await import('../database/connection');
-      const pool = getPool();
-
-      // 確保「圖片式文字」和「人工發文」模板存在
-      const templateIds = await this.ensureImportTemplates(pool);
-      logger.info(`[FixAllPosts] Templates ready - imageText: ${templateIds.imageText}, manual: ${templateIds.manual}`);
-
-      // 步驟 1：清空所有已發布貼文的 template_id
-      await pool.execute(
-        `UPDATE posts SET template_id = NULL WHERE status = 'POSTED'`
-      );
-      logger.info(`[FixAllPosts] Cleared template_id for all POSTED posts`);
-
-      // 步驟 2：根據 media_type 重新分類
-      // 有圖片/影片 → 圖片式文字
-      const [imageResult] = await pool.execute(
-        `UPDATE posts SET template_id = ? 
-         WHERE status = 'POSTED' 
-         AND media_type IN ('IMAGE', 'VIDEO', 'CAROUSEL', 'REELS_VIDEO', 'CAROUSEL_ALBUM')`,
-        [templateIds.imageText]
-      );
-      const classifiedImage = (imageResult as any).affectedRows || 0;
-
-      // 純文字或無 media_type → 人工發文
-      const [manualResult] = await pool.execute(
-        `UPDATE posts SET template_id = ? 
-         WHERE status = 'POSTED' 
-         AND template_id IS NULL`,
-        [templateIds.manual]
-      );
-      const classifiedManual = (manualResult as any).affectedRows || 0;
-
-      const total = classifiedImage + classifiedManual;
-      logger.info(`[FixAllPosts] Completed: ${classifiedImage} → 圖片式文字, ${classifiedManual} → 人工發文`);
-
-      res.json({
-        success: true,
-        message: `修復完成！已重新分類 ${total} 篇貼文（圖片式文字: ${classifiedImage}、人工發文: ${classifiedManual}）`,
-        data: {
-          total,
-          classifiedImage,
-          classifiedManual
-        },
-      });
-    } catch (error: any) {
-      logger.error('Failed to fix all posts:', error);
-      res.status(500).json({
-        success: false,
-        error: '修復貼文失敗',
         message: error.message,
       });
     }
@@ -944,65 +764,6 @@ export class StatisticsController {
   }
 
   /**
-   * 確保「圖片式文字」和「人工發文」模板存在
-   */
-  private async ensureImportTemplates(pool: any): Promise<{ imageText: string; manual: string }> {
-    const { generateUUID } = await import('../utils/uuid');
-
-    // 檢查「圖片式文字」模板
-    const [imageTextRows] = await pool.execute(
-      `SELECT id FROM content_templates WHERE name = '圖片式文字' LIMIT 1`
-    );
-    let imageTextId: string;
-    if ((imageTextRows as any[]).length === 0) {
-      imageTextId = generateUUID();
-      await pool.execute(
-        `INSERT INTO content_templates (id, name, prompt, description, preferred_engine, enabled)
-         VALUES (?, '圖片式文字', '圖片式文字貼文模板', '包含圖片或影片的貼文', 'GEMINI', true)`,
-        [imageTextId]
-      );
-      logger.info('Created template: 圖片式文字');
-    } else {
-      imageTextId = (imageTextRows as any)[0].id;
-    }
-
-    // 檢查「人工發文」模板
-    const [manualRows] = await pool.execute(
-      `SELECT id FROM content_templates WHERE name = '人工發文' LIMIT 1`
-    );
-    let manualId: string;
-    if ((manualRows as any[]).length === 0) {
-      manualId = generateUUID();
-      await pool.execute(
-        `INSERT INTO content_templates (id, name, prompt, description, preferred_engine, enabled)
-         VALUES (?, '人工發文', '人工發文模板', '手動發布的純文字貼文', 'GEMINI', true)`,
-        [manualId]
-      );
-      logger.info('Created template: 人工發文');
-    } else {
-      manualId = (manualRows as any)[0].id;
-    }
-
-    return { imageText: imageTextId, manual: manualId };
-  }
-
-  /**
-   * 根據貼文類型分類模板
-   */
-  private classifyPostTemplate(
-    mediaType: string,
-    templateIds: { imageText: string; manual: string }
-  ): string {
-    // IMAGE, VIDEO, CAROUSEL_ALBUM = 圖片式文字
-    // TEXT 或其他 = 人工發文
-    const imageTypes = ['IMAGE', 'VIDEO', 'CAROUSEL_ALBUM', 'REELS_VIDEO'];
-    if (imageTypes.includes(mediaType?.toUpperCase())) {
-      return templateIds.imageText;
-    }
-    return templateIds.manual;
-  }
-
-  /**
    * GET /api/statistics/posts-by-hour
    * 查詢指定時段（小時）的貼文列表
    */
@@ -1063,23 +824,6 @@ export class StatisticsController {
     }
   }
 
-  /**
-   * 將 Threads API 的 media_type 轉換為資料庫 ENUM 值
-   * 資料庫 ENUM: 'NONE', 'IMAGE', 'VIDEO', 'CAROUSEL'
-   */
-  private convertMediaType(threadsMediaType: string): string {
-    if (!threadsMediaType) return 'NONE';
-
-    const typeMap: { [key: string]: string } = {
-      'TEXT': 'NONE',
-      'IMAGE': 'IMAGE',
-      'VIDEO': 'VIDEO',
-      'REELS_VIDEO': 'VIDEO',
-      'CAROUSEL_ALBUM': 'CAROUSEL',
-    };
-
-    return typeMap[threadsMediaType.toUpperCase()] || 'NONE';
-  }
 }
 
 export default new StatisticsController();

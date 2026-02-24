@@ -195,15 +195,14 @@ export class InsightsModel {
         COUNT(DISTINCT pi.post_id) as post_count
       FROM post_insights pi
       INNER JOIN posts p ON pi.post_id = p.id
-      INNER JOIN threads_accounts ta ON p.id = p.id
-      WHERE ta.id = ?
+      WHERE p.status = 'POSTED'
         AND pi.fetched_at BETWEEN ? AND ?
         AND pi.id IN (
           SELECT id FROM (
             SELECT MAX(id) as id FROM post_insights GROUP BY post_id
           ) latest
         )`,
-      [accountId, startDate, endDate]
+      [startDate, endDate]
     );
 
     return rows[0] as any;

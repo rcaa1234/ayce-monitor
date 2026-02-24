@@ -152,6 +152,99 @@ class ThreadsInsightsService {
   }
 
   /**
+   * 從 Threads API 同步最近貼文到本地資料庫
+   * 僅做貼文 INSERT/UPDATE，不拉 insights、不做刪除同步
+   */
+  async syncRecentPosts(limit = 50): Promise<{ imported: number; updated: number }> {
+    let imported = 0;
+    let updated = 0;
+
+    try {
+      const defaultAccount = await threadsService.getDefaultAccount();
+      if (!defaultAccount) {
+        logger.warn('No active Threads account found, skipping post sync');
+        return { imported, updated };
+      }
+
+      logger.info(`[syncRecentPosts] Fetching up to ${limit} recent posts from Threads...`);
+
+      const threadsPosts = await threadsService.getAccountPosts(
+        defaultAccount.account.account_id,
+        defaultAccount.token,
+        Math.min(limit, 50),
+        false // 不 fetchAll，只拿最新的
+      );
+
+      if (threadsPosts.length === 0) {
+        logger.info('[syncRecentPosts] No posts returned from Threads API');
+        return { imported, updated };
+      }
+
+      const { getPool } = await import('../database/connection');
+      const pool = getPool();
+      const { generateUUID } = await import('../utils/uuid');
+
+      // 取得管理員 ID
+      const [adminUsers] = await pool.execute(
+        `SELECT u.id FROM users u
+         INNER JOIN user_roles ur ON u.id = ur.user_id
+         INNER JOIN roles r ON ur.role_id = r.id
+         WHERE r.name = 'admin' AND u.status = 'ACTIVE'
+         LIMIT 1`
+      );
+      const adminUserId = (adminUsers as any)[0]?.id || null;
+
+      for (const post of threadsPosts) {
+        try {
+          const [existing] = await pool.execute(
+            `SELECT id FROM posts WHERE threads_media_id = ? LIMIT 1`,
+            [post.id]
+          );
+
+          if ((existing as any[]).length > 0) {
+            // 已存在，更新 media_type
+            await pool.execute(
+              `UPDATE posts SET media_type = ? WHERE id = ?`,
+              [post.media_type || 'TEXT', (existing as any)[0].id]
+            );
+            updated++;
+          } else {
+            // 新貼文
+            const postId = generateUUID();
+            const postedAt = new Date(post.timestamp);
+
+            await pool.execute(
+              `INSERT INTO posts (id, status, threads_media_id, post_url, posted_at, created_by, media_type, created_at)
+               VALUES (?, 'POSTED', ?, ?, ?, ?, ?, NOW())`,
+              [postId, post.id, post.permalink, postedAt, adminUserId, post.media_type || 'TEXT']
+            );
+
+            // 建立 revision
+            if (post.text) {
+              const revisionId = generateUUID();
+              await pool.execute(
+                `INSERT INTO post_revisions (id, post_id, content, revision_no, engine_used, created_at)
+                 VALUES (?, ?, ?, 1, 'IMPORTED', NOW())`,
+                [revisionId, postId, post.text]
+              );
+            }
+
+            imported++;
+          }
+        } catch (postError: any) {
+          logger.warn(`[syncRecentPosts] Failed to process post ${post.id}:`, postError.message);
+        }
+      }
+
+      logger.info(`[syncRecentPosts] Completed: ${imported} imported, ${updated} updated`);
+      return { imported, updated };
+    } catch (error) {
+      logger.error('[syncRecentPosts] Failed:', error);
+      return { imported, updated };
+    }
+  }
+
+  /**
    * 批次同步最近貼文的洞察數據
    */
   async syncRecentPostsInsights(days = 7, limit = 50): Promise<void> {

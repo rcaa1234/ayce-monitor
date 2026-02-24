@@ -163,10 +163,17 @@ export const syncInsightsData = cron.schedule('0 */4 * * *', async () => {
       return;
     }
 
-    // Sync recent posts insights (last 7 days, up to 50 posts)
+    // Step 1: Sync recent posts from Threads (import new posts)
+    try {
+      await threadsInsightsService.syncRecentPosts(50);
+    } catch (e: any) {
+      logger.warn('syncRecentPosts failed, continuing:', e.message);
+    }
+
+    // Step 2: Sync recent posts insights (last 7 days, up to 50 posts)
     await threadsInsightsService.syncRecentPostsInsights(7, 50);
 
-    // Sync account insights (weekly)
+    // Step 3: Sync account insights (weekly)
     await threadsInsightsService.syncAccountInsights(defaultAccount.account.id, PeriodType.WEEKLY);
 
     logger.info('✓ Insights data sync completed');

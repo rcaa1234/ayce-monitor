@@ -15,9 +15,6 @@ router.use(authenticate);
 // GET /api/statistics/overview - 統計總覽
 router.get('/overview', statisticsController.getOverview.bind(statisticsController));
 
-// GET /api/statistics/templates - 樣板統計
-router.get('/templates', statisticsController.getTemplates.bind(statisticsController));
-
 // GET /api/statistics/timeslots - 時段統計
 router.get('/timeslots', statisticsController.getTimeslots.bind(statisticsController));
 
@@ -38,12 +35,6 @@ router.get('/sync-status', statisticsController.getSyncStatus.bind(statisticsCon
 
 // POST /api/statistics/sync-threads-posts - 從 Threads 同步歷史貼文
 router.post('/sync-threads-posts', statisticsController.syncThreadsPosts.bind(statisticsController));
-
-// POST /api/statistics/reclassify-templates - 重新分類所有貼文的模板
-router.post('/reclassify-templates', statisticsController.reclassifyTemplates.bind(statisticsController));
-
-// POST /api/statistics/fix-all-posts - 修復所有貼文的分類
-router.post('/fix-all-posts', statisticsController.fixAllPosts.bind(statisticsController));
 
 // GET /api/statistics/best-time-post - 查詢最佳時段的貼文
 router.get('/best-time-post', statisticsController.getBestTimePost.bind(statisticsController));

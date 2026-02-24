@@ -951,10 +951,6 @@
                             style="padding: 8px 12px; border: none; background: #667eea; color: white; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                             📊 摘要
                         </button>
-                        <button class="stats-sub-tab" onclick="switchStatsTab('templates')"
-                            style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
-                            📊 類型
-                        </button>
                         <button class="stats-sub-tab" onclick="switchStatsTab('timeslots')"
                             style="padding: 8px 12px; border: none; background: #e5e7eb; color: #333; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">
                             ⏰ 時段
@@ -1047,10 +1043,6 @@
                                         style="padding: 5px 12px; background: #059669; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         📦 完整匯入全部
                                     </button>
-                                    <button onclick="reclassifyTemplates()"
-                                        style="padding: 5px 12px; background: #8b5cf6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
-                                        🏷️ 重新分類模板
-                                    </button>
                                     <button onclick="triggerManualSync()"
                                         style="padding: 5px 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
                                         🔄 同步互動數據
@@ -1066,7 +1058,7 @@
                                 </div>
                             </div>
                             <p style="margin-top: 10px; font-size: 11px; color: #999;">
-                                💡 提示：「完整匯入全部」匯入所有歷史貼文，「重新分類模板」會為沒有模板的貼文自動分類。
+                                💡 提示：「完整匯入全部」匯入所有歷史貼文並同步互動數據。頁面載入時會自動同步最新貼文。
                             </p>
                         </div>
 
@@ -1119,29 +1111,6 @@
                             <h4 style="font-size: 14px; color: #333; margin: 0 0 12px 0;">📏 內容長度分析</h4>
                             <div id="contentLengthAnalysis" style="min-height: 80px;">
                                 <p style="color: #999; text-align: center; padding: 20px 0; font-size: 12px;">載入中...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Statistics Templates Sub-tab (改為發文類型分析) -->
-                    <div id="statsTemplatesTab" class="stats-sub-content"
-                        style="background: #f8f9fa; padding: 20px; border-radius: 10px; min-height: 400px; display: none;">
-                        <h3 style="margin-bottom: 15px; font-size: 16px;">📊 發文類型分析</h3>
-                        <p style="color: #666; margin-bottom: 20px; font-size: 13px;">
-                            統計三種發文類型的表現：AI 發文、非 AI (含圖)、非 AI (無圖)
-                        </p>
-                        <div id="statsTemplatesList" style="display: grid; gap: 15px;">
-                            <p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>
-                        </div>
-
-                        <!-- 維度使用統計區塊 -->
-                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                            <h4 style="margin-bottom: 15px; font-size: 16px; color: #374151;">🎯 AI 發文維度統計</h4>
-                            <p style="color: #666; margin-bottom: 15px; font-size: 13px;">
-                                分析最近 30 天 AI 發文使用的六種維度分佈
-                            </p>
-                            <div id="dimension-stats-overview" style="display: grid; gap: 15px;">
-                                <p style="color: #999; text-align: center; padding: 20px 0;">載入中...</p>
                             </div>
                         </div>
                     </div>
@@ -4902,7 +4871,6 @@
                 // Show selected content
                 const contentMap = {
                     'summary': 'statsSummaryTab',
-                    'templates': 'statsTemplatesTab',
                     'timeslots': 'statsTimeslotsTab',
                     'details': 'statsDetailsTab'
                 };
@@ -4915,8 +4883,6 @@
                 // Load data for the selected tab
                 if (tabName === 'summary') {
                     loadStatsSummary();
-                } else if (tabName === 'templates') {
-                    loadStatsTemplates();
                 } else if (tabName === 'timeslots') {
                     loadStatsTimeslots();
                 } else if (tabName === 'details') {
@@ -5360,38 +5326,6 @@
                 } catch (error) {
                     console.error('Failed to clear scheduled posts:', error);
                     showAlert('dashboardAlert', '清除失敗: ' + error.message, 'danger');
-                }
-            }
-
-            // Reclassify templates for posts without template
-            async function reclassifyTemplates() {
-                if (!confirm('此操作將為所有沒有模板分類的貼文自動分類。\n\n繼續嗎？')) {
-                    return;
-                }
-
-                try {
-                    showAlert('dashboardAlert', '正在重新分類貼文模板...', 'info');
-
-                    const response = await fetch(`${API_BASE}/statistics/reclassify-templates`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    const result = await response.json();
-
-                    if (!result.success) {
-                        throw new Error(result.error || '分類失敗');
-                    }
-
-                    showAlert('dashboardAlert', result.message, 'success');
-                    loadStatsSummary(); // 重新載入統計數據
-                    loadStatsTemplates(); // 重新載入模板統計
-                } catch (error) {
-                    console.error('Failed to reclassify templates:', error);
-                    showAlert('dashboardAlert', '重新分類失敗: ' + error.message, 'danger');
                 }
             }
 
@@ -6301,172 +6235,6 @@
                 }
             }
 
-            // Load template statistics
-            async function loadStatsTemplates() {
-                const container = document.getElementById('statsTemplatesList');
-                container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">載入中...</p>';
-
-                try {
-                    const response = await fetch(`${API_BASE}/statistics/templates?days=30`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    const result = await response.json();
-                    if (!result.success) {
-                        throw new Error(result.error || 'Failed to load templates');
-                    }
-
-                    const templates = result.data;
-
-                    if (templates.length === 0) {
-                        container.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 0;">尚無樣板數據</p>';
-                        return;
-                    }
-
-                    let html = '';
-                    templates.forEach(template => {
-                        html += `
-                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                            <div style="font-weight: bold; margin-bottom: 8px;">${template.name}</div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #666;">
-                                <div>使用次數: ${template.total_uses || 0}</div>
-                                <div>平均按讚: ${Math.round(parseFloat(template.avg_likes) || 0)}</div>
-                                <div>參與率: ${(parseFloat(template.avg_engagement_rate) || 0).toFixed(1)}%</div>
-                                <div>平均觀看: ${Math.round(parseFloat(template.avg_views) || 0)}</div>
-                            </div>
-                            ${template.best_performing_time ? `
-                                <div style="margin-top: 8px; font-size: 11px; color: #28a745;">
-                                    ⭐ 最佳時段: ${template.best_performing_time}
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                    });
-
-                    container.innerHTML = html;
-
-                    // 同時載入維度統計
-                    loadOverviewDimensionStats();
-
-                } catch (error) {
-                    console.error('Failed to load template statistics:', error);
-                    container.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 40px 0;">載入失敗</p>';
-                }
-            }
-
-            // 載入總覽中的維度統計
-            async function loadOverviewDimensionStats() {
-                const container = document.getElementById('dimension-stats-overview');
-                if (!container) return;
-
-                try {
-                    const response = await fetch(`${API_BASE}/generation/stats`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    if (!response.ok) {
-                        container.innerHTML = '<p style="color: #999;">無法載入維度統計</p>';
-                        return;
-                    }
-
-                    const result = await response.json();
-                    if (result.success) {
-                        renderDimensionStatsOverview(result.data, container);
-                    }
-                } catch (error) {
-                    console.error('Failed to load overview dimension stats:', error);
-                    container.innerHTML = '<p style="color: #999;">載入失敗</p>';
-                }
-            }
-
-            // 渲染總覽中的維度統計
-            function renderDimensionStatsOverview(stats, container) {
-                const moduleStats = stats.module || {};
-                const total = Object.values(moduleStats).reduce((a, b) => a + b, 0);
-
-                if (total === 0) {
-                    container.innerHTML = '<p style="color: #999;">尚無 AI 發文統計資料</p>';
-                    return;
-                }
-
-                const dimensionMeta = {
-                    module: {
-                        title: '📦 內容模組', color: '#667eea', names: {
-                            pleasure_relief: '爽與解壓', practical: '務實處理',
-                            uncomfortable_truth: '不舒服真實', controversial: '爭議提問'
-                        }
-                    },
-                    angle: {
-                        title: '🎬 情境切角', color: '#f093fb', names: {
-                            morning_wake: '早晨提問', late_night: '隨便做', confession_anon: '不好意思問',
-                            work_break: '午休時間', before_sleep: '睡前發問'
-                        }
-                    },
-                    outlet: {
-                        title: '💡 處理出口', color: '#4facfe', names: {
-                            solo_quick: '自慰-快戰速決', solo_slow: '自慰-慢慢享受',
-                            partner_simple: '有對象-輕量選項', partner_full: '有對象-完整方案',
-                            mindset_shift: '心態轉換'
-                        }
-                    },
-                    tone_bias: {
-                        title: '🗣️ 語氣偏壓', color: '#fa709a', names: {
-                            blunt_raw: '直白粗暴', playful_mean: '調皮嘴賤',
-                            cold_practical: '冷淡務實', warm_body: '溫暖肉體派'
-                        }
-                    },
-                    ending_style: {
-                        title: '🔚 收尾意圖', color: '#43e97b', names: {
-                            done_sleep: '收工型', question_back: '反問懸念型', tease_more: '挑逗延續型',
-                            reader_agency: '讀者決定型', self_call: '自我喊話型',
-                            relief_done: '解放完成', no_wait: '不用等型'
-                        }
-                    },
-                    length_target: {
-                        title: '📏 字數目標', color: '#38f9d7', names: {
-                            '50-70': '短狠 (50-70字)', '70-95': '中等 (70-95字)', '95-120': '慢慢戳 (95-120字)'
-                        }
-                    }
-                };
-
-                let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">';
-
-                for (const [dimKey, dimInfo] of Object.entries(dimensionMeta)) {
-                    const dimStats = stats[dimKey] || {};
-                    const dimTotal = Object.values(dimStats).reduce((a, b) => a + b, 0);
-
-                    html += `<div style="background: white; padding: 12px; border-radius: 8px;">
-                        <h5 style="margin: 0 0 8px 0; font-size: 13px; color: #374151;">${dimInfo.title}</h5>
-                        <div style="display: grid; gap: 4px;">`;
-
-                    if (dimTotal === 0) {
-                        html += `<p style="color: #999; font-size: 11px; margin: 0;">尚無資料</p>`;
-                    } else {
-                        for (const [code, count] of Object.entries(dimStats)) {
-                            const percent = Math.round((count / dimTotal) * 100);
-                            const name = dimInfo.names[code] || code;
-
-                            html += `
-                            <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #666;">
-                                    <span>${escapeHtml(name)}</span>
-                                    <span>${percent}%</span>
-                                </div>
-                                <div style="height: 3px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
-                                    <div style="width: ${percent}%; height: 100%; background: ${dimInfo.color};"></div>
-                                </div>
-                            </div>
-                            `;
-                        }
-                    }
-
-                    html += '</div></div>';
-                }
-
-                html += '</div>';
-                container.innerHTML = html;
-            }
-
             // Load timeslot statistics
             async function loadStatsTimeslots() {
                 const container = document.getElementById('statsTimeslotsList');
@@ -6682,7 +6450,6 @@
                     // 等待 2 秒後重新載入統計數據
                     setTimeout(() => {
                         loadStatsSummary();
-                        if (currentStatsTab === 'templates') loadStatsTemplates();
                         if (currentStatsTab === 'timeslots') loadStatsTimeslots();
                         if (currentStatsTab === 'details') loadStatsDetails();
                     }, 2000);

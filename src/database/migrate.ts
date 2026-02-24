@@ -1706,6 +1706,9 @@ const migrations = [
   `ALTER TABLE monitor_sources DROP COLUMN timeout_seconds`,
   `ALTER TABLE monitor_sources DROP COLUMN user_agent`,
   `ALTER TABLE monitor_sources DROP COLUMN selectors`,
+
+  // Migration 105: 新增 posts.media_type 欄位（儲存 Threads 原始媒體類型）
+  `ALTER TABLE posts ADD COLUMN media_type VARCHAR(30) NULL COMMENT 'Threads 媒體類型'`,
 ];
 
 async function runMigrations() {
