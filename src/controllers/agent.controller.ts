@@ -652,6 +652,86 @@ export async function getAvailableSlots(req: Request, res: Response): Promise<vo
 }
 
 /**
+ * POST /api/agent/sources
+ * Agent 自行註冊監控來源
+ * 如果相同 URL 已存在則回傳既有記錄，否則建立新來源
+ * 可選帶入 brand_ids 自動建立品牌-來源關聯
+ */
+export async function registerSource(req: Request, res: Response): Promise<void> {
+    try {
+        const { name, url, platform, description, platform_category, source_type, check_interval_hours, brand_ids } = req.body;
+
+        if (!name || !url) {
+            res.status(400).json({ success: false, error: 'name and url are required' });
+            return;
+        }
+
+        const pool = getPool();
+
+        // 檢查相同 URL 是否已存在
+        const [existing] = await pool.execute<RowDataPacket[]>(
+            `SELECT id, name, url, platform FROM monitor_sources WHERE url = ? LIMIT 1`,
+            [url]
+        );
+
+        let sourceId: string;
+        let created = false;
+
+        if (existing.length > 0) {
+            sourceId = existing[0].id;
+            logger.info(`[Agent] Source already exists: ${sourceId} (${url})`);
+        } else {
+            sourceId = generateUUID();
+            await pool.execute(
+                `INSERT INTO monitor_sources (id, name, description, url, platform, platform_category, source_type, check_interval_hours, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, true)`,
+                [
+                    sourceId,
+                    name,
+                    description || null,
+                    url,
+                    platform || 'other',
+                    platform_category || null,
+                    source_type || 'api',
+                    check_interval_hours || 1,
+                ]
+            );
+            created = true;
+            logger.info(`[Agent] Created new source: ${sourceId} (${name})`);
+        }
+
+        // 建立品牌-來源關聯
+        let linked = 0;
+        if (Array.isArray(brand_ids) && brand_ids.length > 0) {
+            for (const brandId of brand_ids) {
+                try {
+                    await pool.execute(
+                        `INSERT IGNORE INTO monitor_brand_sources (id, brand_id, source_id)
+                         VALUES (?, ?, ?)`,
+                        [generateUUID(), brandId, sourceId]
+                    );
+                    linked++;
+                } catch (linkErr: any) {
+                    logger.warn(`[Agent] Failed to link brand ${brandId} to source ${sourceId}:`, linkErr.message);
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            data: {
+                source_id: sourceId,
+                created,
+                linked_brands: linked,
+            },
+        });
+    } catch (error) {
+        logger.error('[Agent] 註冊 source 失敗:', error);
+        res.status(500).json({ success: false, error: 'Failed to register source' });
+    }
+}
+
+/**
  * POST /api/agent/dcard/mentions
  * 接收 Dcard 關鍵字命中的文章
  * 重複資料依 content_hash + brand_id 判斷，重複時更新互動數據

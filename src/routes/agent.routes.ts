@@ -39,6 +39,9 @@ router.get('/monitor/keywords', agentController.getMonitorKeywords);
 // 診斷：檢查 DB 欄位
 router.get('/debug/db-schema', agentController.debugDbSchema);
 
+// 註冊監控來源
+router.post('/sources', agentController.registerSource);
+
 // 通用資料上傳（所有平台的提及文章）
 router.post('/mentions', agentController.receiveMentions);
 
