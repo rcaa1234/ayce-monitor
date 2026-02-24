@@ -1695,18 +1695,17 @@ const migrations = [
     DROP COLUMN time_slot_id`,
 
   // ========================================
-  // Migration 97: Remove crawler-specific columns from monitor_sources
-  // All crawling moved to external agents
+  // Migration 97-104: Remove crawler-specific columns from monitor_sources
+  // All crawling moved to external agents (one per statement for MySQL compat)
   // ========================================
-  `ALTER TABLE monitor_sources
-    DROP COLUMN IF EXISTS crawl_depth,
-    DROP COLUMN IF EXISTS max_pages,
-    DROP COLUMN IF EXISTS max_items_per_check,
-    DROP COLUMN IF EXISTS use_puppeteer,
-    DROP COLUMN IF EXISTS request_delay_ms,
-    DROP COLUMN IF EXISTS timeout_seconds,
-    DROP COLUMN IF EXISTS user_agent,
-    DROP COLUMN IF EXISTS selectors`,
+  `ALTER TABLE monitor_sources DROP COLUMN crawl_depth`,
+  `ALTER TABLE monitor_sources DROP COLUMN max_pages`,
+  `ALTER TABLE monitor_sources DROP COLUMN max_items_per_check`,
+  `ALTER TABLE monitor_sources DROP COLUMN use_puppeteer`,
+  `ALTER TABLE monitor_sources DROP COLUMN request_delay_ms`,
+  `ALTER TABLE monitor_sources DROP COLUMN timeout_seconds`,
+  `ALTER TABLE monitor_sources DROP COLUMN user_agent`,
+  `ALTER TABLE monitor_sources DROP COLUMN selectors`,
 ];
 
 async function runMigrations() {
