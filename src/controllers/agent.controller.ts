@@ -793,7 +793,7 @@ export async function receiveMentions(req: Request, res: Response): Promise<void
                 const crawlLogId = generateUUID();
                 await pool.execute(
                     `INSERT INTO monitor_crawl_logs (id, source_id, started_at, completed_at, status, articles_found, new_mentions)
-                     VALUES (?, ?, NOW(), NOW(), 'completed', 1, 1)`,
+                     VALUES (?, ?, NOW(), NOW(), 'success', 1, 1)`,
                     [crawlLogId, source_id]
                 );
 
@@ -831,8 +831,9 @@ export async function receiveMentions(req: Request, res: Response): Promise<void
                 );
 
                 saved++;
-            } catch (err) {
-                logger.error('[Agent] 儲存 mention 失敗:', err);
+            } catch (err: any) {
+                logger.error(`[Agent] 儲存 mention 失敗 (source_id=${mention.source_id}, url=${mention.url}):`, err.message || err);
+                skipped++;
             }
         }
 
