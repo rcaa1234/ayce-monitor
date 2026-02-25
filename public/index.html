@@ -1874,21 +1874,6 @@
                     </ul>
                 </div>
 
-                <!-- 預設來源多選區塊 -->
-                <div
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 15px 0; font-size: 16px;">📋 從預設來源新增</h4>
-                    <div id="sourceTemplatesList"
-                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px;">
-                        <p style="color: rgba(255,255,255,0.7); grid-column: span 2; text-align: center; margin: 0;">
-                            載入中...</p>
-                    </div>
-                    <button onclick="addSelectedSources()"
-                        style="margin-top: 12px; padding: 10px 20px; background: white; color: #667eea; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                        ➕ 新增選取的來源
-                    </button>
-                </div>
-
                 <!-- 手動新增來源表單 -->
                 <div
                     style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #e5e7eb;">
@@ -6521,7 +6506,6 @@
                 } else if (tabName === 'sources') {
                     document.getElementById('monitorSourcesTab').style.display = 'block';
                     loadSources();
-                    loadSourceTemplates(); // 載入預設來源多選
                 } else if (tabName === 'stats') {
                     document.getElementById('monitorStatsTab').style.display = 'block';
                     loadMonitorStats();
@@ -6576,7 +6560,7 @@
                         let hitDetails = '';
                         if (m.classification_hits) {
                             try {
-                                const hits = JSON.parse(m.classification_hits);
+                                const hits = Array.isArray(m.classification_hits) ? m.classification_hits : JSON.parse(m.classification_hits);
                                 const strongHits = hits.filter(h => h.strength === 'strong').map(h => h.rule_name);
                                 if (strongHits.length > 0) {
                                     hitDetails = strongHits.filter((v, i, a) => a.indexOf(v) === i).join('、');
@@ -6599,7 +6583,7 @@
                         ${hitDetails ? `<p style="font-size: 12px; color: ${topic.color}; margin-bottom: 10px;">📌 ${hitDetails}</p>` : ''}
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div style="font-size: 12px; color: #888;">
-                                🔑 ${JSON.parse(m.matched_keywords || '[]').join(', ')}
+                                🔑 ${(Array.isArray(m.matched_keywords) ? m.matched_keywords : (() => { try { return JSON.parse(m.matched_keywords || '[]'); } catch(e) { return []; } })()).join(', ')}
                                 ${m.likes_count ? ` · ❤️ ${m.likes_count}` : ''}
                                 ${m.comments_count ? ` · 💬 ${m.comments_count}` : ''}
                             </div>
@@ -6974,8 +6958,7 @@
                     if (sources.length === 0) {
                         container.innerHTML = `
                         <div style="text-align: center; padding: 40px 0;">
-                            <p style="color: #999; margin-bottom: 20px;">尚未設定監控來源</p>
-                            <button class="btn btn-primary" onclick="showSourceTemplates()">📋 從預設來源新增</button>
+                            <p style="color: #999; margin-bottom: 20px;">尚未設定監控來源，請使用上方表單手動新增。</p>
                         </div>
                     `;
                         return;
@@ -7801,59 +7784,6 @@
                 }
             }
 
-            // 載入預設來源模板（多選）
-            async function loadSourceTemplates() {
-                const container = document.getElementById('sourceTemplatesList');
-                if (!container) return;
-
-                try {
-                    const response = await fetch(`${API_BASE}/monitor/templates`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-
-                    const result = await response.json();
-                    const templates = result.data || [];
-
-                    if (templates.length === 0) {
-                        container.innerHTML = '<p style="color: rgba(255,255,255,0.7); grid-column: span 2; text-align: center; margin: 0;">尚無預設來源</p>';
-                        return;
-                    }
-
-                    container.innerHTML = templates.map(t => `
-                        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer; font-size: 13px;">
-                            <input type="checkbox" value="${t.id}" data-name="${escapeHtml(t.name)}" data-url="${escapeHtml(t.url)}" data-platform="${t.platform}" style="width: 16px; height: 16px;">
-                            <span>${escapeHtml(t.name)}</span>
-                        </label>
-                    `).join('');
-                } catch (error) {
-                    container.innerHTML = '<p style="color: #ff6b6b; grid-column: span 2; text-align: center; margin: 0;">載入失敗</p>';
-                }
-            }
-
-            // 新增選取的預設來源（可多選）
-            async function addSelectedSources() {
-                const checkboxes = document.querySelectorAll('#sourceTemplatesList input[type="checkbox"]:checked');
-
-                if (checkboxes.length === 0) {
-                    showAlert('dashboardAlert', '請先勾選要新增的來源', 'warning');
-                    return;
-                }
-
-                let successCount = 0;
-                for (const checkbox of checkboxes) {
-                    try {
-                        await createSource(checkbox.dataset.name, checkbox.dataset.url, checkbox.dataset.platform);
-                        successCount++;
-                        checkbox.checked = false; // 取消勾選
-                    } catch (error) {
-                        console.error('Failed to add source:', error);
-                    }
-                }
-
-                showAlert('dashboardAlert', `成功新增 ${successCount} 個來源`, 'success');
-                loadSources();
-            }
-
             // 表單創建來源
             async function createSourceFromForm() {
                 const name = document.getElementById('newSourceName').value.trim();
@@ -7872,11 +7802,6 @@
                 document.getElementById('newSourceName').value = '';
                 document.getElementById('newSourceUrl').value = '';
                 document.getElementById('newSourceInterval').value = '24';
-            }
-
-            // 保留舊函數（但改為呼叫新函數）
-            async function showSourceTemplates() {
-                loadSourceTemplates();
             }
 
             function showAddSourceModal() {
@@ -8176,7 +8101,7 @@
 
             // 清除所有 Dcard 來源
             async function deleteAllDcardSources() {
-                if (!confirm('確定要刪除所有 Dcard 來源嗎？\n\n刪除後可以從「預設來源」重新新增（名稱會標示「最新」）')) {
+                if (!confirm('確定要刪除所有 Dcard 來源嗎？')) {
                     return;
                 }
 
